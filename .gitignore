@@ -1,0 +1,11 @@
+*.o
+*.so
+*.gcda
+*.gcno
+gmon.out
+*.gcov
+*.swp
+*~
+starcode
+test
+input_test_file

@@ -2,15 +2,14 @@
 #include <stdlib.h>
 #include "trie.h"
 
-char swap_tmp;
-#define SWAP(a,b) swap_tmp = (*a); (*a) = (*b); (*b) = swap_tmp;
+//char swap_tmp;
+//#define SWAP(a,b) swap_tmp = (*a); (*a) = (*b); (*b) = swap_tmp;
 
 char
 translate
 (
    char c
 )
-//                                                                        
 // SYNOPSIS:                                                              
 //   DNA letters are associated to an index between 0 and 3, non DNA      
 //   letters have index 4. This saves a lot of code and time during       
@@ -21,7 +20,6 @@ translate
 //                                                                        
 // RETURN:                                                                
 //   The translated character, a number between -1 and 4.                 
-//                                                                        
 {
    switch(c) {
       case 'A':
@@ -45,7 +43,6 @@ untranslate
 (
    char c
 )
-//                                                                        
 // SYNOPSIS:                                                              
 //   Reverse of the 'translate' function.                                 
 //                                                                        
@@ -54,7 +51,6 @@ untranslate
 //                                                                        
 // RETURN:                                                                
 //   The untranslated character.                                          
-//                                                                        
 {
    switch(c) {
       case 0:
@@ -74,13 +70,11 @@ untranslate
 hitlist *
 new_hitlist
 (void)
-//                                                                        
 // SYNOPSIS:                                                              
 //   Constructor for a 'hitlist'.                                         
 //                                                                        
 // RETURN:                                                                
 //   An empty 'hitlist'.                                                  
-//                                                                        
 {
    hitlist *hits = malloc(sizeof(hitlist));
    hits->size = 1024;
@@ -96,7 +90,6 @@ update_hitlist
    hitlist *hits,
    trienode *node
 )
-//                                                                        
 // SYNOPSIS:                                                              
 //   Adds a hit to a hitlist.                                             
 //                                                                        
@@ -106,7 +99,6 @@ update_hitlist
 //                                                                        
 // RETURN:                                                                
 //   'void'.                                                              
-//                                                                        
 {
    if (hits->n_hits == hits->size) {
       hits->size *= 2;
@@ -122,10 +114,7 @@ update_hitlist
 
 void
 clear_hitlist
-(
-   hitlist *hits
-)
-//                                                                        
+(hitlist *hits)
 // SYNOPSIS:                                                              
 //   Clears a 'hitlist' from all hits, sets the hit number to 0, set      
 //   the current position to root and removes the first hit.              
@@ -135,7 +124,6 @@ clear_hitlist
 //                                                                        
 // RETURN:                                                                
 //   'void'.                                                              
-//                                                                        
 {
    hits->n_hits = 0;
    hits->node[0] = NULL;
@@ -146,13 +134,11 @@ destroy_hitlist
 (
    hitlist *hits
 )
-//                                                                        
 // SYNOPSIS:                                                              
 //   Free the memory allocated on a 'hitlist'.                            
 //                                                                        
 // RETURN:                                                                
 //   'void'.                                                              
-//                                                                        
 {
    free(hits->node);
    free(hits);
@@ -162,13 +148,11 @@ destroy_hitlist
 trienode *
 new_trie
 (void)
-//                                                                        
 // SYNOPSIS:                                                              
 //   Constructor for a trie root.                                         
 //                                                                        
 // RETURN:                                                                
 //   A root node with no parent, no children, no count and no letter.     
-//                                                                        
 {
    trienode *root = malloc(sizeof(trienode));
    for (int i = 0 ; i < 5 ; i++) root->child[i] = NULL;
@@ -184,13 +168,11 @@ destroy_trie
 (
    trienode *root
 )
-//                                                                        
 // SYNOPSIS:                                                              
 //   Free the memory allocated on a trie.                                 
 //                                                                        
 // RETURN:                                                                
 //   'void'.                                                              
-//                                                                        
 {  
    if (root != NULL) {
       for (int i = 0 ; i < 5 ; i++) destroy_trie(root->child[i]);
@@ -205,7 +187,6 @@ find_path
    trienode *node,
    const char **string
 )
-//                                                                        
 // SYNOPSIS:                                                              
 //   Finds the longest path corresponding to a prefix of 'string' from    
 //   a node of the trie.                                                  
@@ -219,7 +200,6 @@ find_path
 //                                                                        
 // SIDE-EFFECTS:                                                          
 //   Shifts 'string' by the length of the path.                           
-//                                                                        
 {
    int i;
    for (i = 0 ; i < strlen(*string) ; i++) {

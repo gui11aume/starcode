@@ -14,6 +14,8 @@ setup(
    fixture *f,
    gconstpointer test_data
 )
+// SYNOPSIS:                                                             
+//   Construct a very simple trie for testing purposes.                  
 {
    f->hits = new_hitlist();
    f->trie = new_trie();
@@ -36,6 +38,9 @@ test_search(
    gconstpointer ignore
 )
 {
+   // Search the trie designed in `setup` and assert that the
+   // number of hits is correct. Always search the same sequence
+   // (AAA) but with different number of allowed mismatches.
    search(f->trie, "AAA", 0, f->hits);
    g_assert(f->hits->n_hits == 1);
 
@@ -55,6 +60,8 @@ test_seq(
    gconstpointer ignore
 )
 {
+   // Test the `seq` function, which returns the sequence
+   // associated to a trie node.
    char buffer[8];
    trienode *node = insert(f->trie, "AAATGC", 0);
    g_assert(strcmp(seq(node, buffer, 8), "AAATGC") == 0);
@@ -84,6 +91,10 @@ test_run
 {
    FILE *inputf = fopen("input_test_file", "r");
    FILE *outputf = fopen("/dev/null", "w");
+   // Run starcode on input file. Used for profiling and memchecking.
+   // This runs in about 30 seconds on my desktop computer.
+   // The input file contains 8,526,061 barcodes, with 210,389
+   // unique sequences.
    starcode(inputf, outputf, 0);
 }
 

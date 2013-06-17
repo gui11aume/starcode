@@ -26,16 +26,13 @@ typedef struct
 } hitlist;
 #endif
 
-//char       translate (char);
-hitlist   *new_hitlist (void);
-//void       update_hitlist (hitlist *, trienode *);
-void       clear_hitlist (hitlist*);
-void       destroy_hitlist (hitlist*);
-trienode  *new_trie (void);
-trienode  *find_path (trienode *, const char **);
-//trienode  *append_to (trienode *, char);
-trienode  *insert (trienode *, const char *, int);
-void       search (trienode *, char *, int, hitlist *);
-void       destroy_trie (trienode*);
-char      *seq (const trienode *, char *, int);
-int        add_to_count(trienode *, int);
+hitlist   * new_hitlist (void);
+void        clear_hitlist (hitlist*);
+void        destroy_hitlist (hitlist*);
+trienode  * new_trie (void);
+trienode  * find_path (trienode *, const char **);
+trienode  * insert (trienode *, const char *, int);
+void        search (trienode *, char *, int, hitlist *);
+void        destroy_trie (trienode*);
+char      * seq (const trienode *, char *, int);
+int         add_to_count(trienode *, int);

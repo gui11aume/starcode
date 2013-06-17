@@ -2,69 +2,13 @@
 #include <stdlib.h>
 #include "trie.h"
 
-//char swap_tmp;
-//#define SWAP(a,b) swap_tmp = (*a); (*a) = (*b); (*b) = swap_tmp;
-
-char
-translate
-(
-   char c
-)
-// SYNOPSIS:                                                              
-//   DNA letters are associated to an index between 0 and 3, non DNA      
-//   letters have index 4. This saves a lot of code and time during       
-//   search and minimizes dynamic memory allocation.                      
-//                                                                        
-// ARGUMENTS:                                                             
-//   'c': the character to translate.                                     
-//                                                                        
-// RETURN:                                                                
-//   The translated character, a number between -1 and 4.                 
-{
-   switch(c) {
-      case 'A':
-         return  0;
-      case 'C':
-         return  1;
-      case 'G':
-         return  2;
-      case 'T':
-         return  3;
-      case '\0':
-         return -1;
-      default:
-         return  4;
-   }
-}
-
-
-char
-untranslate
-(
-   char c
-)
-// SYNOPSIS:                                                              
-//   Reverse of the 'translate' function.                                 
-//                                                                        
-// ARGUMENTS:                                                             
-//   'c': the character to untranslate.                                   
-//                                                                        
-// RETURN:                                                                
-//   The untranslated character.                                          
-{
-   switch(c) {
-      case 0:
-         return  'A';
-      case 1:
-         return  'C';
-      case 2:
-         return  'G';
-      case 3:
-         return  'T';
-      default:
-         return  'N';
-   }
-}
+// Translations between letters and numbers.
+static const char untranslate[5] = "NACGT";
+static const char translate[256] = {
+   [ 0 ] =-1,
+   ['a'] = 1, ['c'] = 2, ['g'] = 3, ['t'] = 4,
+   ['A'] = 1, ['C'] = 2, ['G'] = 3, ['T'] = 4,
+};
 
 
 hitlist *
@@ -203,7 +147,8 @@ find_path
 {
    int i;
    for (i = 0 ; i < strlen(*string) ; i++) {
-      char c = translate((*string)[i]);
+      //char c = translate((*string)[i]);
+      char c = translate[(int) (*string)[i]];
       if (node->child[(int) c] == NULL) break;
       node = node->child[(int) c];
    }
@@ -219,7 +164,8 @@ append_to
    char c
 )
 {
-   c = translate(c);
+   //c = translate(c);
+   c = translate[(int) c];
    trienode *child = malloc(sizeof(trienode));
    child->c = c;
    for (int i = 0 ; i < 5 ; i++) child->child[i] = NULL;
@@ -260,7 +206,8 @@ seq
    for (i = buffer_size-2 ; i >= 0; i--) {
       // Stop before root node.
       if (node->parent == NULL) break;
-      buffer[i] = untranslate(node->c);
+      //buffer[i] = untranslate(node->c);
+      buffer[i] = untranslate[(int) node->c];
       node = node->parent;
    }
    return buffer + i+1;
@@ -286,7 +233,8 @@ search
    hitlist *hits
 )
 {
-   char c = translate(*string);
+   //char c = translate(*string);
+   char c = translate[(int) *string];
    if (c == -1) {
       // The string is finshed.
       if (node->counter > 0) update_hitlist(hits, node);

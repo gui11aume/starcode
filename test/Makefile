@@ -11,3 +11,6 @@ $(P): $(OBJECTS)
 
 clean:
 	rm -f test *.o *.gcda *.gcno *.gcov gmon.out analysis.txt
+
+runtest:
+	perf stat ./test

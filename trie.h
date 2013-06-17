@@ -1,8 +1,8 @@
-#define MAXLEN 1024
-
-// Type definitions.
 #ifndef _starcode_trie_loaded
 #define _starcode_trie_loaded
+
+#define MAXBRCDLEN 1024
+
 struct _node
 {
    // Trie nodes contain a single DNA letter, A, C, G, T or anything

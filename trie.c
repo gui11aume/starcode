@@ -147,7 +147,6 @@ find_path
 {
    int i;
    for (i = 0 ; i < strlen(*string) ; i++) {
-      //char c = translate((*string)[i]);
       char c = translate[(int) (*string)[i]];
       if (node->child[(int) c] == NULL) break;
       node = node->child[(int) c];
@@ -164,7 +163,6 @@ append_to
    char c
 )
 {
-   //c = translate(c);
    c = translate[(int) c];
    trienode *child = malloc(sizeof(trienode));
    child->c = c;
@@ -206,7 +204,6 @@ seq
    for (i = buffer_size-2 ; i >= 0; i--) {
       // Stop before root node.
       if (node->parent == NULL) break;
-      //buffer[i] = untranslate(node->c);
       buffer[i] = untranslate[(int) node->c];
       node = node->parent;
    }
@@ -233,7 +230,6 @@ search
    hitlist *hits
 )
 {
-   //char c = translate(*string);
    char c = translate[(int) *string];
    if (c == -1) {
       // The string is finshed.
@@ -241,7 +237,8 @@ search
       return;
    }
    string++;
-   for (int i = 0 ; i < 4 ; i++) {
+   // XXX More than 80% of the time is spent on the bit of code below.
+   for (int i = 1 ; i < 5 ; i++) {
       int newmaxdist;
       trienode *child;
       if ((newmaxdist = i == c ? maxdist : maxdist-1) < 0) continue;
@@ -250,6 +247,6 @@ search
    }
    // The 5-th child corresponds to all non DNA letters. It always
    // incurs a mismatch.
-   if (node->child[4] != NULL && maxdist > 0)
-      search(node->child[4], string, maxdist-1, hits);
+   if (node->child[0] != NULL && maxdist > 0)
+      search(node->child[0], string, maxdist-1, hits);
 }

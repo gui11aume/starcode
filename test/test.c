@@ -9,6 +9,9 @@ typedef struct {
    hitlist  *hits;
 } fixture;
 
+const char *string[] = { "A", "AA",  "AAA", "ATA", "ATT", "AAT",
+   "TGA", "TTA", "TAT", "TGC", "AAAA", "ACAA", "ANAA", };
+
 void
 setup(
    fixture *f,
@@ -19,16 +22,9 @@ setup(
 {
    f->hits = new_hitlist();
    f->trie = new_trie();
-   insert(f->trie, "A", 1);
-   insert(f->trie, "AA", 2);
-   insert(f->trie, "AAA", 4);
-   insert(f->trie, "ATA", 5);
-   insert(f->trie, "AAT", 6);
-   insert(f->trie, "TGA", 7);
-   insert(f->trie, "TGC", 8);
-   insert(f->trie, "AAAA", 9);
-   insert(f->trie, "ACAA", 10);
-   insert(f->trie, "ANAA", 11);
+   for (int i = 0 ; i < 13 ; i++) {
+      insert(f->trie, string[i], i+1);
+   }
    return;
 }
 
@@ -38,19 +34,33 @@ test_search(
    gconstpointer ignore
 )
 {
+
+   const char *hits[] = { "AAA", "AAT", "ATA", "ATT", "TAT", "TGA", "TTA", };
+   char buffer[MAXBRCDLEN];
    // Search the trie designed in `setup` and assert that the
    // number of hits is correct. Always search the same sequence
    // (AAA) but with different number of allowed mismatches.
    search(f->trie, "AAA", 0, f->hits);
    g_assert(f->hits->n_hits == 1);
+   g_assert(strcmp("AAA",
+         seq(f->hits->node[0], buffer, MAXBRCDLEN)) == 0);
 
    clear_hitlist(f->hits);
    search(f->trie, "AAA", 1, f->hits);
    g_assert(f->hits->n_hits == 3);
+   for (int i = 0 ; i < 3 ; i++) {
+      g_assert(strcmp(hits[i],
+            seq(f->hits->node[i], buffer, MAXBRCDLEN)) == 0);
+   }
 
    clear_hitlist(f->hits);
    search(f->trie, "AAA", 2, f->hits);
-   g_assert(f->hits->n_hits == 4);
+   g_assert(f->hits->n_hits == 7);
+   for (int i = 0 ; i < 7 ; i++) {
+      g_assert(strcmp(hits[i],
+            seq(f->hits->node[i], buffer, MAXBRCDLEN)) == 0);
+   }
+
 }
 
 
@@ -92,10 +102,10 @@ test_run
    FILE *inputf = fopen("input_test_file", "r");
    FILE *outputf = fopen("/dev/null", "w");
    // Run starcode on input file. Used for profiling and memchecking.
-   // This runs in about 30 seconds on my desktop computer.
+   // This runs in about 13 seconds on my desktop computer.
    // The input file contains 8,526,061 barcodes, with 210,389
    // unique sequences.
-   starcode(inputf, outputf, 0);
+   starcode(inputf, outputf, 3, 0);
 }
 
 

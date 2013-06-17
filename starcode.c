@@ -1,8 +1,5 @@
 #include "starcode.h"
 
-// Max length of a barcode.
-#define MAXBRCDLEN 1024
-
 int
 cmp_nodes
 (
@@ -22,6 +19,7 @@ starcode
    FILE *inputf,
    FILE *outputf,
    // control //
+   int maxmismatch,
    int compact_output
 )
 {
@@ -96,19 +94,17 @@ starcode
 
    for (i = 0 ; i < n_nodes ; i++) {
       char *barcode = seq(nodes[i], buffer, MAXBRCDLEN);
-      // Search the index, with 3 allowed mismatches.
-      // XXX could make this an argument passed to `starcode`.
+      // Search the index, with 'maxmismatch' allowed mismatches.
       // So far, 3 seemed to be a good compromise, but it may
       // depend on barcode length, and sequencing depth.
-      search(trie, barcode, 3, hits);
+      search(trie, barcode, maxmismatch, hits);
       if (hits->n_hits == 0) {
          // No hit. Add the barcode to the trie, and mark it
          // as a prototype.
          insert(trie, barcode, nodes[i]->counter);
          prototypes[i] = nodes[i];
       }
-      // Exactly one hit. Mark the hit as the prototype of
-      // the query.
+      // Exactly one hit. Mark the hit as the prototype of the query.
       else if (hits->n_hits == 1) prototypes[i] = hits->node[0];
       // More than one hit. Do nothing.
       else prototypes[i] = NULL;
@@ -171,14 +167,18 @@ main(
 )
 {
    int cflag = 0;
+   int mflag = 3;
    char *input = NULL;
    char *output = NULL;
    int c;
 
-   while ((c = getopt (argc, argv, "cio:")) != -1)
+   while ((c = getopt (argc, argv, "cm:o:i:")) != -1) {
       switch (c) {
         case 'c':
           cflag = 1;
+          break;
+        case 'm':
+          mflag = atoi(optarg);
           break;
         case 'i':
           input = optarg;
@@ -187,23 +187,22 @@ main(
           output = optarg;
           break;
         case '?':
-          if (optopt == 'o')
-            fprintf(stderr, "option -%o requires an argument\n", optopt);
-          if (optopt == 'i')
-            fprintf(stderr, "option -%i requires an argument\n", optopt);
+          if (optopt=='m' || optopt=='i' || optopt=='o')
+            fprintf(stderr, "option -%c requires an argument\n", optopt);
           else if (isprint(optopt))
             fprintf(stderr, "unknown option `-%c'.\n", optopt);
           else
             fprintf(stderr, "unknown option `\\x%x'.\n", optopt);
           return 1;
         default:
-          abort ();
+          abort();
       }
+   }
 
-   if (optind == argc - 1) {
+   if ((input == NULL) && (optind == argc - 1)) {
       input = argv[optind];
    }
-   else {
+   else if (optind < argc) {
       fprintf(stderr, "too many options\n");
       return 1;
    }
@@ -233,7 +232,7 @@ main(
       outputf = stdout;
    }
 
-   int exitcode = starcode(inputf, outputf, cflag);
+   int exitcode = starcode(inputf, outputf, mflag, cflag);
    
    if (inputf != stdin) fclose(inputf);
    if (outputf != stdout) fclose(outputf);

@@ -10,7 +10,7 @@ typedef struct {
 } fixture;
 
 const char *string[] = { "A", "AA",  "AAA", "ATA", "ATT", "AAT",
-   "TGA", "TTA", "TAT", "TGC", "AAAA", "ACAA", "ANAA", };
+   "TGA", "TTA", "TAT", "TGC", "GGG", "AAAA", "ACAA", "ANAA", };
 
 void
 setup(
@@ -22,7 +22,7 @@ setup(
 {
    f->hits = new_hitlist();
    f->trie = new_trie();
-   for (int i = 0 ; i < 13 ; i++) {
+   for (int i = 0 ; i < 14 ; i++) {
       insert(f->trie, string[i], i+1);
    }
    return;
@@ -60,6 +60,14 @@ test_search(
       g_assert(strcmp(hits[i],
             seq(f->hits->node[i], buffer, MAXBRCDLEN)) == 0);
    }
+
+   clear_hitlist(f->hits);
+   search(f->trie, "TTT", 1, f->hits);
+   g_assert(f->hits->n_hits == 3);
+   //for (int i = 0 ; i < 3 ; i++) {
+   //   g_assert(strcmp(hits[i],
+   //         seq(f->hits->node[i], buffer, MAXBRCDLEN)) == 0);
+   //}
 
 }
 
@@ -99,13 +107,29 @@ void
 test_run
 (void)
 {
-   FILE *inputf = fopen("input_test_file", "r");
+   FILE *inputf = fopen("input_test_file.txt", "r");
    FILE *outputf = fopen("/dev/null", "w");
+   if (inputf == NULL) {
+      fprintf(stderr,
+            "could not open file 'input_test_file.txt'\n");
+      exit (1);
+   }
+   starcode(inputf, outputf, 3, 0);
+   fprintf(stderr, "input can be processed\n");
+
+   inputf = fopen("input_test_file_large.txt", "r");
+   if (inputf == NULL) {
+      fprintf(stderr,
+            "could not open file 'input_test_file_large.txt'\n");
+      exit (1);
+   }
    // Run starcode on input file. Used for profiling and memchecking.
-   // This runs in about 13 seconds on my desktop computer.
+   // This runs in about 30-40 seconds on my desktop computer.
    // The input file contains 8,526,061 barcodes, with 210,389
    // unique sequences.
+   g_test_timer_start();
    starcode(inputf, outputf, 3, 0);
+   printf("elapsed: %.3f sec\n", g_test_timer_elapsed());
 }
 
 

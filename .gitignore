@@ -7,5 +7,5 @@ gmon.out
 *.swp
 *~
 starcode
-test
-input_test_file
+input_test_file_large*
+test/test

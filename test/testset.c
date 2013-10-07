@@ -114,8 +114,9 @@ test_run
             "could not open file 'input_test_file.txt'\n");
       exit (1);
    }
+   // Just check that input can be read (test will fail if
+   // things go wrong here).
    starcode(inputf, outputf, 3, 0);
-   fprintf(stderr, "input can be processed\n");
 
    inputf = fopen("input_test_file_large.txt", "r");
    if (inputf == NULL) {
@@ -129,7 +130,8 @@ test_run
    // unique sequences.
    g_test_timer_start();
    starcode(inputf, outputf, 3, 0);
-   printf("elapsed: %.3f sec\n", g_test_timer_elapsed());
+   // Run `perf` for an elaborate performance report.
+   //fprintf(stdout, "\nelapsed: %.3f sec\n", g_test_timer_elapsed());
 }
 
 

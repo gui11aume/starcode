@@ -232,7 +232,7 @@ search
 {
    char c = translate[(int) *string];
    if (c == -1) {
-      // The string is finshed.
+      // The string is finished.
       if (node->counter > 0) update_hitlist(hits, node);
       return;
    }

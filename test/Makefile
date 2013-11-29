@@ -12,7 +12,13 @@ $(P): $(OBJECTS)
 clean:
 	rm -f testset *.o *.gcda *.gcno *.gcov gmon.out analysis.txt
 
-test:
+test: testset
 	gtester --verbose --keep-going testset
-perf:
-	perf stat -B -e cache-references,cache-misses,cycles,instructions,branches,faults,migrations ./testset
+
+testperf: testset
+	perf stat -B -e cache-references,cache-misses,cycles,instructions,branches,faults,migrations gtester --verbose --keep-going -m=perf testset
+	gprof -F trie gmon.out > analysis.txt
+	gcov *.gcda
+
+debug: testset
+	gdb --command=debug.gdb --args testset

@@ -1,7 +1,10 @@
+#include <stdlib.h>
+#include <string.h>
 #ifndef _starcode_trie_loaded
 #define _starcode_trie_loaded
 
-#define MAXBRCDLEN 1024
+#define MAXBRCDLEN 1023
+#define M 1024
 
 struct _node
 {
@@ -24,15 +27,15 @@ typedef struct
    int n_hits;
    trienode **node;
 } hitlist;
-#endif
 
-hitlist   * new_hitlist (void);
-void        clear_hitlist (hitlist*);
-void        destroy_hitlist (hitlist*);
-trienode  * new_trie (void);
-trienode  * find_path (trienode *, const char **);
-trienode  * insert (trienode *, const char *, int);
-void        search (trienode *, char *, int, hitlist *);
-void        destroy_trie (trienode*);
-char      * seq (const trienode *, char *, int);
-int         add_to_count(trienode *, int);
+hitlist   *new_hitlist (void);
+void       clear_hitlist (hitlist*);
+void       destroy_hitlist (hitlist*);
+trienode  *new_trie (void);
+trienode  *find_path (trienode *, const char **);
+trienode  *insert (trienode *, const char *, int);
+void       search (trienode *, char *, int, hitlist *);
+void       destroy_trie (trienode*);
+char      *seq (const trienode *, char *, int);
+int        add_to_count(trienode *, int);
+#endif

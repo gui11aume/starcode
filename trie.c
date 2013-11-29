@@ -1,6 +1,9 @@
-#include <string.h>
-#include <stdlib.h>
 #include "trie.h"
+
+#define min(a,b) (((a) < (b)) ? (a):(b))
+#define max(a,b) (((a) > (b)) ? (a):(b))
+#define min3(a,b,c) \
+   (((a) < (b)) ? ((a) < (c) ? (a):(c)):((b) < (c) ? (b):(c)))
 
 // Translations between letters and numbers.
 static const char untranslate[5] = "NACGT";
@@ -10,6 +13,9 @@ static const char translate[256] = {
    ['A'] = 1, ['C'] = 2, ['G'] = 3, ['T'] = 4,
 };
 
+
+// Create a global dynamic programming table.
+int dtable[M*M];
 
 hitlist *
 new_hitlist
@@ -29,7 +35,7 @@ new_hitlist
 }
 
 void
-update_hitlist
+add_to_hitlist
 (
    hitlist *hits,
    trienode *node
@@ -44,6 +50,7 @@ update_hitlist
 // RETURN:                                                                
 //   'void'.                                                              
 {
+   // Dynamic growth of the array of hits.
    if (hits->n_hits == hits->size) {
       hits->size *= 2;
       trienode **ptr = realloc(hits->node, hits->size);
@@ -222,31 +229,96 @@ add_to_count
 }
 
 void
-search
+recurse
 (
    trienode *node,
-   char *string,
+   char *query,
+   int L,
+   int maxdist,
+   hitlist *hits,
+   int table[],
+   int depth
+)
+{
+
+   depth++;
+   trienode *child;
+
+   // TODO: treat the case of "N" properly.
+   for (int i = 0 ; i < 5 ; i++) {
+      if ((child = node->child[i]) == NULL) continue;
+
+      int d;
+      int mind;
+      int mmatch;
+      int shift1;
+      int shift2;
+
+      // Fill in (part of) the row of index 'depth' of 'dtable'.
+      int minj = max(1, depth-maxdist);
+      int maxj = min(depth+maxdist, M-1);
+
+      // Initial case.
+      mmatch = dtable[(minj-1)+(depth-1)*M] + (i != query[minj-1]);
+      shift1 = dtable[minj+(depth-1)*M] + 1;
+      mind = dtable[minj+depth*M] = min(mmatch, shift1);
+
+      for (int j = minj+1 ; j < maxj ; j++) {
+         mmatch = dtable[(j-1)+(depth-1)*M] + (i != query[j-1]);
+         shift1 = dtable[j+(depth-1)*M] + 1;
+         shift2 = dtable[(j-1)+depth*M] + 1;
+         d = dtable[j+depth*M] = min3(mmatch, shift1, shift2);
+         if (d < mind) mind = d;
+      }
+
+      // Final case.
+      mmatch = dtable[(maxj-1)+(depth-1)*M] + (i != query[maxj-1]);
+      shift2 = dtable[(maxj-1)+depth*M] + 1;
+      d = dtable[maxj+depth*M] = min(mmatch, shift2);
+      if (d < mind) mind = d;
+
+      // Stop searching if 'maxdist' is exceeded.
+      if (mind > maxdist) continue;
+
+      // Check if there is a hit.
+      if (
+            (depth+maxdist >= L) &&
+            (child->counter > 0) &&
+            (dtable[L+depth*M] <= maxdist)
+         )
+      {
+         add_to_hitlist(hits, child);
+      }
+
+      recurse(child, query, L, maxdist, hits, dtable, depth);
+
+   }
+}
+
+void
+search
+(
+   trienode *root,
+   char *query,
    int maxdist,
    hitlist *hits
 )
+// SYNOPSIS:                                                             
+//   Wrapper for 'recurse'. Translates the query string and sorts the    
+//   hits.                                                               
 {
-   char c = translate[(int) *string];
-   if (c == -1) {
-      // The string is finished.
-      if (node->counter > 0) update_hitlist(hits, node);
-      return;
+
+   int i;
+
+   // Translate the query string.
+   char translated[MAXBRCDLEN];
+   for (i = 0 ; i < strlen(query)+1 ; i++) {
+      translated[i] = translate[(int) query[i]];
    }
-   string++;
-   // XXX More than 80% of the time is spent on the bit of code below.
-   for (int i = 1 ; i < 5 ; i++) {
-      int newmaxdist;
-      trienode *child;
-      if ((newmaxdist = i == c ? maxdist : maxdist-1) < 0) continue;
-      if ((child = node->child[i]) == NULL) continue;
-      search(child, string, newmaxdist, hits);
-   }
-   // The 5-th child corresponds to all non DNA letters. It always
-   // incurs a mismatch.
-   if (node->child[0] != NULL && maxdist > 0)
-      search(node->child[0], string, maxdist-1, hits);
+
+   for (int i = 0 ; i < maxdist+1 ; i++) dtable[i] = dtable[i*M] = i;
+
+   // Search.
+   recurse(root, translated, strlen(query), maxdist, hits, dtable, 0);
+
 }

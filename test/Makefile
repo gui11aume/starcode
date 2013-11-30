@@ -17,7 +17,7 @@ test: testset
 
 testperf: testset
 	perf stat -B -e cache-references,cache-misses,cycles,instructions,branches,faults,migrations gtester --verbose --keep-going -m=perf testset
-	gprof -F trie gmon.out > analysis.txt
+	gprof -F trie testset gmon.out > analysis.txt
 	gcov *.gcda
 
 debug: testset

@@ -1,7 +1,7 @@
 #include <glib.h>
 #include <stdio.h>
 #include <string.h>
-#include "malloc.h"
+#include "faultymalloc.h"
 #include "trie.h"
 #include "starcode.h"
 
@@ -15,6 +15,41 @@ typedef struct {
 const char *string[NSTRINGS] = { "A", "AA", "AAA", "ATA", "ATT", "AAT",
    "TGA", "TTA", "TAT", "TGC", "GGG", "AAAA", "ACAA", "ANAA", 
    "GTATGCTGATGGACC", "GTATGCTGTGGACC" };
+
+void
+sandbox (void)
+{
+   
+   trienode *root = new_trienode();
+   hip_t *hip = new_hip();
+
+   g_assert(root != NULL);
+   g_assert(hip != NULL);
+
+   char *seq[3] = {
+      "AAATTGTTTAACTTGGGTCAAA",
+      "AGCCATGCTAGTTGTGGTTTGT",
+      "GCCATGCTAGTTGTGGTTTGTC",
+   };
+
+   for (int i = 0 ; i < 3 ; i++) {
+      trienode *node = insert_string(root, seq[i]);
+      g_assert(node != NULL);
+      node->data = node;
+   }
+
+   FILE *debugf = fopen("debug.txt", "w");
+   printrie(debugf, root);
+   fclose(debugf);
+
+   search(root, "CCATGCTAGTTGTGGTTTGTCC", 2, hip);
+   g_assert_cmpint(hip->n_hits, ==, 1);
+
+   destroy_hip(hip);
+   destroy_nodes_downstream_of(root, NULL);
+
+}
+
 
 // String representation of the triei as a depth first search
 // traversal. The stars indicate the a series of with no further
@@ -496,7 +531,8 @@ test_run
 (void)
 {
    FILE *inputf = fopen("input_test_file.txt", "r");
-    FILE *outputf = fopen("/dev/null", "w");
+   //FILE *outputf = fopen("/dev/null", "w");
+   FILE *outputf = fopen("out-barcodes.txt", "w");
    if (inputf == NULL) {
       fprintf(stderr,
             "could not open file 'input_test_file.txt'\n");
@@ -504,9 +540,10 @@ test_run
    }
    // Just check that input can be read (test will fail if
    // things go wrong here).
-   starcode(inputf, outputf, 2, 0);
+   //starcode(inputf, outputf, 2, 0);
 
-   inputf = fopen("input_test_file_large.txt", "r");
+   //inputf = fopen("input_test_file_large.txt", "r");
+   inputf = fopen("barcodes.txt", "r");
    if (inputf == NULL) {
       fprintf(stderr,
             "could not open file 'input_test_file_large.txt'\n");
@@ -516,7 +553,7 @@ test_run
    // The input file contains 8,526,061 barcodes, with 210,389
    // unique sequences.
    g_test_timer_start();
-   starcode(inputf, outputf, 2, 0);
+   starcode(inputf, outputf, 3, 0);
    fclose(inputf);
    fclose(outputf);
    // The command line call to 'perf' shows the elapsed time.
@@ -532,6 +569,7 @@ main(
 )
 {
    g_test_init(&argc, &argv, NULL);
+   g_test_add_func("/trie/sandbox", sandbox);
    g_test_add("/trie/search", fixture, NULL, setup, test_search, teardown);
    g_test_add("/test_mem", fixture, NULL, setup, test_mem, teardown);
    g_test_add("/test_hip", fixture, NULL, setup, test_hip, teardown);

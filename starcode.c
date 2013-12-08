@@ -1,9 +1,20 @@
 #include "starcode.h"
 
+#define MAXPAR 64
+
+char *USAGE = "Usage:\n"
+"  starcode [-g] [-i input] [-o output]\n"
+"    -g: output relationship between barcodes for star graph\n"
+"    -i: input file (default stdin)\n"
+"    -o: output file (default stdout)";
+
+void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
+
+
 struct _rel {
    int count;
    char *barcode;
-   struct _rel *canonical;
+   struct _rel *parents[MAXPAR];
 };
 typedef struct _rel star_t;
 
@@ -27,7 +38,7 @@ starcode
    FILE *outputf,
    // control //
    int maxmismatch,
-   int compact_output
+   int relationships
 )
 {
 
@@ -77,74 +88,84 @@ starcode
    hip_t *hip = new_hip();
    if (trie == NULL || hip == NULL) exit(EXIT_FAILURE);
 
-   fprintf(stderr, "\n");
    for (int i = 0 ; i < total ; i++) {
 
-      // Search the index, with 'maxmismatch' allowed mismatches.
+      // Search the with at most 'maxmismatch'.
       char *barcode = stars[i]->barcode;
       search(trie, barcode, maxmismatch, hip);
 
-      // Insert the new barcode in the trie.
+      // Insert the new barcode in the trie and update parents.
       trienode *node = insert_string(trie, barcode);
       if (node == NULL) exit(EXIT_FAILURE);
 
       star_t *star = stars[i];
+      node->data = star;
+
       if (hip->n_hits == 0) { 
          // Barcode is canonical.
-         star->canonical = star;
-         node->data = star;
+         star->parents[0] = star;
+         star->parents[1] = NULL;
       }
       else {
          // Barcode is non canonical.
-         star_t *canonical = (star_t *) hip->hits[0].node->data;
-         canonical = canonical->canonical;
+         int j;
          int mindist = hip->hits[0].dist;
-         for (int j = 1 ; j < hip->n_hits ; j++) {
-            hit_t hit = hip->hits[j];
-            if (hit.dist > mindist) break;
-            if (((star_t *)hit.node->data)->canonical != canonical) {
-               // XXX Lame... XXX
-               canonical = NULL;
+         int jmax = hip->n_hits >= MAXPAR ? MAXPAR-1 : hip->n_hits;
+         for (j = 0 ; j < jmax ; j++) {
+            star->parents[j] = (star_t *) hip->hits[j].node->data;
+            if (hip->hits[j].dist > mindist) {
+               j++;
                break;
             }
          }
-         star->canonical = canonical;
-         if (canonical != NULL) {
-            node->data = star;
-            if (compact_output) {
-               // Transfer counts to canonical.
-               canonical->count += star->count;
-               star->count = 0;
-            }
-         }
+         star->parents[j]= NULL;
       }
       clear_hip(hip);
-      fprintf(stderr, "%d\r", i);
    }
-   fprintf(stderr, "\n");
 
-   if (compact_output) {
-      // In compact output, only print the barcode and the count
-      // of all barcodes of the culster (i.e. all the barcodes with
-      // the same canonical).
-      
-      qsort(stars, total, sizeof(star_t *), cmpstar);
-      for (int i = 0 ; i < total ; i++) {
-         star_t *this = stars[i];
-         if (this->canonical != this) continue;
-         fprintf(outputf, "%s\t%d\n", this->barcode, this->count);
-      }
-   }
-   else {
-      // In non compact output, print barcode, canonical and count.
-      fprintf(outputf, "barcode\tcanonical\tcount\n");
-      // Unlike for compact output there is no need to sort again
-      // because the counts have not changed.
+   if (relationships) {
+      // If relationships are required, print barcode, count
+      // and parents (separated by commas).
+      fprintf(outputf, "barcode\tcount\tparents\n");
       for (int i = 0 ; i < total ; i++) {
          star_t this = *(stars[i]);
-         fprintf(outputf, "%s\t%s\t%d\n", this.barcode,
-               this.canonical == NULL ? "NA" : this.canonical->barcode,
-               this.count);
+         fprintf(outputf, "%s\t%d\t%s",
+               this.barcode, this.count, this.parents[0]->barcode);
+         for (int j = 1 ; this.parents[j] != NULL ; j++) {
+            fprintf(outputf, ",%s", this.parents[j]->barcode);
+         }
+         fprintf(outputf, "\n");
+      }
+   }
+
+   else {
+
+      // In standard output, only print the barcode and the count
+      // of all barcodes of the culster (i.e. all the barcodes with
+      // the same canonical). Starting from the end, pass counts
+      // from children to parents.
+      for (int i = total-1 ; i > -1 ; i--) {
+         star_t *star = stars[i];
+         star_t *parent = star->parents[0];
+         if (parent == star) continue;
+         float pcount = parent->count;
+         // Sum parental counts.
+         for (int j = 1 ; (parent = star->parents[j]) != NULL ; j++) {
+            pcount += parent->count;
+         }
+         // Pass counts to parents in proportion to their own count.
+         for (int j = 0 ; (parent = star->parents[j]) != NULL ; j++) {
+            parent->count += star->count * parent->count / pcount;
+         }
+      }
+
+      // Counts have been updated. Sort again and print.
+      qsort(stars, total, sizeof(star_t *), cmpstar);
+
+      for (int i = 0 ; i < total ; i++) {
+         star_t *this = stars[i];
+         if (this->parents[0] != this) continue;
+         fprintf(outputf, "%s\t%d\n", this->barcode, this->count);
       }
    }
 
@@ -161,7 +182,7 @@ starcode
 }
 
 // By default starcode has a `main()` except if compiled with
-// flag -D_no_starcode_main (e.g. for testing).
+// flag -D_no_starcode_main (for testing).
 #ifndef _no_starcode_main
 int
 main(
@@ -169,16 +190,16 @@ main(
    char **argv
 )
 {
-   int cflag = 0;
+   int gflag = 0;
    int mflag = 3;
    char *input = NULL;
    char *output = NULL;
    int c;
 
-   while ((c = getopt (argc, argv, "cm:o:i:")) != -1) {
+   while ((c = getopt(argc, argv, "cm:o:i:")) != -1) {
       switch (c) {
-        case 'c':
-          cflag = 1;
+        case 't':
+          gflag = 1;
           break;
         case 'm':
           mflag = atoi(optarg);
@@ -207,6 +228,7 @@ main(
    }
    else if (optind < argc) {
       fprintf(stderr, "too many options\n");
+      say_usage();
       return 1;
    }
 
@@ -217,6 +239,7 @@ main(
       inputf = fopen(input, "r");
       if (inputf == NULL) {
          fprintf(stderr, "cannot open file %s\n", input);
+         say_usage();
          return 1;
       }
    }
@@ -228,6 +251,7 @@ main(
       outputf = fopen(output, "w");
       if (outputf == NULL) {
          fprintf(stderr, "cannot write to file %s\n", output);
+         say_usage();
          return 1;
       }
    }
@@ -235,7 +259,7 @@ main(
       outputf = stdout;
    }
 
-   int exitcode = starcode(inputf, outputf, mflag, cflag);
+   int exitcode = starcode(inputf, outputf, mflag, gflag);
    
    if (inputf != stdin) fclose(inputf);
    if (outputf != stdout) fclose(outputf);

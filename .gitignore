@@ -10,3 +10,5 @@ starcode
 input_test_file_large*
 test/testset
 test/analysis.txt
+test/debug.txt
+test/out.txt

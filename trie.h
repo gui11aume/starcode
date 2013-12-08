@@ -65,4 +65,6 @@ hip_t     *search (trienode *, const char *, int, hip_t*);
 void       destroy_nodes_downstream_of (trienode*, void(*)(void *));
 void       dfs(trienode *);
 int        hip_error (hip_t *);
+void       printrie(FILE *, trienode *);
+void       printDYNP(FILE *, int);
 #endif

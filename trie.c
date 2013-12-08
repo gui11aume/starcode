@@ -313,10 +313,10 @@ recursive_search
    depth++;
    trienode *child;
 
-   int left = depth-maxdist;
-   int right = depth+maxdist;
-   int minj = max(1, left);
-   int maxj = min(right, L);
+   //int left = max(0, depth-maxdist);
+   //int right = depth+maxdist;
+   int minj = max(depth - maxdist, 1);
+   int maxj = min(depth + maxdist, L);
 
    // LABEL: "iterate over 5 children".
    for (int i = 0 ; i < 5 ; i++) {
@@ -347,6 +347,7 @@ recursive_search
       // matches.
       
       if (mindist == maxdist) {
+         int left = max(depth - maxdist, 0);
          for (int j = left ; j <= maxj ; j++) {
             if (DYNP[j+depth*M] == mindist) {
                search_perfect_match(child, query+j, hip, depth, maxdist);
@@ -417,4 +418,40 @@ search
    qsort(hip->hits, hip->n_hits, sizeof(hit_t), cmphit);
    return hip;
 
+}
+
+// Tree representation for debugging.
+void
+printrie(
+   FILE *f,
+   trienode *node
+)
+{
+   for (int i = 0 ; i < 5 ; i++) {
+      if (node->child[i] != NULL) {
+         if (node->child[i]->data != NULL) {
+            fprintf(f, "(%c)", untranslate[i]);
+         }
+         else {
+            fprintf(f, "%c", untranslate[i]);
+         }
+         printrie(f, node->child[i]);
+      }
+   }
+   fprintf(f, "*");
+}
+
+void
+printDYNP(
+   FILE *f,
+   int outto
+)
+{
+   for (int i = 0 ; i < outto ; i++) {
+      fprintf(f, "%02d", DYNP[0+i*M]);
+      for (int j = 0 ; j < outto ; j++) {
+         fprintf(f, ",%02d", DYNP[j+i*M]);
+      }
+      fprintf(f, "\n");
+   }
 }

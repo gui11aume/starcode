@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 #include "trie.h"
 
 #if !defined( __GNUC__) || defined(__APPLE__)

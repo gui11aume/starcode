@@ -6,4 +6,4 @@ CC=gcc
 $(P): $(OBJECTS)
 
 clean:
-	rm -f $(OBJECTS) starcode
+	rm -f $(P) $(OBJECTS)

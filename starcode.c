@@ -1,15 +1,22 @@
 #include "starcode.h"
 
+struct _rel {
+   int count;
+   char *barcode;
+   struct _rel *canonical;
+};
+typedef struct _rel star_t;
+
+
 int
-cmp_nodes
+cmpstar
 (
    const void *a,
    const void *b
 )
-// Decreasing comparison of nodes by their counter.
 {
-   int A = (*(trienode **)a)->counter;
-   int B = (*(trienode **)b)->counter;
+   int A = (*(star_t **)a)->count;
+   int B = (*(star_t **)b)->count;
    return (A < B) - (A > B);
 }
 
@@ -24,134 +31,130 @@ starcode
 )
 {
 
-   int i;
-
-   // The barcodes need to be counted first. Since we have
-   // implemented a trie, we can use it for counting and indexing.
-   // A positive side effect is that the data structure is also
-   // compacted because the common prefixes between the barcodes
-   // are counted only once.
-   trienode *index = new_trie();
-
-   size_t size = 256;
-   char *barcode = malloc(size * sizeof(char));
+   // The barcodes first have to be counted. Since we trie
+   // implementation at hand, we use it for this purpose.
+   trienode *counter = new_trienode();
    
-   // Index lines of input file in a trie.
-   int n_nodes = 0;
-   int maxsize = 1024;
-   trienode **nodes = malloc(maxsize * sizeof(trienode *));
+   int size = 1024;
+   star_t **stars = malloc(size * sizeof(star_t *));
 
    // Read the data from input file. We assume that it contains
    // one barcode per line and nothing else. 
+   int total = 0;
+   char *barcode = malloc(MAXBRCDLEN * sizeof(char));
+   size_t nchar = MAXBRCDLEN;
    ssize_t read;
-   while ((read = getline(&barcode, &size, inputf)) != -1) {
+   while ((read = getline(&barcode, &nchar, inputf)) != -1) {
       // Strip end of line character.
       if (barcode[read-1] == '\n') barcode[read-1] = '\0';
 
-      // Add barcode to index for counting.
-      trienode *node = insert(index, barcode, 1);
+      // Add barcode to counter.
+      trienode *node = insert_string(counter, barcode);
+      if (node->data == NULL) {
+         if (total >= size) {
+            star_t **ptr = realloc(stars, 2*size * sizeof(star_t *));
+            if (ptr == NULL) exit(EXIT_FAILURE);
+            size *= 2;
+            stars = ptr;
+         }
+         star_t *h = malloc(sizeof(star_t));
+         h->barcode = malloc((1+strlen(barcode)) * sizeof(char));
+         strcpy(h->barcode, barcode);
+         h->count = 0;
+         node->data = stars[total] = h;
+         total++;
+      }
+      (((star_t *)node->data)->count)++;
+   }
 
-      if (node->counter == 1) {
-         // Reallocate 'nodes' if needed.
-         if (n_nodes >= maxsize) {
-            maxsize *= 2;
-            trienode **ptr = realloc(nodes, maxsize * sizeof(trienode *));
-            if (ptr != NULL) nodes = ptr;
-            else {
-               fprintf(stderr, "memory error\n");
-               return 1;
+   // Destroy the trie, but keep the star_t and sort them.
+   destroy_nodes_downstream_of(counter, NULL);
+   qsort(stars, total, sizeof(star_t *), cmpstar);
+
+   // Every barcode cluster has a canonical representation, which
+   // is the most abundant. The other are non canonical.
+   trienode *trie = new_trienode();
+   hip_t *hip = new_hip();
+   if (trie == NULL || hip == NULL) exit(EXIT_FAILURE);
+
+   fprintf(stderr, "\n");
+   for (int i = 0 ; i < total ; i++) {
+
+      // Search the index, with 'maxmismatch' allowed mismatches.
+      char *barcode = stars[i]->barcode;
+      search(trie, barcode, maxmismatch, hip);
+
+      // Insert the new barcode in the trie.
+      trienode *node = insert_string(trie, barcode);
+      if (node == NULL) exit(EXIT_FAILURE);
+
+      star_t *star = stars[i];
+      if (hip->n_hits == 0) { 
+         // Barcode is canonical.
+         star->canonical = star;
+         node->data = star;
+      }
+      else {
+         // Barcode is non canonical.
+         star_t *canonical = (star_t *) hip->hits[0].node->data;
+         canonical = canonical->canonical;
+         int mindist = hip->hits[0].dist;
+         for (int j = 1 ; j < hip->n_hits ; j++) {
+            hit_t hit = hip->hits[j];
+            if (hit.dist > mindist) break;
+            if (((star_t *)hit.node->data)->canonical != canonical) {
+               // XXX Lame... XXX
+               canonical = NULL;
+               break;
             }
          }
-         nodes[n_nodes] = node;
-         n_nodes++;
+         star->canonical = canonical;
+         if (canonical != NULL) {
+            node->data = star;
+            if (compact_output) {
+               // Transfer counts to canonical.
+               canonical->count += star->count;
+               star->count = 0;
+            }
+         }
       }
+      clear_hip(hip);
+      fprintf(stderr, "%d\r", i);
    }
-
-   free(barcode);
-
-   // Sort nodes in decreasing order by their counter. The first
-   // node corresponds to the barcode sequence with highest
-   // frequency.
-   qsort(nodes, n_nodes, sizeof(trienode *), cmp_nodes);
-
-   char buffer[MAXBRCDLEN];
-
-   // Every barcode cluster has a prototype, which is the true
-   // barcode sequences, the other are mutated or mis-sequenced
-   // versions of it.
-   trienode **prototypes = malloc(n_nodes * sizeof(trienode *));
-   // Create and empty trie and use it to query the barcode
-   // sequences one by one from most abundant to least abundant.
-   // When no hit is found, the barcode is added to the trie,
-   // otherwise, if there is a single match, that match is
-   // marked as the prototype barcode of the query. The query
-   // is allowed 3 mismatches. Note that not every barcode is
-   // compared to every barcode; barcode are only queried
-   // against prototypes. This saves a lot of computation time
-   // and greatly simplifies the clustering algorithm.
-   hitlist *hits = new_hitlist();
-   trienode *trie = new_trie();
-
-   for (i = 0 ; i < n_nodes ; i++) {
-      char *barcode = seq(nodes[i], buffer, MAXBRCDLEN);
-      // Search the index, with 'maxmismatch' allowed mismatches.
-      // So far, 3 seemed to be a good compromise, but it may
-      // depend on barcode length, and sequencing depth.
-      search(trie, barcode, maxmismatch, hits);
-      if (hits->n_hits == 0) {
-         // No hit. Add the barcode to the trie, and mark it
-         // as a prototype.
-         insert(trie, barcode, nodes[i]->counter);
-         prototypes[i] = nodes[i];
-      }
-      // Exactly one hit. Mark the hit as the prototype of the query.
-      else if (hits->n_hits == 1) prototypes[i] = hits->node[0];
-      // More than one hit. Do nothing.
-      else prototypes[i] = NULL;
-      clear_hitlist(hits);
-   }
+   fprintf(stderr, "\n");
 
    if (compact_output) {
       // In compact output, only print the barcode and the count
       // of all barcodes of the culster (i.e. all the barcodes with
-      // the same prototype).
-      int n_clusters = 0;
-      for (i = 0 ; i < n_nodes ; i++) {
-         if (prototypes[i] == NULL) continue;
-         if (nodes[i] == prototypes[i]) nodes[n_clusters++] = nodes[i];
-         // Add to prototype count the counts of all the barcodes
-         // in the cluster.
-         else add_to_count(prototypes[i], nodes[i]->counter);
-      }
-      // Sort prototype barcodes by abundance and print.
-      qsort(nodes, n_clusters, sizeof(trienode *), cmp_nodes);
-      for (i = 0 ; i < n_clusters ; i++) {
-         fprintf(outputf, "%s\t%d\n", seq(nodes[i], buffer, MAXBRCDLEN),
-               nodes[i]->counter);
+      // the same canonical).
+      
+      qsort(stars, total, sizeof(star_t *), cmpstar);
+      for (int i = 0 ; i < total ; i++) {
+         star_t *this = stars[i];
+         if (this->canonical != this) continue;
+         fprintf(outputf, "%s\t%d\n", this->barcode, this->count);
       }
    }
    else {
-      // In non compact output, print every barcode, its prototype
-      // and its count.
-      char *buffer_a = buffer;
-      char buffer_b[MAXBRCDLEN];
-      fprintf(outputf, "barcode\tprototype\tcount\n");
+      // In non compact output, print barcode, canonical and count.
+      fprintf(outputf, "barcode\tcanonical\tcount\n");
       // Unlike for compact output there is no need to sort again
       // because the counts have not changed.
-      for (i = 0 ; i < n_nodes ; i++) {
-         if (prototypes[i] == NULL) continue;
-         fprintf(outputf, "%s\t%s\t%d\n",
-               seq(nodes[i], buffer_a, MAXBRCDLEN),
-               seq(prototypes[i], buffer_b, MAXBRCDLEN),
-               nodes[i]->counter);
+      for (int i = 0 ; i < total ; i++) {
+         star_t this = *(stars[i]);
+         fprintf(outputf, "%s\t%s\t%d\n", this.barcode,
+               this.canonical == NULL ? "NA" : this.canonical->barcode,
+               this.count);
       }
    }
 
-   destroy_hitlist(hits);
-   destroy_trie(index);
-   destroy_trie(trie);
-   free(nodes);
-   free(prototypes);
+   destroy_nodes_downstream_of(trie, NULL);
+   for (int i = 0 ; i < total ; i++) {
+      free(stars[i]->barcode);
+      free(stars[i]);
+   }
+   free(stars);
+   free(barcode);
 
    return 0;
 

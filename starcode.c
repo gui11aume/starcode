@@ -1,35 +1,14 @@
 #include "starcode.h"
 
-#define MAXPAR 64
-
 char *USAGE = "Usage:\n"
-"  starcode [-g] [-i input] [-o output]\n"
-"    -g: output relationship between barcodes for star graph\n"
-"    -i: input file (default stdin)\n"
-"    -o: output file (default stdout)";
+"  starcode [-v] [-f fmt] [-d dist] [-i input] [-o output]\n"
+"    -v --verbose: verbose\n"
+"    -f --format: counts (default), graph, both\n"
+"    -d --dist: maximum Levenshtein distance\n"
+"    -i --input: input file (default stdin)\n"
+"    -o --output: output file (default stdout)";
 
 void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
-
-
-struct _rel {
-   int count;
-   char *barcode;
-   struct _rel *parents[MAXPAR];
-};
-typedef struct _rel star_t;
-
-
-int
-cmpstar
-(
-   const void *a,
-   const void *b
-)
-{
-   int A = (*(star_t **)a)->count;
-   int B = (*(star_t **)b)->count;
-   return (A < B) - (A > B);
-}
 
 int
 starcode
@@ -37,14 +16,16 @@ starcode
    FILE *inputf,
    FILE *outputf,
    // control //
-   int maxmismatch,
-   int relationships
+   const int maxmismatch,
+   const int format,
+   const int verbose
 )
 {
 
    // The barcodes first have to be counted. Since we trie
    // implementation at hand, we use it for this purpose.
    trienode *counter = new_trienode();
+   if (counter == NULL) exit(EXIT_FAILURE);
    
    int size = 1024;
    star_t **stars = malloc(size * sizeof(star_t *));
@@ -94,6 +75,11 @@ starcode
       char *barcode = stars[i]->barcode;
       search(trie, barcode, maxmismatch, hip);
 
+      if (hip_error(hip)) {
+         fprintf(stderr, "search error: %s\n", barcode);
+         continue;
+      }
+
       // Insert the new barcode in the trie and update parents.
       trienode *node = insert_string(trie, barcode);
       if (node == NULL) exit(EXIT_FAILURE);
@@ -121,10 +107,55 @@ starcode
          star->parents[j]= NULL;
       }
       clear_hip(hip);
+      if (verbose) fprintf(stderr, "starcode: %d/%d\r", i, total);
+   }
+   if (verbose) fprintf(stderr, "\n");
+
+   if (format > 0) {
+      // In standard output, only print the barcode and the count
+      // of all barcodes of the culster (i.e. all the barcodes with
+      // the same canonical). Starting from the end, pass counts
+      // from children to parents.
+      for (int i = total-1 ; i > -1 ; i--) {
+         star_t *star = stars[i];
+         star_t *parent = star->parents[0];
+         if (parent == star) continue;
+         float pcount = parent->count;
+         // Sum parental counts. Here I don't want to lose counts
+         // because of rounding, so I am going through a bit of
+         // funny integer arithmetics.
+         int piece;
+         int cake = star->count;
+         for (int j = 1 ; (parent = star->parents[j]) != NULL ; j++) {
+            pcount += parent->count;
+         }
+         // Divide 'cake' among parents in proportion of their own
+         // number of counts.
+         for (int j = 0 ; (parent = star->parents[j]) != NULL ; j++) {
+            parent->count += piece = star->count * parent->count / pcount;
+            cake -= piece;
+         }
+         // Parent of index 0 always gets the last piece of cake if
+         // anything is left (because he always exists).
+         star->parents[0]->count += cake;
+      }
+
+      // Counts have been updated. Sort again and print.
+      qsort(stars, total, sizeof(star_t *), cmpstar);
+
+      for (int i = 0 ; i < total ; i++) {
+         star_t *this = stars[i];
+         if (this->parents[0] != this) continue;
+         fprintf(outputf, "%s\t%d\n", this->barcode, this->count);
+      }
    }
 
-   if (relationships) {
-      // If relationships are required, print barcode, count
+   if (format == 1) {
+      fprintf(outputf, "--\n");
+   }
+
+   if (format < 2) {
+      // If graph is required, print barcode, count
       // and parents (separated by commas).
       fprintf(outputf, "barcode\tcount\tparents\n");
       for (int i = 0 ; i < total ; i++) {
@@ -135,37 +166,6 @@ starcode
             fprintf(outputf, ",%s", this.parents[j]->barcode);
          }
          fprintf(outputf, "\n");
-      }
-   }
-
-   else {
-
-      // In standard output, only print the barcode and the count
-      // of all barcodes of the culster (i.e. all the barcodes with
-      // the same canonical). Starting from the end, pass counts
-      // from children to parents.
-      for (int i = total-1 ; i > -1 ; i--) {
-         star_t *star = stars[i];
-         star_t *parent = star->parents[0];
-         if (parent == star) continue;
-         float pcount = parent->count;
-         // Sum parental counts.
-         for (int j = 1 ; (parent = star->parents[j]) != NULL ; j++) {
-            pcount += parent->count;
-         }
-         // Pass counts to parents in proportion to their own count.
-         for (int j = 0 ; (parent = star->parents[j]) != NULL ; j++) {
-            parent->count += star->count * parent->count / pcount;
-         }
-      }
-
-      // Counts have been updated. Sort again and print.
-      qsort(stars, total, sizeof(star_t *), cmpstar);
-
-      for (int i = 0 ; i < total ; i++) {
-         star_t *this = stars[i];
-         if (this->parents[0] != this) continue;
-         fprintf(outputf, "%s\t%d\n", this->barcode, this->count);
       }
    }
 
@@ -190,52 +190,134 @@ main(
    char **argv
 )
 {
-   int gflag = 0;
-   int mflag = 3;
-   char *input = NULL;
-   char *output = NULL;
+
+   // Unset flags (value -1).
+   int verbose_flag = -1;
+   int format_flag = -1;
+   int dist_flag = -1;
+   // Unset options (value 'UNSET').
+   char _u; char *UNSET = &_u;
+   char *format_option = UNSET;
+   char *input = UNSET;
+   char *output = UNSET;
+
    int c;
+   while (1) {
+      int option_index = 0;
+      static struct option long_options[] = {
+         {"verbose", no_argument,       0, 'v'},
+         {"help",    no_argument,       0, 'h'},
+         {"format",  required_argument, 0, 'f'},
+         {"dist",    required_argument, 0, 'd'},
+         {"input",   required_argument, 0, 'i'},
+         {"output",  required_argument, 0, 'o'},
+         {0, 0, 0, 0}
+      };
 
-   while ((c = getopt(argc, argv, "cm:o:i:")) != -1) {
+      c = getopt_long(argc, argv, "d:i:f:ho:v",
+            long_options, &option_index);
+ 
+      /* Detect the end of the options. */
+      if (c == -1) break;
+  
       switch (c) {
-        case 't':
-          gflag = 1;
-          break;
-        case 'm':
-          mflag = atoi(optarg);
-          break;
-        case 'i':
-          input = optarg;
-          break;
-        case 'o':
-          output = optarg;
-          break;
-        case '?':
-          if (optopt=='m' || optopt=='i' || optopt=='o')
-            fprintf(stderr, "option -%c requires an argument\n", optopt);
-          else if (isprint(optopt))
-            fprintf(stderr, "unknown option `-%c'.\n", optopt);
-          else
-            fprintf(stderr, "unknown option `\\x%x'.\n", optopt);
-          return 1;
-        default:
-          abort();
+         case 'd':
+            if (dist_flag < 0) {
+               dist_flag = atoi(optarg);
+            }
+            else {
+               fprintf(stderr, "distance option set more than once\n");
+               say_usage();
+               return 1;
+            }
+            break;
+
+         case 0:
+         case 'i':
+            if (input == UNSET) {
+               input = optarg;
+            }
+            else {
+               fprintf(stderr, "input option set more than once\n");
+               say_usage();
+               return 1;
+            }
+            break;
+
+         case 'f':
+            if (format_option == UNSET) {
+               if (strcmp(optarg, "counts") == 0) {
+                  format_flag = 2;
+               }
+               else if (strcmp(optarg, "graph") == 0) {
+                  format_flag = 0;
+               }
+               else if (strcmp(optarg, "both") == 0) {
+                  format_flag = 1;
+               }
+               else {
+                  fprintf(stderr, "invalid format option\n");
+                  say_usage();
+                  return 1;
+               }
+               format_option = optarg;
+            }
+            else {
+               fprintf(stderr, "format option set more than once\n");
+               say_usage();
+               return 1;
+            }
+            break;
+  
+         case 'o':
+            if (output == UNSET) {
+               input = optarg;
+            }
+            else {
+               fprintf(stderr, "output option set more than once\n");
+               say_usage();
+               return 1;
+            }
+            break;
+
+         case 'v':
+            if (verbose_flag < 0) {
+               verbose_flag = 1;
+            }
+            else {
+               fprintf(stderr, "verbose option set more than once\n");
+               say_usage();
+               return 1;
+            }
+            break;
+
+         case 'h':
+            say_usage();
+            return 0;
+ 
+         default:
+            say_usage();
+            return 1;
+
       }
+
    }
 
-   if ((input == NULL) && (optind == argc - 1)) {
-      input = argv[optind];
-   }
-   else if (optind < argc) {
-      fprintf(stderr, "too many options\n");
-      say_usage();
-      return 1;
+   if (optind < argc) {
+      if ((optind == argc - 1) && (input == UNSET)) {
+         input = argv[optind];
+      }
+      else {
+         fprintf(stderr, "too many options\n");
+         say_usage();
+         return 1;
+      }
    }
 
    FILE *inputf;
    FILE *outputf;
 
-   if (input != NULL) {
+   if (input != UNSET) {
       inputf = fopen(input, "r");
       if (inputf == NULL) {
          fprintf(stderr, "cannot open file %s\n", input);
@@ -247,7 +329,7 @@ main(
       inputf = stdin;
    }
 
-   if (output != NULL) {
+   if (output != UNSET) {
       outputf = fopen(output, "w");
       if (outputf == NULL) {
          fprintf(stderr, "cannot write to file %s\n", output);
@@ -259,11 +341,17 @@ main(
       outputf = stdout;
    }
 
-   int exitcode = starcode(inputf, outputf, mflag, gflag);
+   if (verbose_flag < 0) verbose_flag = 0;
+   if (format_flag < 0) format_flag = 2;
+   if (dist_flag < 0) dist_flag = 3;
+
+   int exitcode = starcode(inputf, outputf,
+         dist_flag, format_flag, verbose_flag);
    
    if (inputf != stdin) fclose(inputf);
    if (outputf != stdout) fclose(outputf);
 
    return exitcode;
+
 }
 #endif

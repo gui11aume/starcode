@@ -1,8 +1,7 @@
 P=starcode
 OBJECTS= trie.o
-CFLAGS=-g -Wall -O3 -std=c99 
-LDLIBS=
-CC=gcc
+CFLAGS= -std=c99 -g -Wall -O3
+CC= gcc
 $(P): $(OBJECTS)
 
 clean:

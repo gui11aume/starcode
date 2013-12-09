@@ -10,4 +10,4 @@
    ssize_t getline(char **lineptr, size_t *n, FILE *stream);
 #endif
 
-int starcode(FILE*, FILE*, int, int);
+int starcode(FILE*, FILE*, int, int, const int);

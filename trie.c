@@ -22,8 +22,11 @@ int *DYNP = NULL;
 int _content[M*M];
 
 void init_DYNP(void) {
-   memset(_content, 0, M*M * sizeof(int));
-   for (int i = 0 ; i < M ; i++) _content[i] = _content[i*M] = i;
+   for (int i = 0 ; i < M ; i++) {
+   for (int j = 0 ; j < M ; j++) {
+      _content[i+j*M] = abs(i-j);
+   }
+   }
    DYNP = _content;
 }
 

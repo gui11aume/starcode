@@ -3,7 +3,8 @@
 #define MAXPAR 64
 
 char *USAGE = "Usage:\n"
-"  starcode [-g] [-i input] [-o output]\n"
+"  starcode [-v] [-g] [-i input] [-o output]\n"
+"    -v: verbose\n"
 "    -g: output relationship between barcodes for star graph\n"
 "    -i: input file (default stdin)\n"
 "    -o: output file (default stdout)";
@@ -38,9 +39,17 @@ starcode
    FILE *outputf,
    // control //
    int maxmismatch,
-   int relationships
+   int relationships,
+   const int verbose
 )
 {
+
+//   hip_t *hipa = new_hip();
+//   trienode *roota = new_trienode();
+//   trienode *nodea = insert_string(roota, "GTATGCTGTGGACC");
+//   search(f->root, "NNNNNNNNNNNNNNNNNNNN", 20, f->hip);
+//   search(roota, "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNN", 15, hipa);
+
 
    // The barcodes first have to be counted. Since we trie
    // implementation at hand, we use it for this purpose.
@@ -121,7 +130,9 @@ starcode
          star->parents[j]= NULL;
       }
       clear_hip(hip);
+      if (verbose) fprintf(stderr, "starcode: %d/%d\r", i, total);
    }
+   if (verbose) fprintf(stderr, "\n");
 
    if (relationships) {
       // If relationships are required, print barcode, count
@@ -191,15 +202,19 @@ main(
 )
 {
    int gflag = 0;
+   int vflag = 0;
    int mflag = 3;
    char *input = NULL;
    char *output = NULL;
    int c;
 
-   while ((c = getopt(argc, argv, "cm:o:i:")) != -1) {
+   while ((c = getopt(argc, argv, "cvm:o:i:")) != -1) {
       switch (c) {
         case 't':
           gflag = 1;
+          break;
+        case 'v':
+          vflag = 1;
           break;
         case 'm':
           mflag = atoi(optarg);
@@ -259,7 +274,7 @@ main(
       outputf = stdout;
    }
 
-   int exitcode = starcode(inputf, outputf, mflag, gflag);
+   int exitcode = starcode(inputf, outputf, mflag, gflag, vflag);
    
    if (inputf != stdin) fclose(inputf);
    if (outputf != stdout) fclose(outputf);

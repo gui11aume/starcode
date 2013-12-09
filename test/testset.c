@@ -530,30 +530,19 @@ void
 test_run
 (void)
 {
+   FILE *outputf = fopen("/dev/null", "w");
    FILE *inputf = fopen("input_test_file.txt", "r");
-   //FILE *outputf = fopen("/dev/null", "w");
-   FILE *outputf = fopen("out-barcodes.txt", "w");
-   if (inputf == NULL) {
-      fprintf(stderr,
-            "could not open file 'input_test_file.txt'\n");
-      exit (1);
-   }
+   g_assert(inputf != NULL);
+
    // Just check that input can be read (test will fail if
    // things go wrong here).
-   //starcode(inputf, outputf, 2, 0);
+   starcode(inputf, outputf, 2, 0, 0);
+   fclose(inputf);
 
-   //inputf = fopen("input_test_file_large.txt", "r");
-   inputf = fopen("barcodes.txt", "r");
-   if (inputf == NULL) {
-      fprintf(stderr,
-            "could not open file 'input_test_file_large.txt'\n");
-      exit (1);
-   }
-   // Run starcode on input file. Used for profiling and memchecking.
-   // The input file contains 8,526,061 barcodes, with 210,389
-   // unique sequences.
-   g_test_timer_start();
-   starcode(inputf, outputf, 3, 0);
+   inputf = fopen("input_test_file_large.txt", "r");
+   g_assert(inputf != NULL);
+   //g_test_timer_start();
+   starcode(inputf, outputf, 3, 0, 1);
    fclose(inputf);
    fclose(outputf);
    // The command line call to 'perf' shows the elapsed time.

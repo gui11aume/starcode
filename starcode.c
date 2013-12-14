@@ -10,6 +10,21 @@ char *USAGE = "Usage:\n"
 
 void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
 
+
+
+int
+cmpstar
+(
+   const void *a,
+   const void *b
+)
+{
+   int A = (*(star_t **)a)->count;
+   int B = (*(star_t **)b)->count;
+   return (A < B) - (A > B);
+}
+
+
 int
 starcode
 (

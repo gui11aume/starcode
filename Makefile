@@ -1,5 +1,6 @@
 P=starcode
 OBJECTS= trie.o
+#CFLAGS= -std=c99 -Wall -g -pg -Wall -fprofile-arcs -O3
 CFLAGS= -std=c99 -Wall -g -Wall -O3
 LDLIBS= -lm
 CC= gcc

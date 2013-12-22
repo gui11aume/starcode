@@ -10,18 +10,46 @@ char *USAGE = "Usage:\n"
 
 void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
 
+FILE *OUTPUT = NULL;
 
-
-int
-cmpstar
+char *
+node_to_str
 (
-   const void *a,
-   const void *b
+   node_t *node,
+   char *buff
 )
 {
-   int A = (*(star_t **)a)->count;
-   int B = (*(star_t **)b)->count;
-   return (A < B) - (A > B);
+   buff[node->depth] = '\0';
+   for (int i = node->depth-1 ; node->parent != NULL ; i--) {
+      buff[i] = untranslate[node->pos];
+      node = node->parent;
+   }
+   return buff;
+}
+
+
+void print_pairs
+(
+   node_t *node
+)
+{
+   if (node->data == NULL) return;
+   char str1[M];
+   char str2[M];
+   for (int i = 0 ; i < node->ans->idx ; i++) {
+      node_t *active_node = node->ans->node[i];
+      if (active_node->data == NULL) continue;
+      node_t *n1 = node;
+      node_t *n2 = active_node;
+      if (*(int *)active_node->data > *(int *)node->data) {
+         n1 = active_node;
+         n2 = node;
+      }
+      fprintf(OUTPUT, "%s:%d\t%s:%d\n",
+            node_to_str(n1, str1), *(int *)n1->data,
+            node_to_str(n2, str2), *(int *)n2->data
+      );
+   }
 }
 
 
@@ -32,165 +60,48 @@ starcode
    FILE *outputf,
    // control //
    const int maxmismatch,
-   const int format,
    const int verbose
 )
 {
 
-   // The barcodes first have to be counted. Since we trie
-   // implementation at hand, we use it for this purpose.
-   trienode *counter = new_trienode();
-   if (counter == NULL) exit(EXIT_FAILURE);
+   OUTPUT = outputf;
+
+   // Build a set of barcodes, associated with their count.
+   node_t *trie = new_trienode();
+   if (trie == NULL) exit(EXIT_FAILURE);
    
-   int size = 1024;
-   star_t **stars = malloc(size * sizeof(star_t *));
+   //int size = 1024;
+   //star_t **stars = malloc(size * sizeof(star_t *));
 
    // Read the data from input file. We assume that it contains
    // one barcode per line and nothing else. 
-   int total = 0;
+   //int total = 0;
    char *barcode = malloc(MAXBRCDLEN * sizeof(char));
    size_t nchar = MAXBRCDLEN;
    ssize_t read;
+   if (verbose) fprintf(stderr, "building trie index...");
    while ((read = getline(&barcode, &nchar, inputf)) != -1) {
       // Strip end of line character.
       if (barcode[read-1] == '\n') barcode[read-1] = '\0';
 
       // Add barcode to counter.
-      trienode *node = insert_string(counter, barcode);
+      node_t *node = insert_string(trie, barcode);
       if (node->data == NULL) {
-         if (total >= size) {
-            star_t **ptr = realloc(stars, 2*size * sizeof(star_t *));
-            if (ptr == NULL) exit(EXIT_FAILURE);
-            size *= 2;
-            stars = ptr;
-         }
-         star_t *h = malloc(sizeof(star_t));
-         h->barcode = malloc((1+strlen(barcode)) * sizeof(char));
-         strcpy(h->barcode, barcode);
-         h->count = 0;
-         node->data = stars[total] = h;
-         total++;
+         node->data = malloc(sizeof(int));
       }
-      (((star_t *)node->data)->count)++;
+      *(int *)node->data += 1;
    }
+   if (verbose) fprintf(stderr, " done\n");
 
    // Destroy the trie, but keep the star_t and sort them.
-   destroy_nodes_downstream_of(counter, NULL);
-   qsort(stars, total, sizeof(star_t *), cmpstar);
+   //destroy_nodes_downstream_of(counter, NULL);
+   //qsort(stars, total, sizeof(star_t *), cmpstar);
+   triestack(trie, maxmismatch, print_pairs);
 
-   // Every barcode cluster has a canonical representation, which
-   // is the most abundant. The other are non canonical.
-   trienode *trie = new_trienode();
-   hip_t *hip = new_hip();
-   if (trie == NULL || hip == NULL) exit(EXIT_FAILURE);
-
-   for (int i = 0 ; i < total ; i++) {
-
-      // Search the with at most 'maxmismatch'.
-      char *barcode = stars[i]->barcode;
-      search(trie, barcode, maxmismatch, hip);
-
-      if (hip_error(hip)) {
-         fprintf(stderr, "search error: %s\n", barcode);
-         continue;
-      }
-
-      // Insert the new barcode in the trie and update parents.
-      trienode *node = insert_string(trie, barcode);
-      if (node == NULL) exit(EXIT_FAILURE);
-
-      star_t *star = stars[i];
-      node->data = star;
-
-      if (hip->n_hits == 0) { 
-         // Barcode is canonical.
-         star->parents[0] = star;
-         star->parents[1] = NULL;
-      }
-      else {
-         // Barcode is non canonical.
-         int j;
-         int mindist = hip->hits[0].dist;
-         int jmax = hip->n_hits >= MAXPAR ? MAXPAR-1 : hip->n_hits;
-         for (j = 0 ; j < jmax ; j++) {
-            star->parents[j] = (star_t *) hip->hits[j].node->data;
-            if (hip->hits[j].dist > mindist) {
-               j++;
-               break;
-            }
-         }
-         star->parents[j]= NULL;
-      }
-      clear_hip(hip);
-      if (verbose) fprintf(stderr, "starcode: %d/%d\r", i, total);
-   }
-   if (verbose) fprintf(stderr, "\n");
-
-   if (format > 0) {
-      // In standard output, only print the barcode and the count
-      // of all barcodes of the culster (i.e. all the barcodes with
-      // the same canonical). Starting from the end, pass counts
-      // from children to parents.
-      for (int i = total-1 ; i > -1 ; i--) {
-         star_t *star = stars[i];
-         star_t *parent = star->parents[0];
-         if (parent == star) continue;
-         float pcount = parent->count;
-         // Sum parental counts. Here I don't want to lose counts
-         // because of rounding, so I am going through a bit of
-         // funny integer arithmetics.
-         int piece;
-         int cake = star->count;
-         for (int j = 1 ; (parent = star->parents[j]) != NULL ; j++) {
-            pcount += parent->count;
-         }
-         // Divide 'cake' among parents in proportion of their own
-         // number of counts.
-         for (int j = 0 ; (parent = star->parents[j]) != NULL ; j++) {
-            parent->count += piece = star->count * parent->count / pcount;
-            cake -= piece;
-         }
-         // Parent of index 0 always gets the last piece of cake if
-         // anything is left (because he always exists).
-         star->parents[0]->count += cake;
-      }
-
-      // Counts have been updated. Sort again and print.
-      qsort(stars, total, sizeof(star_t *), cmpstar);
-
-      for (int i = 0 ; i < total ; i++) {
-         star_t *this = stars[i];
-         if (this->parents[0] != this) continue;
-         fprintf(outputf, "%s\t%d\n", this->barcode, this->count);
-      }
-   }
-
-   if (format == 1) {
-      fprintf(outputf, "--\n");
-   }
-
-   if (format < 2) {
-      // If graph is required, print barcode, count
-      // and parents (separated by commas).
-      fprintf(outputf, "barcode\tcount\tparents\n");
-      for (int i = 0 ; i < total ; i++) {
-         star_t this = *(stars[i]);
-         fprintf(outputf, "%s\t%d\t%s",
-               this.barcode, this.count, this.parents[0]->barcode);
-         for (int j = 1 ; this.parents[j] != NULL ; j++) {
-            fprintf(outputf, ",%s", this.parents[j]->barcode);
-         }
-         fprintf(outputf, "\n");
-      }
-   }
-
-   destroy_nodes_downstream_of(trie, NULL);
-   for (int i = 0 ; i < total ; i++) {
-      free(stars[i]->barcode);
-      free(stars[i]);
-   }
-   free(stars);
+   destroy_nodes_downstream_of(trie, free);
    free(barcode);
+
+   OUTPUT = NULL;
 
    return 0;
 
@@ -360,8 +271,7 @@ main(
    if (format_flag < 0) format_flag = 2;
    if (dist_flag < 0) dist_flag = 3;
 
-   int exitcode = starcode(inputf, outputf,
-         dist_flag, format_flag, verbose_flag);
+   int exitcode = starcode(inputf, outputf, dist_flag, verbose_flag);
    
    if (inputf != stdin) fclose(inputf);
    if (outputf != stdout) fclose(outputf);

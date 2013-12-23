@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <limits.h>
 #ifndef __STARCODE_TRIE_LOADED_
 #define __STARCODE_TRIE_LOADED_
 
@@ -10,10 +11,10 @@
 #define MAXBRCDLEN 255  // Maximum barcode length.
 
 struct tnode_t;
-struct ans_t;
+struct as_t;
 
 typedef struct tnode_t node_t;
-typedef struct ans_t nstack_t;
+typedef struct as_t nstack_t;
 
 node_t  * new_trienode (void);
 node_t  * insert_string (node_t *, const char *);
@@ -39,14 +40,14 @@ struct tnode_t
           int        depth;     // Depth in the trie.
    struct tnode_t  * parent;    // Parent node in the trie.
    struct tnode_t  * seen_by;   // Last visiting node.
-   struct ans_t    * ans;       // Active node set.
+   struct as_t     * as;        // Set of active nodes.
           void     * data;      // Data for tail nodes.
    struct tnode_t  * child[5];  // Array of 5 children pointers.
 };
 
 
 // Stack of nodes.
-struct ans_t
+struct as_t
 {
           int        lim;       // Size limit.
           int        idx;       // Current index.

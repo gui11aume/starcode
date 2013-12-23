@@ -36,8 +36,8 @@ void print_pairs
    if (node->data == NULL) return;
    char str1[M];
    char str2[M];
-   for (int i = 0 ; i < node->ans->idx ; i++) {
-      node_t *active_node = node->ans->node[i];
+   for (int i = 0 ; i < node->as->idx ; i++) {
+      node_t *active_node = node->as->node[i];
       if (active_node->data == NULL) continue;
       node_t *n1 = node;
       node_t *n2 = active_node;

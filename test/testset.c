@@ -12,7 +12,6 @@ typedef struct {
 } fixture;
 
 void init_DYNP(void);
-int dmax(int, node_t *, node_t *);
 
 const char *string[NSTRINGS] = { "A", "AA", "AAA", "ATA", "ATT", "AAT",
    "TGA", "TTA", "TAT", "TGC", "GGG", "AAAA", "ACAA", "ANAA", 
@@ -33,6 +32,7 @@ node_to_string
    return buff;
 }
 
+int total;
 
 void
 pairs
@@ -42,17 +42,18 @@ pairs
 // SYNOPSIS:                                                              
 //   Prototype.                                                           
 {
-   char str1[M];
-   char str2[M];
+   //char str1[M];
+   //char str2[M];
    if (node->data == NULL) return;
 
-   nstack_t *active_set = node->ans;
+   nstack_t *active_set = node->as;
    for (int i = 0 ; i < active_set->idx ; i++) {
       node_t *active_node = active_set->node[i];
       if (active_node->data != NULL) {
-         fprintf(stderr, "%s,%s\n",
-               node_to_string(node, str1),
-               node_to_string(active_node, str2));
+         total++;
+         //fprintf(stderr, "%s,%s\n",
+         //      node_to_string(node, str1),
+         //      node_to_string(active_node, str2));
       }
    }
 }
@@ -174,9 +175,6 @@ test_active
    g_assert(node1 != NULL);
    g_assert(node2 != NULL);
 
-   g_assert_cmpint(dmax(1, node1, node2), ==, 1);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
 }
 
 
@@ -190,7 +188,9 @@ test_triestack
    //triestack(f->root, 0, pairs);
    //triestack(f->root, 1, pairs);
    //triestack(f->root, 2, pairs);
+   total = 0;
    triestack(f->root, 3, pairs);
+   g_assert_cmpint(total, ==, 86);
 }
 
 /*
@@ -597,7 +597,7 @@ test_run
    //FILE *outputf = fopen("/dev/null", "w");
    FILE *outputf = fopen("out", "w");
    FILE *inputf = fopen("input_test_file.txt", "r");
-   //g_assert(inputf != NULL);
+   g_assert(inputf != NULL);
 
    // Just check that input can be read (test will fail if
    // things go wrong here).
@@ -633,3 +633,5 @@ main(
    }
    return g_test_run();
 }
+
+

@@ -7,8 +7,8 @@ gmon.out
 *.swp
 *~
 starcode
-input_test_file_large*
+test/input_test_file*
 test/testset
 test/analysis.txt
 test/debug.txt
-test/out.txt
+test/out

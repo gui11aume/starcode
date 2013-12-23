@@ -50,9 +50,9 @@ pairs
    for (int i = 0 ; i < active_set->idx ; i++) {
       node_t *active_node = active_set->node[i];
       if (active_node->data != NULL) {
-         //fprintf(stderr, "%s,%s\n",
-         //      node_to_string(node, str1),
-         //      node_to_string(active_node, str2));
+         fprintf(stderr, "%s,%s\n",
+               node_to_string(node, str1),
+               node_to_string(active_node, str2));
       }
    }
 }
@@ -594,7 +594,8 @@ void
 test_run
 (void)
 {
-   FILE *outputf = fopen("/dev/null", "w");
+   //FILE *outputf = fopen("/dev/null", "w");
+   FILE *outputf = fopen("out", "w");
    FILE *inputf = fopen("input_test_file.txt", "r");
    g_assert(inputf != NULL);
 

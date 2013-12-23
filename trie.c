@@ -213,16 +213,16 @@ new_active_set
    if (node->ans != NULL) return NULL;
 
    // Allocate memory.
-   size_t totalsize = 2*sizeof(int) + 1024*sizeof(node_t *);
+   size_t totalsize = 2*sizeof(int) + 512*sizeof(node_t *);
    nstack_t *active_set = malloc(totalsize);
    if (active_set == NULL) {
-      ERROR = 220;
+      ERROR = 219;
       return NULL;
    }
 
    // Set initial values.
    memset(active_set, 0, totalsize);
-   active_set->lim = M;
+   active_set->lim = 512;
 
    // Append to 'node' and return;
    node->ans = active_set;
@@ -272,7 +272,8 @@ dist_less_than
    // Early exit if string lengths are dissimilar.
    int shift = (X->depth - Y->depth);
    int thresh = tau - abs(shift);
-   if (thresh < 0) return 0;
+   // Tested before the call.
+   //if (thresh < 0) return 0;
 
    node_t *pX = X;
    node_t *pY = Y;
@@ -293,7 +294,7 @@ dist_less_than
       seqX[L] = X->pos;
       seqY[L] = Y->pos ? Y->pos : 5;
 
-      int maxa = min(L, tau);
+      int maxa = min(L, thresh);
       for (int a = maxa ; a > 0 ; a--) {
          mmatch = DYNP[(L  )+(L-a  )*M] + (seqX[L-a] != seqY[L]);
          shift1 = DYNP[(L+1)+(L-a  )*M] + 1;
@@ -327,14 +328,14 @@ add_recursively
    node_t *node
 )
 {
-   if (node->seen_by == focus) return;
    node->seen_by = focus;
-
+   if (abs(focus->depth - node->depth) > tau) return;
    if (dist_less_than(tau, focus, node)) {
       add_to_active_set(focus, node);
       for (int i = 0 ; i < 5 ; i++) {
          node_t *child = node->child[i];
-         if ((child != NULL) && (child->ans != NULL)) {
+         if ((child != NULL) && (child->ans != NULL) &&
+               (child->seen_by != focus)) {
             add_recursively(tau, focus, child);
          }
       }

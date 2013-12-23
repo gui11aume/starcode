@@ -6,7 +6,7 @@
    (((a) < (b)) ? ((a) < (c) ? (a) : (c)) : ((b) < (c) ? (b) : (c)))
 
 
-int ERROR = 0;     // Indicate error at gven line of code.
+int ERROR = 0;     // Indicate error at given line of code.
 
 // Dynamic programming table. The separate integer pointer initialized
 // to 'NULL' allows to test efficiently whether the table has been
@@ -18,7 +18,7 @@ int DYNP_content[M*M];
 void destroy_active_set(node_t *);
 nstack_t *new_active_set(node_t *);
 void add_to_active_set(node_t *, node_t *);
-int dist_less_than(int, node_t *, node_t *);
+int dmax(int, node_t *, node_t *);
 void add_recursively(int, node_t *, node_t *);
 void find_active_nodes(int, node_t *, node_t *);
 void pairs(node_t *);
@@ -262,7 +262,7 @@ add_to_active_set
 
 
 int
-dist_less_than
+dmax
 (
    int tau,
    node_t *X,
@@ -282,7 +282,8 @@ dist_less_than
    for (int i = shift ; i < 0 ; i++) pY = pY->parent;
 
    // Fill 'DYNP' by "angles".
-   for (int L = 0 ; pX != pY ; L++) {
+   int L = 0;
+   for ( ; pX != pY ; L++) {
 
       int mmatch;
       int shift1;
@@ -308,17 +309,36 @@ dist_less_than
          DYNP[(L-a+1)+(L+1)*M] = min3(mmatch, shift1, shift2);
       }
 
-      if (DYNP[(L+1)+(L+1)*M] > thresh) return 0;
+      if (DYNP[(L+1)+(L+1)*M] > thresh) return tau+1;
 
       X = X->parent; pX = pX->parent;
       Y = Y->parent; pY = pY->parent;
 
    }
 
-   return 1;
+   return DYNP[(L)+(L)*M] + abs(shift);
 
 }
 
+void
+add_all_children
+(
+   node_t *focus,
+   node_t *node,
+   int depth
+)
+{
+   if (depth == 0) return;
+   for (int i = 0 ; i < 5 ; i++) {
+      node_t *child = node->child[i];
+      if (child == NULL) continue;
+      if (child->seen_by != focus) {
+         add_to_active_set(focus, child);
+         child->seen_by = focus;
+      }
+      add_all_children(focus, child, depth-1);
+   }
+}
 
 void
 add_recursively
@@ -328,17 +348,22 @@ add_recursively
    node_t *node
 )
 {
+   int dist;
+   if (node->seen_by == focus) return;
    node->seen_by = focus;
    if (abs(focus->depth - node->depth) > tau) return;
-   if (dist_less_than(tau, focus, node)) {
-      add_to_active_set(focus, node);
+   if ((dist = dmax(tau, focus, node)) > tau) return;
+   add_to_active_set(focus, node);
+   if (focus->depth > node->depth) {
       for (int i = 0 ; i < 5 ; i++) {
          node_t *child = node->child[i];
-         if ((child != NULL) && (child->ans != NULL) &&
-               (child->seen_by != focus)) {
+         if ((child != NULL) && (child->ans != NULL)) {
             add_recursively(tau, focus, child);
          }
       }
+   }
+   else {
+      add_all_children(focus, node, tau-dist);
    }
 }
 

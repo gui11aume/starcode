@@ -12,7 +12,7 @@ typedef struct {
 } fixture;
 
 void init_DYNP(void);
-int dist_less_than(int, node_t *, node_t *);
+int dmax(int, node_t *, node_t *);
 
 const char *string[NSTRINGS] = { "A", "AA", "AAA", "ATA", "ATT", "AAT",
    "TGA", "TTA", "TAT", "TGC", "GGG", "AAAA", "ACAA", "ANAA", 
@@ -158,7 +158,7 @@ setup(
 
 
 void
-test_dist_less_than
+test_active
 (
    fixture *f,
    gconstpointer ignore
@@ -174,8 +174,8 @@ test_dist_less_than
    g_assert(node1 != NULL);
    g_assert(node2 != NULL);
 
-   g_assert(dist_less_than(1, node1, node2));
-   g_assert(check_trie_error_and_reset() == 0);
+   g_assert_cmpint(dmax(1, node1, node2), ==, 1);
+   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
 
 }
 
@@ -597,19 +597,19 @@ test_run
    //FILE *outputf = fopen("/dev/null", "w");
    FILE *outputf = fopen("out", "w");
    FILE *inputf = fopen("input_test_file.txt", "r");
-   g_assert(inputf != NULL);
+   //g_assert(inputf != NULL);
 
    // Just check that input can be read (test will fail if
    // things go wrong here).
-   starcode(inputf, outputf, 3, 1);
+   //starcode(inputf, outputf, 3, 1);
    fclose(inputf);
 
-   //inputf = fopen("input_test_file_large.txt", "r");
-   //g_assert(inputf != NULL);
+   inputf = fopen("input_test_file_large.txt", "r");
+   g_assert(inputf != NULL);
    //g_test_timer_start();
-   //starcode(inputf, outputf, 3, 1);
-   //fclose(inputf);
-   //fclose(outputf);
+   starcode(inputf, outputf, 3, 1);
+   fclose(inputf);
+   fclose(outputf);
    // The command line call to 'perf' shows the elapsed time.
    //fprintf(stdout, "\nelapsed: %.3f sec\n", g_test_timer_elapsed());
 }
@@ -625,7 +625,7 @@ main(
    g_test_init(&argc, &argv, NULL);
    //g_test_add_func("/trie/sandbox", sandbox);
    //g_test_add("/trie/search", fixture, NULL, setup, test_search, teardown);
-   g_test_add("/trie/test_dist_less_than", fixture, NULL, setup, test_dist_less_than, teardown);
+   g_test_add("/trie/test_active", fixture, NULL, setup, test_active, teardown);
    g_test_add("/trie/test_triestack", fixture, NULL, setup, test_triestack, teardown);
    //g_test_add("/test_mem", fixture, NULL, setup, test_mem, teardown);
    if (g_test_perf()) {

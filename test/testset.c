@@ -364,7 +364,6 @@ test_search(
    // Case 31. //
    reset(hits);
    search(f->root, "NNNNNNNN", 7, hits);
-   fprintf(stderr, "\n%s\n", (char *)hits->nodes[0]->data);
    g_assert_cmpint(hits->idx, ==, 0);
    g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
 
@@ -414,12 +413,12 @@ test_mem(
 
    narray_t *hits = new_narray();
    g_assert(hits != NULL);
+   reset(hits);
    search(root, "NNNNNNNNNNNNNNNNNNNA", 20, hits);
-   g_assert_cmpint(hits->idx, ==, 2049);
+   g_assert_cmpint(hits->idx, >, 0);
    g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
 
    destroy_nodes_downstream_of(root, NULL);
-   free(hits);
 
    // Construct 1000 tries with a `malloc` failure rate of 1%.
    // If a segmentation fault happens the test will fail.
@@ -436,13 +435,17 @@ test_mem(
       destroy_nodes_downstream_of(root, free);
    }
 
+   // Check that the errors do not go unreported.
+   g_assert_cmpint(check_trie_error_and_reset(), >, 0);
+
    // Test 'search()' 1000 times in a perfectly built trie.
    for (int i = 0 ; i < 1000 ; i++) {
+      reset(hits);
       search(f->root, "A", 0, hits);
       g_assert_cmpint(hits->idx, ==, 1);
       g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-      reset(hits);
    }
+
 
    // Test 'search()' in an imperfectly built trie.
    for (int i = 0 ; i < 1000 ; i++) {
@@ -452,16 +455,20 @@ test_mem(
       node_t *node = insert_string(f->root, seq);
       if (node != NULL) node->data = node;
    }
+
+   // Check that the errors do not go unreported.
+   g_assert_cmpint(check_trie_error_and_reset(), >, 0);
+
    reset(hits);
    search(f->root, "NNNNNNNNNNNNNNNNNNNN", 20, hits);
 
+   free(hits);
    reset_malloc();
 
 }
 
 
 
-/*
 void
 test_run
 (void)
@@ -472,19 +479,18 @@ test_run
 
    // Just check that input can be read (test will fail if
    // things go wrong here).
-   starcode(inputf, outputf, 2, 0, 0);
+   starcode(inputf, outputf, 2, 0);
    fclose(inputf);
 
    inputf = fopen("input_test_file_large.txt", "r");
    g_assert(inputf != NULL);
    //g_test_timer_start();
-   starcode(inputf, outputf, 3, 0, 1);
+   starcode(inputf, outputf, 3, 0);
    fclose(inputf);
    fclose(outputf);
    // The command line call to 'perf' shows the elapsed time.
    //fprintf(stdout, "\nelapsed: %.3f sec\n", g_test_timer_elapsed());
 }
-*/
 
 
 
@@ -497,9 +503,9 @@ main(
    g_test_init(&argc, &argv, NULL);
    //g_test_add_func("/trie/sandbox", sandbox);
    g_test_add("/trie/search", fixture, NULL, setup, test_search, teardown);
-   //g_test_add("/test_mem", fixture, NULL, setup, test_mem, teardown);
-   //if (g_test_perf()) {
-   //   g_test_add_func("/starcode/run", test_run);
-   //}
+   g_test_add("/test_mem", fixture, NULL, setup, test_mem, teardown);
+   if (g_test_perf()) {
+      g_test_add_func("/starcode/run", test_run);
+   }
    return g_test_run();
 }

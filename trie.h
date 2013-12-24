@@ -31,7 +31,7 @@ static const int translate[256] = {
    ['A'] = 1, ['C'] = 2, ['G'] = 3, ['T'] = 4,
 };
 static const int altranslate[256] = {
-   5,
+   [0 ... 255] = 5,
    ['a'] = 1, ['c'] = 2, ['g'] = 3, ['t'] = 4,
    ['A'] = 1, ['C'] = 2, ['G'] = 3, ['T'] = 4,
 };

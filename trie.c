@@ -43,14 +43,14 @@ search
 )
 {
    
-   if (DYNP == NULL) init_DYNP();
-   HITS = hits;
-
    int length = strlen(query);
    if (length > MAXBRCDLEN) {
-      ERROR = 144;
-      return NULL;
+      ERROR = 48;
+      return hits;
    }
+
+   if (DYNP == NULL) init_DYNP();
+   HITS = hits;
 
    // Translate the query string.
    int altranslated[M];
@@ -69,8 +69,7 @@ search
       dash(root, altranslated);
    }
 
-   HITS = NULL;
-   return hits;
+   return HITS;
 
 }
 
@@ -177,7 +176,7 @@ addhit
       size_t newsize = 2 * sizeof(int) + 2*HITS->lim * sizeof(node_t *);
       narray_t *ptr = realloc(HITS, newsize);
       if (ptr == NULL) {
-         ERROR = 165;
+         ERROR = 180;
          return;
       }
       HITS = ptr;
@@ -205,7 +204,7 @@ insert_string
 {
    int nchar = strlen(string);
    if (nchar > MAXBRCDLEN) {
-      ERROR = 68;
+      ERROR = 208;
       return NULL;
    }
    
@@ -225,7 +224,7 @@ insert_string
    // Append more nodes.
    for (i++ ; i < nchar ; i++) {
       if (node == NULL) {
-         ERROR = 190;
+         ERROR = 228;
          return NULL;
       }
       int c = translate[(int) string[i]];
@@ -258,7 +257,7 @@ insert
    // Initilalize child node.
    node_t *child = new_trienode();
    if (child == NULL) {
-      ERROR = 44;
+      ERROR = 261;
       return NULL;
    }
    // Update parent node.
@@ -276,7 +275,7 @@ new_narray
 {
    narray_t *new = malloc(2 * sizeof(int) + 32 * sizeof(node_t *));
    if (new == NULL) {
-      ERROR = 261;
+      ERROR = 279;
       return NULL;
    }
    new->idx = 0;
@@ -296,7 +295,7 @@ new_trienode
 {
    node_t *node = malloc(sizeof(node_t));
    if (node == NULL) {
-      ERROR = 301;
+      ERROR = 299;
       return NULL;
    }
    for (int i = 0 ; i < 5 ; i++) node->child[i] = NULL;
@@ -346,9 +345,9 @@ void init_DYNP(void) {
 
 int check_trie_error_and_reset(void) {
    if (ERROR) {
-      int the_error_is_at_line = ERROR;
+      int last_error_at_line = ERROR;
       ERROR = 0;
-      return the_error_is_at_line;
+      return last_error_at_line;
    }
    return 0;
 }

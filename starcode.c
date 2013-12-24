@@ -1,200 +1,162 @@
 #include "starcode.h"
 
 char *USAGE = "Usage:\n"
-"  starcode [-v] [-f fmt] [-d dist] [-i input] [-o output]\n"
+"  starcode [-v] [-d dist] [-i input] [-o output]\n"
 "    -v --verbose: verbose\n"
-"    -f --format: counts (default), graph, both\n"
 "    -d --dist: maximum Levenshtein distance\n"
 "    -i --input: input file (default stdin)\n"
 "    -o --output: output file (default stdout)";
 
+#define str(a) *(char **)(a)
+
+useq_t *new_useq(int, char*);
+void destroy_useq (void*);
 void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
-
-
-
-int
-cmpstar
-(
-   const void *a,
-   const void *b
-)
-{
-   int A = (*(star_t **)a)->count;
-   int B = (*(star_t **)b)->count;
-   return (A < B) - (A > B);
-}
-
+int abcd(const void *a, const void *b) { return strcmp(str(a), str(b)); }
 
 int
 starcode
 (
    FILE *inputf,
    FILE *outputf,
-   // control //
    const int maxmismatch,
-   const int format,
    const int verbose
 )
 {
 
-   // The barcodes first have to be counted. Since we trie
-   // implementation at hand, we use it for this purpose.
-   trienode *counter = new_trienode();
-   if (counter == NULL) exit(EXIT_FAILURE);
-   
-   int size = 1024;
-   star_t **stars = malloc(size * sizeof(star_t *));
+   size_t size = 1024;
+   char **all_seq = malloc(size * sizeof(char *));
+   if (all_seq == NULL) return 1;
 
-   // Read the data from input file. We assume that it contains
-   // one barcode per line and nothing else. 
    int total = 0;
-   char *barcode = malloc(MAXBRCDLEN * sizeof(char));
+   ssize_t nread;
    size_t nchar = MAXBRCDLEN;
-   ssize_t read;
-   while ((read = getline(&barcode, &nchar, inputf)) != -1) {
-      // Strip end of line character.
-      if (barcode[read-1] == '\n') barcode[read-1] = '\0';
-
-      // Add barcode to counter.
-      trienode *node = insert_string(counter, barcode);
-      if (node->data == NULL) {
-         if (total >= size) {
-            star_t **ptr = realloc(stars, 2*size * sizeof(star_t *));
-            if (ptr == NULL) exit(EXIT_FAILURE);
-            size *= 2;
-            stars = ptr;
-         }
-         star_t *h = malloc(sizeof(star_t));
-         h->barcode = malloc((1+strlen(barcode)) * sizeof(char));
-         strcpy(h->barcode, barcode);
-         h->count = 0;
-         node->data = stars[total] = h;
-         total++;
+   char *seq = malloc(MAXBRCDLEN * sizeof(char));
+   // Read sequences from input file and store in an array. Assume
+   // that it contains one sequence per line and nothing else. 
+   if (verbose) fprintf(stderr, "reading input file...");
+   while ((nread = getline(&seq, &nchar, inputf)) != -1) {
+      // Strip end of line character and copy.
+      if (seq[nread-1] == '\n') seq[nread-1] = '\0';
+      char *new = malloc(nread);
+      if (new == NULL) exit(EXIT_FAILURE);
+      strncpy(new, seq, nread);
+      // Grow 'all_seq' if needed.
+      if (total >= size) {
+         size *= 2;
+         char **ptr = realloc(all_seq, size * sizeof(char *));
+         if (ptr == NULL) exit(EXIT_FAILURE);
+         all_seq = ptr;
       }
-      (((star_t *)node->data)->count)++;
+      all_seq[total++] = new;
    }
+      
+   free(seq);
+   if (verbose) fprintf(stderr, " done\n");
 
-   // Destroy the trie, but keep the star_t and sort them.
-   destroy_nodes_downstream_of(counter, NULL);
-   qsort(stars, total, sizeof(star_t *), cmpstar);
+   if (verbose) fprintf(stderr, "sorting sequences...");
+   // Sort sequences, count and compact them. Sorting
+   // alphabetically is important for speed.
+   qsort(all_seq, total, sizeof(char *), abcd);
 
-   // Every barcode cluster has a canonical representation, which
-   // is the most abundant. The other are non canonical.
-   trienode *trie = new_trienode();
-   hip_t *hip = new_hip();
-   if (trie == NULL || hip == NULL) exit(EXIT_FAILURE);
+   size = 1024;
+   useq_t **all_useq = malloc(size * sizeof(useq_t *));
+   int utotal = 0;
+   int ucount = 0;
+   for (int i = 0 ; i < total-1 ; i++) {
+      ucount++;
+      if (strcmp(all_seq[i], all_seq[i+1]) == 0) free(all_seq[i]);
+      else {
+         all_useq[utotal++] = new_useq(ucount, all_seq[i]);
+         ucount = 0;
+         // Grow 'all_useq' if needed.
+         if (utotal >= size) {
+            size *= 2;
+            useq_t **ptr = realloc(all_useq, size * sizeof(useq_t *));
+            if (ptr == NULL) exit(EXIT_FAILURE);
+            all_useq = ptr;
+         }
+      }
+   }
+   all_useq[utotal++] = new_useq(ucount+1, all_seq[total-1]);
 
-   for (int i = 0 ; i < total ; i++) {
+   free(all_seq);
+   if (verbose) fprintf(stderr, " done\n");
 
-      // Search the with at most 'maxmismatch'.
-      char *barcode = stars[i]->barcode;
-      search(trie, barcode, maxmismatch, hip);
+   node_t *trie = new_trienode();
+   narray_t *hits = new_narray();
+   if (trie == NULL || hits == NULL) exit(EXIT_FAILURE);
 
-      if (hip_error(hip)) {
-         fprintf(stderr, "search error: %s\n", barcode);
+   for (int i = 0 ; i < utotal ; i++) {
+      useq_t *query = all_useq[i];
+      // Clear hits.
+      hits->idx = 0;
+      hits = search(trie, query->seq, maxmismatch, hits);
+      if (check_trie_error_and_reset()) {
+         fprintf(stderr, "search error: %s\n", query->seq);
          continue;
       }
 
-      // Insert the new barcode in the trie and update parents.
-      trienode *node = insert_string(trie, barcode);
+      // Output matching pairs.
+      for (int j = 0 ; j < hits->idx ; j++) {
+         useq_t *match = (useq_t *)hits->nodes[j]->data;
+         useq_t *u1 = query;
+         useq_t *u2 = match;
+         if (u1->count < u2->count) {
+            u2 = query;
+            u1 = match;
+         }
+         else if (u1->count == u2->count && strcmp(u1->seq, u2->seq) > 0) {
+            u2 = query;
+            u1 = match;
+         }
+         fprintf(outputf, "%s:%d\t%s:%d\n",
+               u1->seq, u1->count, u2->seq, u2->count);
+      }
+
+      // Insert the new barcode in the trie.
+      node_t *node = insert_string(trie, query->seq);
       if (node == NULL) exit(EXIT_FAILURE);
-
-      star_t *star = stars[i];
-      node->data = star;
-
-      if (hip->n_hits == 0) { 
-         // Barcode is canonical.
-         star->parents[0] = star;
-         star->parents[1] = NULL;
-      }
-      else {
-         // Barcode is non canonical.
-         int j;
-         int mindist = hip->hits[0].dist;
-         int jmax = hip->n_hits >= MAXPAR ? MAXPAR-1 : hip->n_hits;
-         for (j = 0 ; j < jmax ; j++) {
-            star->parents[j] = (star_t *) hip->hits[j].node->data;
-            if (hip->hits[j].dist > mindist) {
-               j++;
-               break;
-            }
-         }
-         star->parents[j]= NULL;
-      }
-      clear_hip(hip);
-      if (verbose) fprintf(stderr, "starcode: %d/%d\r", i, total);
+      node->data = all_useq[i];
+      if (verbose) fprintf(stderr, "starcode: %d/%d\r", i+1, utotal);
    }
+
+   free(all_useq);
+   destroy_nodes_downstream_of(trie, destroy_useq);
+
    if (verbose) fprintf(stderr, "\n");
-
-   if (format > 0) {
-      // In standard output, only print the barcode and the count
-      // of all barcodes of the culster (i.e. all the barcodes with
-      // the same canonical). Starting from the end, pass counts
-      // from children to parents.
-      for (int i = total-1 ; i > -1 ; i--) {
-         star_t *star = stars[i];
-         star_t *parent = star->parents[0];
-         if (parent == star) continue;
-         float pcount = parent->count;
-         // Sum parental counts. Here I don't want to lose counts
-         // because of rounding, so I am going through a bit of
-         // funny integer arithmetics.
-         int piece;
-         int cake = star->count;
-         for (int j = 1 ; (parent = star->parents[j]) != NULL ; j++) {
-            pcount += parent->count;
-         }
-         // Divide 'cake' among parents in proportion of their own
-         // number of counts.
-         for (int j = 0 ; (parent = star->parents[j]) != NULL ; j++) {
-            parent->count += piece = star->count * parent->count / pcount;
-            cake -= piece;
-         }
-         // Parent of index 0 always gets the last piece of cake if
-         // anything is left (because he always exists).
-         star->parents[0]->count += cake;
-      }
-
-      // Counts have been updated. Sort again and print.
-      qsort(stars, total, sizeof(star_t *), cmpstar);
-
-      for (int i = 0 ; i < total ; i++) {
-         star_t *this = stars[i];
-         if (this->parents[0] != this) continue;
-         fprintf(outputf, "%s\t%d\n", this->barcode, this->count);
-      }
-   }
-
-   if (format == 1) {
-      fprintf(outputf, "--\n");
-   }
-
-   if (format < 2) {
-      // If graph is required, print barcode, count
-      // and parents (separated by commas).
-      fprintf(outputf, "barcode\tcount\tparents\n");
-      for (int i = 0 ; i < total ; i++) {
-         star_t this = *(stars[i]);
-         fprintf(outputf, "%s\t%d\t%s",
-               this.barcode, this.count, this.parents[0]->barcode);
-         for (int j = 1 ; this.parents[j] != NULL ; j++) {
-            fprintf(outputf, ",%s", this.parents[j]->barcode);
-         }
-         fprintf(outputf, "\n");
-      }
-   }
-
-   destroy_nodes_downstream_of(trie, NULL);
-   for (int i = 0 ; i < total ; i++) {
-      free(stars[i]->barcode);
-      free(stars[i]);
-   }
-   free(stars);
-   free(barcode);
 
    return 0;
 
 }
+
+
+useq_t *
+new_useq
+(
+   int count,
+   char *seq
+)
+{
+   useq_t *new = malloc(sizeof(useq_t));
+   if (new == NULL) exit(EXIT_FAILURE);
+   new->count = count;
+   new->seq = seq;
+   return new;
+}
+
+
+void
+destroy_useq
+(
+   void *u
+)
+{
+   useq_t *useq = (useq_t *)u;
+   free(useq->seq);
+   free(useq);
+}
+
 
 // By default starcode has a `main()` except if compiled with
 // flag -D_no_starcode_main (for testing).
@@ -360,9 +322,8 @@ main(
    if (format_flag < 0) format_flag = 2;
    if (dist_flag < 0) dist_flag = 3;
 
-   int exitcode = starcode(inputf, outputf,
-         dist_flag, format_flag, verbose_flag);
-   
+   int exitcode = starcode(inputf, outputf, dist_flag, verbose_flag); 
+
    if (inputf != stdin) fclose(inputf);
    if (outputf != stdout) fclose(outputf);
 

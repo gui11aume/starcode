@@ -6,142 +6,286 @@
    (((a) < (b)) ? ((a) < (c) ? (a) : (c)) : ((b) < (c) ? (b) : (c)))
 
 // Macro used for readbility of the code.
-#define child_is_a_hit (depth+maxdist >= L) && (child->data != NULL) \
-            && (DYNP[L+depth*M] <= maxdist)
+#define child_is_a_hit (depth+tau >= limit) && (child->data != NULL) \
+            && (DYNP[depth+limit*M] <= tau)
 
-// -- Global variables -- //
+// Module error reporting.
+int ERROR;
 
-// Array of characters to keep track of the path in the trie.
-char path[MAXBRCDLEN];
+// Array of nodes for the hits.
+narray_t *HITS = NULL;
 
-// Dynamic programming table. The separate integer pointer initialized
-// to 'NULL' allows to test efficiently whether the table has been
-// initialized by 'DYNP == NULL'. If true, a call to 'init_search'
-// initializes the table content and sets the pointer off 'NULL'.
+// Dynamic programming table.
 int *DYNP = NULL;
-int _content[M*M];
+int DYNP_CONTENT[M*M];
 
-void init_DYNP(void) {
-   for (int i = 0 ; i < M ; i++) {
-   for (int j = 0 ; j < M ; j++) {
-      _content[i+j*M] = abs(i-j);
-   }
-   }
-   DYNP = _content;
-}
 
-// Helper function for the interface.
-int hip_error (hip_t *hip) { return hip->error; }
 
-int
-cmphit
+// Local functions.
+node_t *insert(node_t*, int);
+void recursive_search(node_t*, int*, int, int, int);
+void dash(node_t*, int*);
+void addhit(node_t*);
+void init_DYNP(void);
+int check_trie_error_and_reset(void);
+
+
+// ------  SEARCH  ------ //
+
+
+narray_t *
+search
 (
-   const void *a,
-   const void *b
+   node_t *root,
+   const char *query,
+   int tau,
+   narray_t *hits
 )
 {
-   int A = ((hit_t *)a)->dist;
-   int B = ((hit_t *)b)->dist;
-   return (A > B) - (A < B);
-}
+   
+   if (DYNP == NULL) init_DYNP();
+   HITS = hits;
 
-
-hip_t *
-new_hip
-(void)
-// SYNOPSIS:                                                              
-//   Constructor for a hip.                                               
-//                                                                        
-// RETURN:                                                                
-//   A point to an empty hip upon success, 'NULL' upon failure.           
-{
-   hip_t *hip = malloc(sizeof(hip_t));
-   if (hip == NULL) return NULL;
-   hip->hits = malloc(1024 * sizeof(hit_t));
-   if (hip->hits == NULL) {
-      free(hip);
+   int length = strlen(query);
+   if (length > MAXBRCDLEN) {
+      ERROR = 144;
       return NULL;
    }
-   hip->size = 1024;
-   hip->n_hits = 0;
-   hip->error = 0;
-   return hip;
-}
 
-void
-add_to_hip
-(
-   hip_t *hip,
-   trienode *node,
-   const char *match,
-   int dist
-)
-// SYNOPSIS:                                                              
-//   Adds a hit to a hip.                                                 
-//                                                                        
-// ARGUMENTS:                                                             
-//   'hip': the hip to update.                                            
-//   'node': the hit node to add.                                         
-//   'match': the sequence that matches.                                  
-//   'dist': the Levenshtein distance to the query.                       
-//                                                                        
-// RETURN:                                                                
-//   'void'.                                                              
-{
-   int idx = hip->n_hits;
-   // Dynamic growth of the array of hits.
-   if (idx >= hip->size) {
-      hit_t *ptr = realloc(hip->hits, 2*hip->size * sizeof(hit_t));
-      if (ptr != NULL) {
-         hip->hits = ptr;
-         hip->size *= 2;
-      }
-      else {
-         // TODO: Explain what happened.
-         exit(EXIT_FAILURE);
-      }
+   // Translate the query string.
+   int altranslated[M];
+   for (int i = 0 ; i < length ; i++) {
+      // Non DNA letters or "N" in the query string are translated
+      // to 5, so that in the loop labelled "iterate over 5 children"
+      // "N" is always a mismatch.
+      altranslated[i] = altranslate[(int) query[i]];
    }
-   // Update hip.
-   hip->hits[idx].node = node;
-   hip->hits[idx].dist = dist;
-   strcpy(hip->hits[idx].match, match);
-   hip->n_hits++;
-}
+   altranslated[length] = EOS;
 
-void
-clear_hip
-(hip_t *hip)
-// SYNOPSIS:                                                              
-//   Sets the hit number to 0 and remove the error flag.                  
-//                                                                        
-// ARGUMENTS:                                                             
-//   'hip': the hip to clear.                                             
-//                                                                        
-// RETURN:                                                                
-//   'void'.                                                              
-{
-   hip->error = 0;
-   hip->n_hits = 0;
+   if (tau > 0) {
+      recursive_search(root, altranslated, tau, 1, length);
+   }
+   else {
+      dash(root, altranslated);
+   }
+
+   HITS = NULL;
+   return hits;
+
 }
 
 
 void
-destroy_hip
+recursive_search
 (
-   hip_t *hip
+   node_t *node,
+   int *query,
+   int tau,
+   int depth,
+   int limit
+)
+{
+
+   if (depth > limit + tau) return;
+
+   node_t *child;
+
+   int mina = max(depth-tau, 1);
+   int maxa = min(depth+tau, limit) + 1;
+
+   // LABEL: "iterate over 5 children".
+   for (int i = 0 ; i < 5 ; i++) {
+
+      // Skip if current node has no child with current character.
+      if ((child = node->child[i]) == NULL) continue;
+      int mindist = INT_MAX;
+
+      // Fill in (part of) the row of index 'depth' of 'DYNP'.
+      for (int a = mina ; a < maxa ; a++) {
+         int mmatch = DYNP[(depth-1)+(a-1)*M] + (i != query[a-1]);
+         int shift1 = DYNP[(depth-1)+(a  )*M] + 1;
+         int shift2 = DYNP[(depth  )+(a-1)*M] + 1;
+         DYNP[(depth)+(a)*M] = min3(mmatch, shift1, shift2);
+         if (DYNP[(depth)+(a)*M] < mindist) mindist = DYNP[(depth)+(a)*M];
+      }
+
+      // Early exit if tau is exceeded.
+      if (mindist > tau) return;
+
+      // In case the smallest Levenshtein distance in 'DYNP' is
+      // equal to the maximum allowed distance, no more mismatches
+      // and indels are allowed. We can shortcut by searching perfect
+      // matches.
+      if (mindist == tau) {
+         int left = max(depth-tau, 0);
+         for (int a = left ; a < maxa ; a++) {
+            if (DYNP[(depth)+(a)*M] == mindist) {
+               dash(child, query+a);
+            }
+         }
+         continue;
+      }
+
+      // We have a hit if the child node is a tail, and the
+      // Levenshtein distance is not larger than 'tau'. But first
+      // we need to make sure that the Levenshtein distance to the
+      // query has been computed, which is the first condition of the
+      // macro used below.
+      // 1. depth+tau >= limit
+      // 2. child->data != NULL
+      // 3. DYNP[depth+limit*M] <= tau
+      if (child_is_a_hit) {
+         addhit(child);
+      }
+
+      recursive_search(child, query, tau, depth+1, limit);
+
+   }
+
+}
+
+
+void
+dash
+(
+   node_t *node,
+   int *query
+)
+{
+   int c;
+   node_t *child;
+
+   while ((c = *query++) != EOS) {
+      if ((c > 4) || (child = node->child[c]) == NULL) return;
+      node = child;
+   }
+
+   if (node->data != NULL) {
+      addhit(node);
+   }
+   return;
+}
+
+
+void
+addhit
+(
+   node_t *node
+)
+{
+   if (HITS->idx >= HITS->lim) {
+      size_t newsize = 2 * sizeof(int) + 2*HITS->lim * sizeof(node_t *);
+      narray_t *ptr = realloc(HITS, newsize);
+      if (ptr == NULL) {
+         ERROR = 165;
+         return;
+      }
+      HITS = ptr;
+      HITS->lim *= 2;
+   }
+   HITS->nodes[HITS->idx++] = node;
+}
+
+
+// ------  TRIE CONSTRUCTION  ------ //
+
+
+node_t *
+insert_string
+(
+   node_t *node,
+   const char *string
 )
 // SYNOPSIS:                                                              
-//   Free the memory allocated on a hip.                                  
+//   Helper function to construct tries. Insert a string from a root node 
+//   by multiple calls to 'insert_char'.                                  
 //                                                                        
 // RETURN:                                                                
-//   'void'.                                                              
+//   The leaf node in case of succes, 'NULL' otherwise.                   
 {
-   free(hip->hits);
-   free(hip);
+   int nchar = strlen(string);
+   if (nchar > MAXBRCDLEN) {
+      ERROR = 68;
+      return NULL;
+   }
+   
+   int i;
+
+   // Find existing path and append one node.
+   for (i = 0 ; i < nchar ; i++) {
+      node_t *child;
+      int c = translate[(int) string[i]];
+      if ((child = node->child[c]) == NULL) {
+         node = insert(node, c);
+         break;
+      }
+      node = child;
+   }
+
+   // Append more nodes.
+   for (i++ ; i < nchar ; i++) {
+      if (node == NULL) {
+         ERROR = 190;
+         return NULL;
+      }
+      int c = translate[(int) string[i]];
+      node = insert(node, c);
+   }
+
+   return node;
+
 }
 
 
-trienode *
+node_t *
+insert
+(
+   node_t *parent,
+   int c
+)
+// SYNOPSIS:                                                              
+//   Helper function to construct tries. Append a child to an existing    
+//   node at a position specified by the character 'c'. No checking is    
+//   performed to make sure that this does not overwrite an existings     
+//   node child (causing a memory leak). Since this function is called    
+//   exclusiverly by 'insert_string' after a call to 'find_path', this    
+//   checking is not required. If 'insert' is called in another context,  
+//   this check has to be performed.                                      
+//                                                                        
+// RETURN:                                                                
+//   The appended child node in case of success, 'NULL' otherwise.        
+{
+   // Initilalize child node.
+   node_t *child = new_trienode();
+   if (child == NULL) {
+      ERROR = 44;
+      return NULL;
+   }
+   // Update parent node.
+   parent->child[c] = child;
+   return child;
+}
+
+
+// ------  CONSTRUCTORS and DESTRUCTORS  ------ //
+
+
+narray_t *
+new_narray
+(void)
+{
+   narray_t *new = malloc(2 * sizeof(int) + 32 * sizeof(node_t *));
+   if (new == NULL) {
+      ERROR = 261;
+      return NULL;
+   }
+   new->idx = 0;
+   new->lim = 32;
+   return new;
+}
+
+
+node_t *
 new_trienode
 (void)
 // SYNOPSIS:                                                              
@@ -150,9 +294,9 @@ new_trienode
 // RETURN:                                                                
 //   A root node with no data and no children.                            
 {
-   trienode *node = malloc(sizeof(trienode));
+   node_t *node = malloc(sizeof(node_t));
    if (node == NULL) {
-      // Memory error.
+      ERROR = 301;
       return NULL;
    }
    for (int i = 0 ; i < 5 ; i++) node->child[i] = NULL;
@@ -164,7 +308,7 @@ new_trienode
 void
 destroy_nodes_downstream_of
 (
-   trienode *node,
+   node_t *node,
    void (*destruct)(void *)
 )
 // SYNOPSIS:                                                              
@@ -183,278 +327,28 @@ destroy_nodes_downstream_of
 }
 
 
-trienode *
-find_path
-(
-   trienode *node,
-   const int **translated
-)
-// SYNOPSIS:                                                              
-//   Finds the longest path corresponding to a prefix of 'string' from    
-//   a node of the trie.                                                  
-//                                                                        
-// ARGUMENTS:                                                             
-//   'node': the node to start the path from (usually root).              
-//   'translated': the address of the translated string to match.         
-//                                                                        
-// RETURN:                                                                
-//   The node where the path ends.                                        
-//                                                                        
-// SIDE-EFFECTS:                                                          
-//   Shifts 'translated' by the length of the path.                       
-{
+// ------  MISCELLANEOUS ------ //
 
-   int c;
-   trienode *child;
 
-   while ((c = **translated) != EOS) {
-      if ((child = node->child[c]) == NULL) break;
-      (*translated)++;
-      node = child;
+void init_DYNP(void) {
+   // The separate integer pointer initialized to 'NULL' allows to
+   // test efficiently whether the table has been initialized by
+   // 'DYNP == NULL'. If true, a call to 'init_search' initializes
+   // the table content and sets the pointer off 'NULL'.
+   for (int i = 0 ; i < M ; i++) {
+   for (int j = 0 ; j < M ; j++) {
+      DYNP_CONTENT[i+j*M] = abs(i-j);
    }
-
-   return node;
+   }
+   DYNP = DYNP_CONTENT;
 }
 
 
-trienode *
-insert
-(
-   trienode *parent,
-   int c
-)
-// SYNOPSIS:                                                              
-//   Helper function to construct tries. Append a child to an existing    
-//   node at a position specified by the character 'c'. No checking is    
-//   performed to make sure that this does not overwrite an existings     
-//   node child (causing a memory leak). Since this function is called    
-//   exclusiverly by 'insert_string' after a call to 'find_path', this    
-//   checking is not required. If 'insert' is called in another context,  
-//   this check has to be performed.                             
-//                                                                        
-// RETURN:                                                                
-//   The appended child node in case of success, 'NULL' otherwise.        
-{
-   trienode *child = new_trienode();
-   if (child == NULL) return NULL;
-   parent->child[c] = child;
-   return child;
-}
-
-
-trienode *
-insert_string
-(
-   trienode *root,
-   const char *string
-)
-// SYNOPSIS:                                                              
-//   Helper function to construct tries. Insert a string from a root node 
-//   by multiple calls to 'insert_char'.                                  
-//                                                                        
-// RETURN:                                                                
-//   The leaf node in case of succes, 'NULL' otherwise.                   
-{
-   // Translate the query string.
-   int i;
-   int translated[M];
-   for (i = 0 ; i < strlen(string) ; i++) {
-      translated[i] = translate[(int) string[i]];
+int check_trie_error_and_reset(void) {
+   if (ERROR) {
+      int the_error_is_at_line = ERROR;
+      ERROR = 0;
+      return the_error_is_at_line;
    }
-   translated[i] = EOS;
-
-   const int *toinsert = translated;
-   trienode *node = find_path(root, &toinsert);
-   for (i = 0 ; toinsert[i] != EOS ; i++) {
-      if (node == NULL) return NULL;
-      node = insert(node, toinsert[i]);
-   }
-   return node;
-}
-
-void
-search_perfect_match
-(
-   trienode *node,
-   int *query,
-   hip_t *hip,
-   int depth,
-   int maxdist
-)
-{
-   int c;
-   trienode *child;
-
-   while ((c = *query++) != EOS) {
-      if ((c < 0) || (child = node->child[c]) == NULL) return;
-      node = child;
-      path[depth++] = untranslate[c];
-   }
-
-   if (node->data != NULL) {
-      path[depth] = '\0';
-      add_to_hip(hip, node, path, maxdist);
-   }
-
-   return;
-}
-
-void
-recursive_search
-(
-   trienode *node,
-   int *query,
-   int L,
-   int maxdist,
-   hip_t *hip,
-   int depth
-)
-{
-
-   if (depth > L + maxdist - 1) return;
-
-   depth++;
-   trienode *child;
-
-   //int left = max(0, depth-maxdist);
-   //int right = depth+maxdist;
-   int minj = max(depth - maxdist, 1);
-   int maxj = min(depth + maxdist, L);
-
-   // LABEL: "iterate over 5 children".
-   for (int i = 0 ; i < 5 ; i++) {
-
-      // Skip if current node has no child with current character.
-      if ((child = node->child[i]) == NULL) continue;
-
-      path[depth-1] = untranslate[i];
-
-      int d;
-      int mmatch;
-      int shift1;
-      int shift2;
-      int mindist = maxdist + 1;
-
-      // Fill in (part of) the row of index 'depth' of 'DYNP'.
-      for (int j = minj ; j <= maxj ; j++) {
-         mmatch = DYNP[(j-1)+(depth-1)*M] + (i != query[j-1]);
-         shift1 = DYNP[j+(depth-1)*M] + 1;
-         shift2 = DYNP[(j-1)+depth*M] + 1;
-         d = DYNP[j+depth*M] = min3(mmatch, shift1, shift2);
-         if (d < mindist) mindist = d;
-      }
-
-      // In case the smallest Levenshtein distance in 'DYNP' is
-      // equal to the maximum allowed distance, no more mismatches
-      // and indels are allowed. We can shortcut by searching perfect
-      // matches.
-      
-      if (mindist == maxdist) {
-         int left = max(depth - maxdist, 0);
-         for (int j = left ; j <= maxj ; j++) {
-            if (DYNP[j+depth*M] == mindist) {
-               search_perfect_match(child, query+j, hip, depth, maxdist);
-            }
-         }
-         continue;
-      }
-
-      // We have a hit if the child node is a tail, and the
-      // Levenshtein distance is not larger than 'maxdist'. But first
-      // we need to make sure that the Levenshtein distance to the
-      // query has been computed, which is the first condition of the
-      // macro used below.
-      // 1. depth+maxdist >= L
-      // 2. child->data != NULL
-      // 3. DYNP[L+depth*M] <= maxdist
- 
-      if (child_is_a_hit) {
-         path[depth] = '\0';
-         add_to_hip(hip, child, path, DYNP[L+depth*M]);
-      }
-
-      recursive_search(child, query, L, maxdist, hip, depth);
-
-   }
-
-}
-
-hip_t *
-search
-(
-   trienode *root,
-   const char *query,
-   int maxdist,
-   hip_t *hip
-)
-// SYNOPSIS:                                                             
-//   Wrapper for 'recurse'.                                              
-{
-   
-   if (DYNP == NULL) init_DYNP();
-
-   int L = strlen(query);
-   if (L > MAXBRCDLEN) {
-      hip->error = 1;
-      return hip;
-   }
-
-   // Altranslate the query string.
-   int i;
-   int altranslated[M];
-   for (i = 0 ; i < L ; i++) {
-      // Non DNA letters or "N" in the query string are translated
-      // to -1, so that in the loop labelled "iterate over 5 children"
-      // the child of index 0 will always have a mismatch with the
-      // query.
-      altranslated[i] = altranslate[(int) query[i]];
-   }
-   altranslated[i] = EOS;
-
-   if (maxdist <= 0) {
-      search_perfect_match(root, altranslated, hip, 0, 0);
-   }
-   else {
-      recursive_search(root, altranslated, L, maxdist, hip, 0);
-   }
-
-   qsort(hip->hits, hip->n_hits, sizeof(hit_t), cmphit);
-   return hip;
-
-}
-
-// Tree representation for debugging.
-void
-printrie(
-   FILE *f,
-   trienode *node
-)
-{
-   for (int i = 0 ; i < 5 ; i++) {
-      if (node->child[i] != NULL) {
-         if (node->child[i]->data != NULL) {
-            fprintf(f, "(%c)", untranslate[i]);
-         }
-         else {
-            fprintf(f, "%c", untranslate[i]);
-         }
-         printrie(f, node->child[i]);
-      }
-   }
-   fprintf(f, "*");
-}
-
-void
-printDYNP(
-   FILE *f,
-   int outto
-)
-{
-   for (int i = 0 ; i < outto ; i++) {
-      fprintf(f, "%02d", DYNP[0+i*M]);
-      for (int j = 0 ; j < outto ; j++) {
-         fprintf(f, ",%02d", DYNP[j+i*M]);
-      }
-      fprintf(f, "\n");
-   }
+   return 0;
 }

@@ -473,8 +473,7 @@ void
 test_run
 (void)
 {
-   //FILE *outputf = fopen("/dev/null", "w");
-   FILE *outputf = fopen("out", "w");
+   FILE *outputf = fopen("/dev/null", "w");
    FILE *inputf = fopen("input_test_file.txt", "r");
    g_assert(inputf != NULL);
 
@@ -482,11 +481,15 @@ test_run
    // things go wrong here).
    starcode(inputf, outputf, 2, 0);
    fclose(inputf);
+   fclose(outputf);
 
+   outputf = fopen("out", "w");
    inputf = fopen("input_test_file_large.txt", "r");
    g_assert(inputf != NULL);
+   g_assert(outputf != NULL);
    //g_test_timer_start();
-   starcode(inputf, outputf, 3, 0);
+   fprintf(stderr, "\n");
+   starcode(inputf, outputf, 3, 1);
    fclose(inputf);
    fclose(outputf);
    // The command line call to 'perf' shows the elapsed time.

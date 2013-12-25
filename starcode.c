@@ -101,9 +101,15 @@ starcode
       // Link matching pairs.
       for (int j = 0 ; j < hits->idx ; j++) {
          useq_t *match = (useq_t *)hits->nodes[j]->data;
-         useq_t *u1 = query;
-         useq_t *u2 = match;
-         if (ucmp(query, match) < 0) {
+         // No relationship if count is equal.
+         if (query->count == match->count) continue;
+         useq_t *u1;
+         useq_t *u2;
+         if (query->count > match->count) {
+            u1 = query;
+            u2 = match;
+         }
+         else {
             u2 = query;
             u1 = match;
          }
@@ -129,7 +135,7 @@ starcode
    free(all_useq);
    destroy_nodes_downstream_of(trie, destroy_useq);
 
-   if (verbose) fprintf(stderr, "\n");
+   if (verbose) fprintf(stderr, "starcode: %d/%d\n", utotal, utotal);
 
    OUTPUT = NULL;
 
@@ -150,15 +156,16 @@ print_children
    if (child->count == 0 || uref->count == 0) return;
 
    fprintf(OUTPUT, "%s:%d\t%s:%d\n",
-         uref->seq, uref->count, child->seq, child->count);
+         child->seq, child->count, uref->seq, uref->count);
    
+   if (child->children != NULL) {
+      for (int i = 0 ; i < child->children->idx ; i++) {
+         print_children(uref, child->children->u[i]);
+      }
+   }
+
    // Mark the child as processed.
    child->count = 0;
-
-   if (child->children == NULL) return;
-   for (int i = 0 ; i < child->children->idx ; i++) {
-      print_children(uref, child->children->u[i]);
-   }
 
 }
 

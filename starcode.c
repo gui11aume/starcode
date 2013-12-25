@@ -1,18 +1,17 @@
 #include "starcode.h"
 
-char *USAGE = "Usage:\n"
-"  starcode [-v] [-d dist] [-i input] [-o output]\n"
-"    -v --verbose: verbose\n"
-"    -d --dist: maximum Levenshtein distance\n"
-"    -i --input: input file (default stdin)\n"
-"    -o --output: output file (default stdout)";
-
 #define str(a) *(char **)(a)
 
 useq_t *new_useq(int, char*);
 void destroy_useq (void*);
-void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
+void addchild(useq_t*, useq_t*);
+void print_children(useq_t*, useq_t*);
 int abcd(const void *a, const void *b) { return strcmp(str(a), str(b)); }
+int ucmp(const useq_t*, const useq_t*);
+int bycount(const void*, const void*);
+
+
+FILE *OUTPUT = NULL;
 
 int
 starcode
@@ -23,6 +22,8 @@ starcode
    const int verbose
 )
 {
+
+   OUTPUT = outputf;
 
    size_t size = 1024;
    char **all_seq = malloc(size * sizeof(char *));
@@ -97,37 +98,125 @@ starcode
          continue;
       }
 
-      // Output matching pairs.
+      // Link matching pairs.
       for (int j = 0 ; j < hits->idx ; j++) {
          useq_t *match = (useq_t *)hits->nodes[j]->data;
          useq_t *u1 = query;
          useq_t *u2 = match;
-         if (u1->count < u2->count) {
+         if (ucmp(query, match) < 0) {
             u2 = query;
             u1 = match;
          }
-         else if (u1->count == u2->count && strcmp(u1->seq, u2->seq) > 0) {
-            u2 = query;
-            u1 = match;
-         }
-         fprintf(outputf, "%s:%d\t%s:%d\n",
-               u1->seq, u1->count, u2->seq, u2->count);
+         addchild(u1, u2);
       }
 
-      // Insert the new barcode in the trie.
+      // Insert the new sequence in the trie.
       node_t *node = insert_string(trie, query->seq);
       if (node == NULL) exit(EXIT_FAILURE);
       node->data = all_useq[i];
-      if (verbose) fprintf(stderr, "starcode: %d/%d\r", i+1, utotal);
+      if (verbose && (i % 100 == 99)) {
+         fprintf(stderr, "starcode: %d/%d\r", i+1, utotal);
+      }
    }
+
+   free(hits);
+
+   qsort(all_useq, utotal, sizeof(useq_t *), bycount);
+   for (int i = 0 ; i < utotal ; i++) {
+      print_children(all_useq[i], all_useq[i]);
+   }         
 
    free(all_useq);
    destroy_nodes_downstream_of(trie, destroy_useq);
 
    if (verbose) fprintf(stderr, "\n");
 
+   OUTPUT = NULL;
+
    return 0;
 
+}
+
+
+void
+print_children
+(
+   useq_t *uref,
+   useq_t *child
+)
+{
+
+   // Check if the sequence has been processed.
+   if (child->count == 0 || uref->count == 0) return;
+
+   fprintf(OUTPUT, "%s:%d\t%s:%d\n",
+         uref->seq, uref->count, child->seq, child->count);
+   
+   // Mark the child as processed.
+   child->count = 0;
+
+   if (child->children == NULL) return;
+   for (int i = 0 ; i < child->children->idx ; i++) {
+      print_children(uref, child->children->u[i]);
+   }
+
+}
+
+
+void
+addchild
+(
+   useq_t *parent,
+   useq_t *child
+)
+{
+   if (parent->children == NULL) {
+      ustack_t *children = malloc(2*sizeof(int) + 16*sizeof(useq_t *));
+      if (children == NULL) exit(EXIT_FAILURE);
+      parent->children = children;
+      children->lim = 16;
+      children->idx = 0;
+   }
+
+   ustack_t *children = parent->children;
+
+   if (children->idx >= children->lim) {
+      int newlim = 2*children->lim;
+      size_t newsize = 2*sizeof(int) + newlim*sizeof(useq_t *);
+      ustack_t *ptr = realloc(children, newsize);
+      if (ptr == NULL) exit(EXIT_FAILURE);
+      parent->children = children = ptr;
+      children->lim = newlim;
+   }
+
+   children->u[children->idx++] = child;
+
+}
+
+
+int
+bycount
+(
+   const void *a,
+   const void *b
+)
+{
+   useq_t *u1 = *(useq_t **)a;
+   useq_t *u2 = *(useq_t **)b;
+   return ucmp(u2, u1);
+}
+
+
+int
+ucmp
+(
+   const useq_t *u1,
+   const useq_t *u2
+)
+{
+   if (u1->count > u2->count) return 1;
+   if (u1->count == u2->count) return strcmp(u2->seq, u1->seq);
+   return -1;
 }
 
 
@@ -142,6 +231,7 @@ new_useq
    if (new == NULL) exit(EXIT_FAILURE);
    new->count = count;
    new->seq = seq;
+   new->children = NULL;
    return new;
 }
 
@@ -153,181 +243,7 @@ destroy_useq
 )
 {
    useq_t *useq = (useq_t *)u;
+   if (useq->children != NULL) free(useq->children);
    free(useq->seq);
    free(useq);
 }
-
-
-// By default starcode has a `main()` except if compiled with
-// flag -D_no_starcode_main (for testing).
-#ifndef _no_starcode_main
-int
-main(
-   int argc,
-   char **argv
-)
-{
-
-   // Unset flags (value -1).
-   int verbose_flag = -1;
-   int format_flag = -1;
-   int dist_flag = -1;
-   // Unset options (value 'UNSET').
-   char _u; char *UNSET = &_u;
-   char *format_option = UNSET;
-   char *input = UNSET;
-   char *output = UNSET;
-
-   int c;
-   while (1) {
-      int option_index = 0;
-      static struct option long_options[] = {
-         {"verbose", no_argument,       0, 'v'},
-         {"help",    no_argument,       0, 'h'},
-         {"format",  required_argument, 0, 'f'},
-         {"dist",    required_argument, 0, 'd'},
-         {"input",   required_argument, 0, 'i'},
-         {"output",  required_argument, 0, 'o'},
-         {0, 0, 0, 0}
-      };
-
-      c = getopt_long(argc, argv, "d:i:f:ho:v",
-            long_options, &option_index);
- 
-      /* Detect the end of the options. */
-      if (c == -1) break;
-  
-      switch (c) {
-         case 'd':
-            if (dist_flag < 0) {
-               dist_flag = atoi(optarg);
-            }
-            else {
-               fprintf(stderr, "distance option set more than once\n");
-               say_usage();
-               return 1;
-            }
-            break;
-
-         case 0:
-         case 'i':
-            if (input == UNSET) {
-               input = optarg;
-            }
-            else {
-               fprintf(stderr, "input option set more than once\n");
-               say_usage();
-               return 1;
-            }
-            break;
-
-         case 'f':
-            if (format_option == UNSET) {
-               if (strcmp(optarg, "counts") == 0) {
-                  format_flag = 2;
-               }
-               else if (strcmp(optarg, "graph") == 0) {
-                  format_flag = 0;
-               }
-               else if (strcmp(optarg, "both") == 0) {
-                  format_flag = 1;
-               }
-               else {
-                  fprintf(stderr, "invalid format option\n");
-                  say_usage();
-                  return 1;
-               }
-               format_option = optarg;
-            }
-            else {
-               fprintf(stderr, "format option set more than once\n");
-               say_usage();
-               return 1;
-            }
-            break;
-  
-         case 'o':
-            if (output == UNSET) {
-               input = optarg;
-            }
-            else {
-               fprintf(stderr, "output option set more than once\n");
-               say_usage();
-               return 1;
-            }
-            break;
-
-         case 'v':
-            if (verbose_flag < 0) {
-               verbose_flag = 1;
-            }
-            else {
-               fprintf(stderr, "verbose option set more than once\n");
-               say_usage();
-               return 1;
-            }
-            break;
-
-         case 'h':
-            say_usage();
-            return 0;
- 
-         default:
-            say_usage();
-            return 1;
-
-      }
-
-   }
-
-   if (optind < argc) {
-      if ((optind == argc - 1) && (input == UNSET)) {
-         input = argv[optind];
-      }
-      else {
-         fprintf(stderr, "too many options\n");
-         say_usage();
-         return 1;
-      }
-   }
-
-   FILE *inputf;
-   FILE *outputf;
-
-   if (input != UNSET) {
-      inputf = fopen(input, "r");
-      if (inputf == NULL) {
-         fprintf(stderr, "cannot open file %s\n", input);
-         say_usage();
-         return 1;
-      }
-   }
-   else {
-      inputf = stdin;
-   }
-
-   if (output != UNSET) {
-      outputf = fopen(output, "w");
-      if (outputf == NULL) {
-         fprintf(stderr, "cannot write to file %s\n", output);
-         say_usage();
-         return 1;
-      }
-   }
-   else {
-      outputf = stdout;
-   }
-
-   if (verbose_flag < 0) verbose_flag = 0;
-   if (format_flag < 0) format_flag = 2;
-   if (dist_flag < 0) dist_flag = 3;
-
-   int exitcode = starcode(inputf, outputf, dist_flag, verbose_flag); 
-
-   if (inputf != stdin) fclose(inputf);
-   if (outputf != stdout) fclose(outputf);
-
-   return exitcode;
-
-}
-#endif

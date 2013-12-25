@@ -13,12 +13,23 @@
    ssize_t getline(char **lineptr, size_t *n, FILE *stream);
 #endif
 
-struct count_t {
-   int    count;
-   char * seq;
+struct u_t;
+struct c_t;
+
+typedef struct u_t useq_t;
+typedef struct c_t ustack_t;
+
+struct u_t {
+          int    count;
+          char * seq;
+   struct c_t  * children;
 };
 
-typedef struct count_t useq_t;
+struct c_t {
+          int    lim;
+          int    idx;
+   struct u_t  * u[];
+};
 
 int starcode(FILE*, FILE*, const int, const int);
 #endif

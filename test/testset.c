@@ -473,7 +473,8 @@ void
 test_run
 (void)
 {
-   FILE *outputf = fopen("/dev/null", "w");
+   //FILE *outputf = fopen("/dev/null", "w");
+   FILE *outputf = fopen("out", "w");
    FILE *inputf = fopen("input_test_file.txt", "r");
    g_assert(inputf != NULL);
 

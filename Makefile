@@ -1,14 +1,14 @@
-P=starcode
 OBJECTS= trie.o starcode.o
 CFLAGS= -std=c99 -Wall -g -Wall -O3
 LDLIBS= -lm
 CC= gcc
-$(P): $(OBJECTS) main.c
 
-#all: $(P) tquery
+all: starcode tquery
 
-#tquery: tquery.c starcode.h trie.o
-#	$(CC) $(CFLAGS) $(LDLIBS) tquery.c trie.o -o tquery
+tquery: $(OBJECTS) main-tquery.c
+	$(CC) $(CFLAGS) $(OBJECTS) main-tquery.c $(LDLIBS) -o tquery
+
+starcode: $(OBJECTS) main-starcode.c
 
 clean:
-	rm -f $(P) $(OBJECTS) tquery
+	rm -f $(OBJECTS) starcode tquery

@@ -42,6 +42,8 @@ struct tnode_t
 {
           void     * data;      // Data for tail nodes.
    struct tnode_t  * child[5];  // Array of 5 children pointers.
+          int        path[3];
+          int        cache[9];
 };
 
 struct tstack_t

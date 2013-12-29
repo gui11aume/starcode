@@ -96,7 +96,7 @@ main(
   
          case 'o':
             if (output == UNSET) {
-               input = optarg;
+               output = optarg;
             }
             else {
                fprintf(stderr, "output option set more than once\n");

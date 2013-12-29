@@ -2,8 +2,6 @@
 
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #define max(a,b) (((a) > (b)) ? (a) : (b))
-#define min3(a,b,c) \
-   (((a) < (b)) ? ((a) < (c) ? (a) : (c)) : ((b) < (c) ? (b) : (c)))
 
 // Macro used for readbility of the code.
 #define child_is_a_hit (depth+tau >= limit) && (child->data != NULL) \
@@ -102,9 +100,8 @@ recursive_search
       // Fill in (part of) the row of index 'depth' of 'DYNP'.
       for (int a = mina ; a < maxa ; a++) {
          int mmatch = DYNP[(depth-1)+(a-1)*M] + (i != query[a-1]);
-         int shift1 = DYNP[(depth-1)+(a  )*M] + 1;
-         int shift2 = DYNP[(depth  )+(a-1)*M] + 1;
-         DYNP[(depth)+(a)*M] = min3(mmatch, shift1, shift2);
+         int shift = min(DYNP[(depth-1)+a*M], DYNP[depth+(a-1)*M]) + 1;
+         DYNP[(depth)+(a)*M] = min(mmatch, shift);
          if (DYNP[(depth)+(a)*M] < mindist) mindist = DYNP[(depth)+(a)*M];
       }
 
@@ -298,8 +295,11 @@ new_trienode
       ERROR = 299;
       return NULL;
    }
-   for (int i = 0 ; i < 5 ; i++) node->child[i] = NULL;
-   node->data = NULL;
+   memset(node, 0, sizeof(void *) + 5 * sizeof(node_t *));
+   memset(node->path, -1, 3*sizeof(int));
+   for (int i = -4 ; i < 5 ; i++) {
+      node->cache[i+4] = abs(i);
+   }
    return node;
 }
 

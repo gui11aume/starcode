@@ -3,7 +3,10 @@
 #define str(a) *(char **)(a)
 
 useq_t *new_useq(int, char*);
+useq_t **get_useq(char**, int, int*);
+char **read_file(FILE*, int*);
 void destroy_useq (void*);
+void print_and_destroy(void*);
 void addchild(useq_t*, useq_t*);
 void print_children(useq_t*, useq_t*);
 int abcd(const void *a, const void *b) { return strcmp(str(a), str(b)); }
@@ -12,6 +15,91 @@ int bycount(const void*, const void*);
 
 
 FILE *OUTPUT = NULL;
+
+int
+tquery
+(
+   FILE *indexf,
+   FILE *queryf,
+   FILE *outputf,
+   const int maxmismatch,
+   const int verbose
+)
+{
+
+   OUTPUT = outputf;
+
+   if (verbose) fprintf(stderr, "reading index file...");
+   int total;
+   char **all_seq = read_file(indexf, &total);
+   if (verbose) fprintf(stderr, " done\n");
+
+   if (verbose) fprintf(stderr, "building index...");
+   int utotal;
+   useq_t **all_useq = get_useq(all_seq, total, &utotal);
+   free(all_seq);
+
+   node_t *trie = new_trienode();
+   if (trie == NULL) exit(EXIT_FAILURE);
+
+   for (int i = 0 ; i < utotal ; i++) {
+      useq_t *ref = all_useq[i];
+      // Use the count for the query.
+      ref->count = 0;
+      node_t *node = insert_string(trie, ref->seq);
+      if (node == NULL) exit(EXIT_FAILURE);
+      node->data = all_useq[i];
+   }
+
+   free(all_useq);
+   if (verbose) fprintf(stderr, " done\n");
+
+   if (verbose) fprintf(stderr, "reading query file...");
+   all_seq = read_file(queryf, &total);
+   if (verbose) fprintf(stderr, " done\n");
+
+   if (verbose) fprintf(stderr, "sorting queries... ");
+   all_useq = get_useq(all_seq, total, &utotal);
+   free(all_seq);
+   if (verbose) fprintf(stderr, "done\n");
+
+   narray_t *hits = new_narray();
+   if (hits == NULL) exit(EXIT_FAILURE);
+
+   for (int i = 0 ; i < utotal ; i++) {
+      useq_t *query = all_useq[i];
+      // Clear hits.
+      hits->idx = 0;
+      hits = search(trie, query->seq, maxmismatch, hits);
+      if (check_trie_error_and_reset()) {
+         fprintf(stderr, "search error: %s\n", query->seq);
+         continue;
+      }
+      if (hits->idx == 1) {
+         useq_t *match = (useq_t *)hits->nodes[0]->data;
+         // Transfer counts to match.
+         match->count += query->count;
+      }
+      if (verbose && ((i & 255) == 128)) {
+         fprintf(stderr, "tquery: %d/%d\r", i+1, utotal);
+      }
+   }
+   if (verbose) fprintf(stderr, "tquery: %d/%d\n", utotal, utotal);
+
+
+   destroy_nodes_downstream_of(trie, print_and_destroy);
+   for (int i = 0 ; i < utotal ; i++) {
+      destroy_useq(all_useq[i]);
+   }
+   free(all_useq);
+   free(hits);
+
+   OUTPUT = NULL;
+
+   return 0;
+
+}
+
 
 int
 starcode
@@ -25,62 +113,14 @@ starcode
 
    OUTPUT = outputf;
 
-   size_t size = 1024;
-   char **all_seq = malloc(size * sizeof(char *));
-   if (all_seq == NULL) return 1;
-
-   int total = 0;
-   ssize_t nread;
-   size_t nchar = MAXBRCDLEN;
-   char *seq = malloc(MAXBRCDLEN * sizeof(char));
-   // Read sequences from input file and store in an array. Assume
-   // that it contains one sequence per line and nothing else. 
    if (verbose) fprintf(stderr, "reading input file...");
-   while ((nread = getline(&seq, &nchar, inputf)) != -1) {
-      // Strip end of line character and copy.
-      if (seq[nread-1] == '\n') seq[nread-1] = '\0';
-      char *new = malloc(nread);
-      if (new == NULL) exit(EXIT_FAILURE);
-      strncpy(new, seq, nread);
-      // Grow 'all_seq' if needed.
-      if (total >= size) {
-         size *= 2;
-         char **ptr = realloc(all_seq, size * sizeof(char *));
-         if (ptr == NULL) exit(EXIT_FAILURE);
-         all_seq = ptr;
-      }
-      all_seq[total++] = new;
-   }
-      
-   free(seq);
+   int total;
+   char **all_seq = read_file(inputf, &total);
    if (verbose) fprintf(stderr, " done\n");
 
    if (verbose) fprintf(stderr, "sorting sequences...");
-   // Sort sequences, count and compact them. Sorting
-   // alphabetically is important for speed.
-   qsort(all_seq, total, sizeof(char *), abcd);
-
-   size = 1024;
-   useq_t **all_useq = malloc(size * sizeof(useq_t *));
-   int utotal = 0;
-   int ucount = 0;
-   for (int i = 0 ; i < total-1 ; i++) {
-      ucount++;
-      if (strcmp(all_seq[i], all_seq[i+1]) == 0) free(all_seq[i]);
-      else {
-         all_useq[utotal++] = new_useq(ucount, all_seq[i]);
-         ucount = 0;
-         // Grow 'all_useq' if needed.
-         if (utotal >= size) {
-            size *= 2;
-            useq_t **ptr = realloc(all_useq, size * sizeof(useq_t *));
-            if (ptr == NULL) exit(EXIT_FAILURE);
-            all_useq = ptr;
-         }
-      }
-   }
-   all_useq[utotal++] = new_useq(ucount+1, all_seq[total-1]);
-
+   int utotal;
+   useq_t **all_useq = get_useq(all_seq, total, &utotal);
    free(all_seq);
    if (verbose) fprintf(stderr, " done\n");
 
@@ -120,7 +160,7 @@ starcode
       node_t *node = insert_string(trie, query->seq);
       if (node == NULL) exit(EXIT_FAILURE);
       node->data = all_useq[i];
-      if (verbose && (i % 100 == 99)) {
+      if (verbose && ((i & 255) == 128)) {
          fprintf(stderr, "starcode: %d/%d\r", i+1, utotal);
       }
    }
@@ -130,7 +170,7 @@ starcode
    qsort(all_useq, utotal, sizeof(useq_t *), bycount);
    for (int i = 0 ; i < utotal ; i++) {
       print_children(all_useq[i], all_useq[i]);
-   }         
+   }
 
    free(all_useq);
    destroy_nodes_downstream_of(trie, destroy_useq);
@@ -140,6 +180,83 @@ starcode
    OUTPUT = NULL;
 
    return 0;
+
+}
+
+
+char **
+read_file
+(
+   FILE *inputf,
+   int *total
+)
+{
+   size_t size = 1024;
+   char **all_seq = malloc(size * sizeof(char *));
+   if (all_seq == NULL) exit(EXIT_FAILURE);
+
+   *total = 0;
+   ssize_t nread;
+   size_t nchar = MAXBRCDLEN;
+   char *seq = malloc(MAXBRCDLEN * sizeof(char));
+   // Read sequences from input file and store in an array. Assume
+   // that it contains one sequence per line and nothing else. 
+   while ((nread = getline(&seq, &nchar, inputf)) != -1) {
+      // Strip end of line character and copy.
+      if (seq[nread-1] == '\n') seq[nread-1] = '\0';
+      char *new = malloc(nread);
+      if (new == NULL) exit(EXIT_FAILURE);
+      strncpy(new, seq, nread);
+      // Grow 'all_seq' if needed.
+      if (*total >= size) {
+         size *= 2;
+         char **ptr = realloc(all_seq, size * sizeof(char *));
+         if (ptr == NULL) exit(EXIT_FAILURE);
+         all_seq = ptr;
+      }
+      all_seq[(*total)++] = new;
+   }
+
+   free(seq);
+   return all_seq;
+
+}
+
+
+useq_t **
+get_useq
+(
+   char **all_seq,
+   int total,
+   int *utotal
+)
+{
+   // Sort sequences, count and compact them. Sorting
+   // alphabetically is important for speed.
+   qsort(all_seq, total, sizeof(char *), abcd);
+
+   int size = 1024;
+   useq_t **all_useq = malloc(size * sizeof(useq_t *));
+   *utotal = 0;
+   int ucount = 0;
+   for (int i = 0 ; i < total-1 ; i++) {
+      ucount++;
+      if (strcmp(all_seq[i], all_seq[i+1]) == 0) free(all_seq[i]);
+      else {
+         all_useq[(*utotal)++] = new_useq(ucount, all_seq[i]);
+         ucount = 0;
+         // Grow 'all_useq' if needed.
+         if (*utotal >= size) {
+            size *= 2;
+            useq_t **ptr = realloc(all_useq, size * sizeof(useq_t *));
+            if (ptr == NULL) exit(EXIT_FAILURE);
+            all_useq = ptr;
+         }
+      }
+   }
+   all_useq[(*utotal)++] = new_useq(ucount+1, all_seq[total-1]);
+
+   return all_useq;
 
 }
 
@@ -240,6 +357,18 @@ new_useq
    new->seq = seq;
    new->children = NULL;
    return new;
+}
+
+void
+print_and_destroy
+(
+   void *u
+)
+{
+   useq_t *useq = (useq_t *)u;
+   fprintf(OUTPUT, "%s\t%d\n", useq->seq, useq->count);
+   free(useq->seq);
+   free(useq);
 }
 
 

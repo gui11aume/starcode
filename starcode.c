@@ -2,6 +2,8 @@
 
 #define str(a) *(char **)(a)
 
+void debug(void){return;}
+
 useq_t *new_useq(int, char*);
 useq_t **get_useq(char**, int, int*);
 char **read_file(FILE*, int*);
@@ -9,8 +11,11 @@ void destroy_useq (void*);
 void print_and_destroy(void*);
 void addchild(useq_t*, useq_t*);
 void print_children(useq_t*, useq_t*);
+void unpad_useq (useq_t**, int);
+int pad_useq(useq_t**, int);
 int abcd(const void *a, const void *b) { return strcmp(str(a), str(b)); }
 int ucmp(const useq_t*, const useq_t*);
+int ualpha(const void*, const void*);
 int bycount(const void*, const void*);
 
 
@@ -22,7 +27,7 @@ tquery
    FILE *indexf,
    FILE *queryf,
    FILE *outputf,
-   const int maxmismatch,
+   const int tau,
    const int verbose
 )
 {
@@ -39,7 +44,10 @@ tquery
    useq_t **all_useq = get_useq(all_seq, total, &utotal);
    free(all_seq);
 
-   node_t *trie = new_trienode();
+   int bottom = pad_useq(all_useq, utotal);
+
+   node_t *trie = new_trie(tau, bottom);
+
    if (trie == NULL) exit(EXIT_FAILURE);
 
    for (int i = 0 ; i < utotal ; i++) {
@@ -48,7 +56,7 @@ tquery
       ref->count = 0;
       node_t *node = insert_string(trie, ref->seq);
       if (node == NULL) exit(EXIT_FAILURE);
-      node->data = all_useq[i];
+      if (node != trie) node->data = all_useq[i];
    }
 
    free(all_useq);
@@ -66,16 +74,22 @@ tquery
    narray_t *hits = new_narray();
    if (hits == NULL) exit(EXIT_FAILURE);
 
+   int start = 0;
    for (int i = 0 ; i < utotal ; i++) {
       useq_t *query = all_useq[i];
+      int trail = 0;
+      if (i < utotal-1) {
+         useq_t *next_query = all_useq[i+1];
+         for ( ; query->seq[trail] == next_query->seq[trail] ; trail++);
+      }
       // Clear hits.
-      hits->idx = 0;
-      hits = search(trie, query->seq, maxmismatch, hits);
+      hits->pos = 0;
+      hits = search(trie, query->seq, tau, hits, start, trail);
       if (check_trie_error_and_reset()) {
          fprintf(stderr, "search error: %s\n", query->seq);
          continue;
       }
-      if (hits->idx == 1) {
+      if (hits->pos == 1) {
          useq_t *match = (useq_t *)hits->nodes[0]->data;
          // Transfer counts to match.
          match->count += query->count;
@@ -83,11 +97,12 @@ tquery
       if (verbose && ((i & 255) == 128)) {
          fprintf(stderr, "tquery: %d/%d\r", i+1, utotal);
       }
+      start = trail;
    }
    if (verbose) fprintf(stderr, "tquery: %d/%d\n", utotal, utotal);
 
 
-   destroy_nodes_downstream_of(trie, print_and_destroy);
+   destroy_trie(trie, print_and_destroy);
    for (int i = 0 ; i < utotal ; i++) {
       destroy_useq(all_useq[i]);
    }
@@ -106,7 +121,7 @@ starcode
 (
    FILE *inputf,
    FILE *outputf,
-   const int maxmismatch,
+   const int tau,
    const int verbose
 )
 {
@@ -118,28 +133,54 @@ starcode
    char **all_seq = read_file(inputf, &total);
    if (verbose) fprintf(stderr, " done\n");
 
-   if (verbose) fprintf(stderr, "sorting sequences...");
+   if (verbose) fprintf(stderr, "preprocessing...");
    int utotal;
    useq_t **all_useq = get_useq(all_seq, total, &utotal);
    free(all_seq);
+
+   int bottom = pad_useq(all_useq, utotal);
    if (verbose) fprintf(stderr, " done\n");
 
-   node_t *trie = new_trienode();
+   node_t *trie = new_trie(tau, bottom);
    narray_t *hits = new_narray();
    if (trie == NULL || hits == NULL) exit(EXIT_FAILURE);
 
+   int start = 0;
    for (int i = 0 ; i < utotal ; i++) {
+      char prefix[MAXBRCDLEN];
       useq_t *query = all_useq[i];
+      int trail = 0;
+
+      if (i < utotal-1) {
+         useq_t *next_query = all_useq[i+1];
+         while (query->seq[trail] == next_query->seq[trail]) {
+            prefix[trail] = query->seq[trail];
+            trail++;
+         }
+         prefix[trail] = '\0';
+      }
+
+      // Insert the prefix in the trie.
+      node_t *node = insert_string(trie, prefix);
+      if (node == NULL) exit(EXIT_FAILURE);
+
       // Clear hits.
-      hits->idx = 0;
-      hits = search(trie, query->seq, maxmismatch, hits);
+      hits->pos = 0;
+      hits = search(trie, query->seq, tau, hits, start, trail);
       if (check_trie_error_and_reset()) {
          fprintf(stderr, "search error: %s\n", query->seq);
          continue;
       }
 
+      // Insert the rest of the new sequence in the trie.
+      node = insert_string(trie, query->seq);
+      if (node == NULL) exit(EXIT_FAILURE);
+      if (node != trie) node->data = all_useq[i];
+
       // Link matching pairs.
-      for (int j = 0 ; j < hits->idx ; j++) {
+      for (int j = 0 ; j < hits->pos ; j++) {
+         // Do not mess up with root node.
+         if (hits->nodes[j] == trie) continue;
          useq_t *match = (useq_t *)hits->nodes[j]->data;
          // No relationship if count is equal.
          if (query->count == match->count) continue;
@@ -156,14 +197,15 @@ starcode
          addchild(u1, u2);
       }
 
-      // Insert the new sequence in the trie.
-      node_t *node = insert_string(trie, query->seq);
-      if (node == NULL) exit(EXIT_FAILURE);
-      node->data = all_useq[i];
       if (verbose && ((i & 255) == 128)) {
-         fprintf(stderr, "starcode: %d/%d\r", i+1, utotal);
+         fprintf(stderr, "starcode: %d/%d\r", i, utotal);
       }
+
+      start = trail;
+
    }
+
+   unpad_useq(all_useq, utotal);
 
    free(hits);
 
@@ -173,7 +215,7 @@ starcode
    }
 
    free(all_useq);
-   destroy_nodes_downstream_of(trie, destroy_useq);
+   destroy_trie(trie, destroy_useq);
 
    if (verbose) fprintf(stderr, "starcode: %d/%d\n", utotal, utotal);
 
@@ -226,9 +268,9 @@ read_file
 useq_t **
 get_useq
 (
-   char **all_seq,
-   int total,
-   int *utotal
+   char ** all_seq,
+   int     total,
+   int  *  utotal
 )
 {
    // Sort sequences, count and compact them. Sorting
@@ -261,6 +303,61 @@ get_useq
 }
 
 
+int
+pad_useq
+(
+   useq_t ** all_useq,
+   int       utotal
+)
+{
+   // Compute maximum length.
+   int maxlen = 0;
+   for (int i = 0 ; i < utotal ; i++) {
+      int len = strlen(all_useq[i]->seq);
+      if (len > maxlen) maxlen = len;
+   }
+
+   char *spaces = malloc((maxlen + 1) * sizeof(char));
+   for (int i = 0 ; i < maxlen ; i++) spaces[i] = ' ';
+   spaces[maxlen] = '\0';
+
+   // Pad all sequences with spaces.
+   for (int i = 0 ; i < utotal ; i++) {
+      int len = strlen(all_useq[i]->seq);
+      if (len == maxlen) continue;
+      char *padded = malloc((maxlen + 1) * sizeof(char));
+      memcpy(padded, spaces, maxlen + 1);
+      memcpy(padded+maxlen-len, all_useq[i]->seq, len);
+      free(all_useq[i]->seq);
+      all_useq[i]->seq = padded;
+   }
+
+   free(spaces);
+   qsort(all_useq, utotal, sizeof(useq_t *), ualpha);
+
+   return maxlen;
+
+}
+
+
+void
+unpad_useq
+(
+   useq_t ** all_useq,
+   int       utotal
+)
+{
+   int len = strlen(all_useq[0]->seq);
+   for (int i = 0 ; i < utotal ; i++) {
+      int pad = 0; 
+      while (all_useq[i]->seq[pad] == ' ') pad++;
+      char *unpadded = malloc((len - pad + 1) * sizeof(char));
+      memcpy(unpadded, all_useq[i]->seq + pad, len - pad + 1);
+      free(all_useq[i]->seq);
+      all_useq[i]->seq = unpadded;
+   }
+}
+
 void
 print_children
 (
@@ -276,7 +373,7 @@ print_children
          child->seq, child->count, uref->seq, uref->count);
    
    if (child->children != NULL) {
-      for (int i = 0 ; i < child->children->idx ; i++) {
+      for (int i = 0 ; i < child->children->pos ; i++) {
          print_children(uref, child->children->u[i]);
       }
    }
@@ -299,12 +396,12 @@ addchild
       if (children == NULL) exit(EXIT_FAILURE);
       parent->children = children;
       children->lim = 16;
-      children->idx = 0;
+      children->pos = 0;
    }
 
    ustack_t *children = parent->children;
 
-   if (children->idx >= children->lim) {
+   if (children->pos >= children->lim) {
       int newlim = 2*children->lim;
       size_t newsize = 2*sizeof(int) + newlim*sizeof(useq_t *);
       ustack_t *ptr = realloc(children, newsize);
@@ -313,7 +410,7 @@ addchild
       children->lim = newlim;
    }
 
-   children->u[children->idx++] = child;
+   children->u[children->pos++] = child;
 
 }
 
@@ -343,6 +440,18 @@ ucmp
    return -1;
 }
 
+
+int
+ualpha
+(
+   const void *a,
+   const void *b
+) 
+{
+   useq_t *u1 = *(useq_t **)a;
+   useq_t *u2 = *(useq_t **)b;
+   return strcmp(u2->seq, u1->seq);
+}
 
 useq_t *
 new_useq

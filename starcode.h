@@ -27,7 +27,7 @@ struct u_t {
 
 struct c_t {
           int    lim;
-          int    idx;
+          int    pos;
    struct u_t  * u[];
 };
 

@@ -1,7 +1,11 @@
-#include "trie.h"
+#include "mtrie.h"
 
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #define max(a,b) (((a) > (b)) ? (a) : (b))
+
+// Macro used for readbility of the code.
+#define child_is_a_hit (depth+tau >= query[0]) && (child->data != NULL) \
+            && (ccache[depth+query[0]*M] <= tau)
 
 // Module error reporting.
 int ERROR;
@@ -9,82 +13,70 @@ int ERROR;
 // Array of nodes for the hits.
 narray_t *HITS = NULL;
 
-char COMMON[9] = {0,1,2,3,4,5,6,7,8};
 
 // Local functions.
-node_t *insert(node_t*, int, unsigned char);
-void recursive_search(node_t*, const int*, int, int, const char,
-      narray_t**, int, char);
-void dash(node_t*, const int*);
-void push(node_t*, narray_t**);
-void init_miles(node_t*);
-void destroy_nodes_downstream_of (node_t*, void(*)(void*));
-int get_maxtau(node_t *root) { return ((info_t *)root->data)->maxtau; }
-int get_bottom(node_t *root) { return ((info_t *)root->data)->bottom; }
+node_t *minsert(node_t*, int, char);
+void recursive_msearch(node_t*, int*, int, int, const char, narray_t**, int);
+void dash(node_t*, int*);
+void push(node_t*, narray_t*);
+void init_cache(node_t*);
+int get_maxtau(node_t *root) { return ((minfo_t *)root->data)->maxtau; }
 int check_trie_error_and_reset(void);
-
 
 
 // ------  SEARCH  ------ //
 
 
 narray_t *
-search
+msearch
 (
-         node_t *trie,
+   node_t *mtrie,
    const char *query,
-   const int tau,
-         narray_t *hits,
-   const int start,
-   const int trail
+   int tau,
+   narray_t *hits,
+   int startat,
+   int trailto
 )
 {
    
-   char maxtau = get_maxtau(trie);
-   char bottom = get_bottom(trie);
+   char maxtau = get_maxtau(mtrie);
    if (tau > maxtau) {
-      ERROR = 44;
+      ERROR = 48;
       // DETAIL: the nodes' cache has been allocated just enough
       // space to hold Levenshtein distances up to a maximum tau.
       // If this is exceeded, the search will try to read from and
       // write to forbidden memory space.
-      fprintf(stderr, "requested tau greater than 'maxtau'\n");
       return hits;
    }
 
    int length = strlen(query);
    if (length > MAXBRCDLEN) {
-      ERROR = 55;
-      fprintf(stderr, "query longer than allowed max\n");
+      ERROR = 53;
       return hits;
    }
 
-   // Make sure the cache is allocated.
-   info_t *info = (info_t *) trie->data;
-   if (*info->miles == NULL) init_miles(trie);
+   // Make sure the cache is warm and waiting.
+   minfo_t *info = (minfo_t *) mtrie->data;
+   if (*info->cache == NULL) init_cache(mtrie);
 
-   // Reset the miles that will be overwritten.
-   for (int i = start+1 ; i <= trail ; i++) {
-      info->miles[i]->pos = 0;
-   }
+   // Reset the cache levels that will be overwritten.
+   for (int i = startat+1 ; i < trailto ; i++) info->cache[i]->idx = 0;
 
    // Translate the query string. The first 'char' is kept to store
    // the length of the query, which shifts the array by 1 position.
    int translated[M];
    translated[0] = length;
-   translated[length+1] = EOS;
-   for (int i = max(0, start-maxtau) ; i < length ; i++) {
-      translated[i+1] = altranslate[(int) query[i]];
+   for (int i = startat ; i < length ; i++) {
+      translated[i+1] = translate[(int) query[i]];
    }
-
-   HITS = hits;
+   // XXX Is this needed? XXX //
+   //translated[length] = EOS;
 
    // Run recursive search from cached nodes.
-   narray_t *miles = info->miles[start];
-   for (int i = 0 ; i < miles->pos ; i++) {
-      node_t *start_node = miles->nodes[i];
-      recursive_search(start_node, translated, tau, start + 1,
-            maxtau, info->miles, trail, bottom);
+   narray_t *cache = info->cache[startat];
+   for (int i = 0 ; i < cache->idx ; i++) {
+      recursive_msearch(cache->nodes[i], translated, tau, startat + 1,
+            maxtau, info->cache, trailto);
    }
 
    return HITS;
@@ -93,82 +85,88 @@ search
 
 
 void
-recursive_search
+recursive_msearch
 (
-         node_t   *  restrict node,
-   const int      *  restrict query,
-   const int         tau,
-   const int         depth,
-   const char        maxtau,
-         narray_t ** restrict miles,
-   const int         trail,
-   const char        bottom
+   node_t *node,
+   int *query,
+   int tau,
+   int depth,
+   const char maxtau,
+   narray_t **mcache,
+   int trailto
 )
 {
 
+   if (depth > query[0] + tau) return;
+
    node_t *child;
-   char *pcache = node->cache + maxtau + 1;
+   char *pcache = node->cache + maxtau + 2;
 
-   unsigned char mindist = M;
-   int maxa = min((depth-1), tau);
+   // TODO: check boundary condition to not overshoot.
+   int maxa = min(depth - 1, tau);
+   for (int i = 0 ; i < 4 ; i++) {
 
-   unsigned char mmatch;
-   unsigned char shift;
-
-   // One branch of the angle is identical among all children.
-   unsigned char cmindist = M;
-   uint32_t path = node->path;
-   for (int a = maxa ; a > 0 ; a--) {
-      // Right side (need the path).
-      mmatch = pcache[a] + ((path >> 4*(a-1) & 15) != query[depth]);
-      shift = min(pcache[a-1], COMMON[a+1]) + 1;
-      COMMON[a] = min(mmatch, shift);
-      cmindist = min(COMMON[a], mindist);
-   }
-
-   for (int i = 0 ; i < 6 ; i++) {
       // Skip if current node has no child at this position.
       if ((child = node->child[i]) == NULL) continue;
 
-      char *ccache = child->cache + maxtau + 1;
-      memcpy(ccache, COMMON, maxtau*sizeof(char));
+      char path = child->cache[0];
+      char *ccache = child->cache + maxtau + 2;
 
-      mindist = cmindist;
+      int mindist = INT_MAX;
+      int mmatch;
+      int shift;
 
       // Fill in an angle of the dynamic programming table.
       for (int a = maxa ; a > 0 ; a--) {
-         // Left side.
-         mmatch = pcache[-a] + (i != query[depth-a]);
-         shift = min(pcache[1-a], ccache[-a-1]) + 1;
-         ccache[-a] = min(mmatch, shift);
-         mindist = min(ccache[-a], mindist);
+         // Right side (need the path).
+         int mmatch = pcache[a] + ((path >> (2*a) & 3) != query[depth]);
+         int shift = min(pcache[a-1], ccache[a+1]) + 1;
+         ccache[a] = min(mmatch, shift);
+         if (ccache[a] < mindist) mindist = ccache[a];
       }
-      // Center.
-      mmatch = pcache[0] + (i != query[depth]);
-      shift = min(ccache[-1], ccache[1]) + 1;
-      ccache[0] = min(mmatch, shift);
-      mindist = min(ccache[0], mindist);
+      for (int a = maxa ; a >= 0 ; a--) {
+         // Left side and center.
+         int mmatch = pcache[-a] + (i != query[depth-a]);
+         int shift = min(pcache[1-a], ccache[-a-1]) + 1;
+         ccache[-a] = min(mmatch, shift);
+         if (ccache[-a] < mindist) mindist = ccache[-a];
+      }
 
+      // Early exit if tau is exceeded.
       if (mindist > tau) return;
 
-      // Cache nodes in 'miles' when trailing.
-      if (depth <= trail) push(child, miles+depth);
+      if (trailto <= depth) push(child, mcache[depth]);
 
       // In case the smallest Levenshtein distance is
       // equal to the maximum allowed distance, no more mismatches
       // and indels are allowed. We can shortcut by searching perfect
       // matches.
-      if ((mindist == tau) && (depth > trail)) {
-         dash(child, query+depth+1);
+
+      /*
+      if (mindist == tau) {
+         int left = max(depth-tau, 0);
+         for (int a = left ; a < maxa ; a++) {
+            if (DYNP[(depth)+(a)*M] == mindist) {
+               dash(child, query+a);
+            }
+         }
          continue;
       }
+      */
 
-      if ((depth == bottom) && (ccache[0] <= tau)) {
-         push(child, &HITS);
+      // We have a hit if the child node is a tail, and the
+      // Levenshtein distance is not larger than 'tau'. But first
+      // we need to make sure that the Levenshtein distance to the
+      // query has been computed, which is the first condition of the
+      // macro used below.
+      // 1. depth+tau >= limit
+      // 2. child->data != NULL
+      // 3. DYNP[depth+limit*M] <= tau
+      if (child_is_a_hit) {
+         push(child, HITS);
       }
 
-      recursive_search(child, query, tau, depth+1, maxtau,
-            miles, trail, bottom);
+      recursive_msearch(child, query, tau, depth+1, maxtau, mcache, trailto);
 
    }
 
@@ -178,8 +176,8 @@ recursive_search
 void
 dash
 (
-   node_t * restrict node,
-   const int * restrict query
+   node_t *node,
+   int *query
 )
 {
    int c;
@@ -191,7 +189,7 @@ dash
    }
 
    if (node->data != NULL) {
-      push(node, &HITS);
+      push(node, HITS);
    }
    return;
 }
@@ -201,22 +199,20 @@ void
 push
 (
    node_t *node,
-   narray_t **stack_addr
+   narray_t *stack
 )
 {
-   narray_t *stack = *stack_addr;
-   if (stack->pos >= stack->lim) {
+   if (stack->idx >= stack->lim) {
       size_t newsize = 2 * sizeof(int) + 2*stack->lim * sizeof(node_t *);
       narray_t *ptr = realloc(stack, newsize);
       if (ptr == NULL) {
          ERROR = 175;
          return;
       }
-      *stack_addr = stack = ptr;
+      stack = ptr;
       stack->lim *= 2;
-      
    }
-   stack->nodes[stack->pos++] = node;
+   stack->nodes[stack->idx++] = node;
 }
 
 
@@ -226,70 +222,63 @@ push
 node_t *
 insert_string
 (
-   node_t *trie,
+   node_t *root,
    const char *string
 )
 // SYNOPSIS:                                                              
-//   Helper function to construct tries. Insert a string from a ROOT      
-//   node by multiple calls to 'insert'.                                  
+//   Helper function to construct tries. Insert a string from a root node 
+//   by multiple calls to 'insert_char'.                                  
 //                                                                        
 // RETURN:                                                                
 //   The leaf node in case of succes, 'NULL' otherwise.                   
 {
-
-   // FIXME: inserting the empty string returns the root, which
-   // means that there is a risk of overwriting the trie info.
-
-   int i;
-
    int nchar = strlen(string);
    if (nchar > MAXBRCDLEN) {
-      ERROR = 347;
+      ERROR = 204;
       return NULL;
    }
    
-   unsigned char maxtau = get_maxtau(trie);
+   char maxtau = get_maxtau(root);
+   int i;
 
    // Find existing path and append one node.
-   node_t *node = trie;
+   node_t *child;
    for (i = 0 ; i < nchar ; i++) {
-      node_t *child;
       int c = translate[(int) string[i]];
-      if ((child = node->child[c]) == NULL) {
-         node = insert(node, c, maxtau);
+      if ((child = child->child[c]) == NULL) {
+         if (c < 5) child = minsert(child, c, maxtau);
          break;
       }
-      node = child;
    }
 
    // Append more nodes.
    for (i++ ; i < nchar ; i++) {
-      if (node == NULL) {
+      if (child == NULL) {
          ERROR = 228;
          return NULL;
       }
       int c = translate[(int) string[i]];
-      node = insert(node, c, maxtau);
+      if (c < 5) child = minsert(child, c, maxtau);
    }
 
-   return node;
+   return child;
 
 }
 
 
 node_t *
-insert
+minsert
 (
-            node_t * parent,
-            int      position,
-   unsigned char     maxtau
+   node_t *parent,
+   int c,
+   char maxtau
 )
 // SYNOPSIS:                                                              
 //   Helper function to construct tries. Append a child to an existing    
 //   node at a position specified by the character 'c'. NO CHECKING IS    
 //   PERFORMED to make sure that this does not overwrite an existings     
 //   node child (causing a memory leak) or that 'c' is an integer less    
-//   than 5. Since 'insert' is called exclusiverly by 'insert_string'     
+//   than 5. Since 'minsert' is called exclusiverly by 'insert_string'    
 //   after a call to 'find_path', this checking is not required. If       
 //   'insert' is called in another context, this check has to be          
 //   performed.                                                           
@@ -298,15 +287,15 @@ insert
 //   The appended child node in case of success, 'NULL' otherwise.        
 {
    // Initilalize child node.
-   node_t *child = new_trienode(maxtau);
+   node_t *child = new_mtrienode(maxtau);
    if (child == NULL) {
-      ERROR = 403;
+      ERROR = 254;
       return NULL;
    }
-   // Update child path and parent pointer.
-   child->path = (parent->path << 4) + position;
+   // Update child path.
+   child->cache[0] = (parent->cache[0] << 2) + c;
    // Update parent node.
-   parent->child[position] = child;
+   parent->child[c] = child;
    return child;
 }
 
@@ -323,22 +312,21 @@ new_narray
       ERROR = 279;
       return NULL;
    }
-   new->pos = 0;
+   new->idx = 0;
    new->lim = 32;
    return new;
 }
 
 
 node_t *
-new_trie
+new_mtrie
 (
-   unsigned char maxtau,
-   unsigned char bottom
+   char maxtau
 )
 {
 
    if (maxtau > 8) {
-      ERROR = 396;
+      ERROR = 337;
       // DETAIL:                                                         
       // There is an absolute limit at 'tau' = 8 because the path is     
       // encoded as a 'char', ie an 8 x 2-bit array. It should be enough 
@@ -346,30 +334,26 @@ new_trie
       return NULL;
    }
 
-   node_t *root = new_trienode(maxtau);
+   node_t *root = new_mtrienode(maxtau);
    if (root == NULL) {
-      ERROR = 406;
+      ERROR = 347;
       return NULL;
    }
-
-   info_t *info = malloc(sizeof(info_t));
+   minfo_t *info = malloc(sizeof(minfo_t));
    if (info == NULL) {
-      ERROR = 412;
+      ERROR = 294;
       return NULL;
    }
-
-   memset(info->miles, 0, M * sizeof(narray_t *));
+   memset(info->cache, 0, M * sizeof(narray_t *));
    info->maxtau = maxtau;
-   info->bottom = bottom;
-   root->data = info;
    return root;
 }
 
 
 node_t *
-new_trienode
+new_mtrienode
 (
-   unsigned char maxtau
+   char maxtau
 )
 // SYNOPSIS:                                                              
 //   Constructor for a trie node or a  root.                              
@@ -378,37 +362,34 @@ new_trienode
 //   A root node with no data and no children.                            
 {
    size_t base = sizeof(node_t);
-   size_t extra = (2*maxtau + 3) * sizeof(char);
-   node_t *node = malloc(base + extra);
+   size_t extra = (2*maxtau + 4) * sizeof(char);
+   node_t *node = malloc(sizeof(base + extra));
    if (node == NULL) {
-      ERROR = 483;
+      ERROR = 331;
       return NULL;
    }
    memset(node, 0, base);
-   for (int i = 0 ; i < 2*maxtau + 3 ; i++) {
-      node->cache[i] = (unsigned char) abs(i-1-maxtau);
-   }
+   // Save first 'char' for the trie path.
+   for (char i = 1 ; i < 2*maxtau + 4 ; i++) node->cache[i] = i-2-maxtau;
    return node;
 }
 
 
 void
-destroy_trie
+destroy_mtrie
 (
-   node_t *trie,
+   node_t *mtrie,
    void (*destruct)(void *)
 )
 {
    // Free the node arrays in the cache.
-   info_t *info = (info_t *) trie->data;
-   for (int i = 0 ; i < M ; i++) {
-      if (info->miles[i] != NULL) free(info->miles[i]);
-   }
+   minfo_t *info = (minfo_t *) mtrie->data;
+   for (int i = 0 ; i < M ; i++) free(info->cache[i]);
    // Set info to 'NULL' before recursive destruction.
    free(info);
-   trie->data = NULL;
+   info = NULL;
    // ... and bye-bye.
-   destroy_nodes_downstream_of(trie, destruct);
+   destroy_nodes_downstream_of(mtrie, destruct);
 }
 
 
@@ -436,22 +417,20 @@ destroy_nodes_downstream_of
 
 // ------  MISCELLANEOUS ------ //
 
-void init_miles
+void init_cache
 (
-   node_t *trie
+   node_t *mtrie
 )
 {
-   info_t *info = (info_t *) trie->data;
+   minfo_t *info = (minfo_t *) mtrie->data;
    for (int i = 0 ; i < M ; i++) {
-      info->miles[i] = new_narray();
+      info->cache[i] = new_narray();
       // TODO: You can do better than this!
-      if (info->miles[i] == NULL) {
-         exit (EXIT_FAILURE);
-      }
+      if (info->cache[i] == NULL) exit (EXIT_FAILURE);
    }
    // Push the root into the 0-depth cache.
    // It will be the only node ever in there.
-   push(trie, info->miles);
+   push(mtrie, info->cache[0]);
 }
 
 
@@ -463,23 +442,3 @@ int check_trie_error_and_reset(void) {
    }
    return 0;
 }
-
-
-/* -- Notes, tests etc. --
-
-// An unsuccessful attempt at computing min.
-char minimum(char a, char b) {
-   char scratch;
-   __asm__ __volatile__ (
-       "sub %0, %1 \n\t"
-       "sbb %2, %2 \n\t"
-       "and %1, %2 \n\t"
-       "add %2, %0 \n\t"
-   : "+r"(a)
-   : "r"(b), "r"(scratch)
-   : );
-   return a;
-}
-
-*/
-

@@ -5,71 +5,32 @@
 #include "trie.h"
 #include "starcode.h"
 
-#define NSTRINGS 16
+#define NSTRINGS 4
 
 typedef struct {
-   node_t *root;
+   node_t *trie;
 } fixture;
 
 
-const char *string[NSTRINGS] = { "A", "AA", "AAA", "ATA", "ATT", "AAT",
-   "TGA", "TTA", "TAT", "TGC", "GGG", "AAAA", "ACAA", "ANAA", 
-   "GTATGCTGATGGACC", "GTATGCTGTGGACC" };
+const char *string[NSTRINGS] = {
+   "AAAAAAAAAAAAAAAAAAAA",
+   "AAAAAAAAAAAAAAAAAAAT",
+   "TAAAAAAAAAAAAAAAAAAA",
+   " AAAAAAAAAAAAAAAAAAA",
+};
 
 
-void reset(narray_t *h) { h->idx = 0; }
+void reset(narray_t *h) { h->pos = 0; }
 
 
-void
-sandbox (void)
-{
-   
-   node_t *root = new_trienode();
-   narray_t *hits = new_narray();
-
-   g_assert(root != NULL);
-   g_assert(hits != NULL);
-
-   char *seq[3] = {
-      "AAATTGTTTAACTTGGGTCAAA",
-      "AGCCATGCTAGTTGTGGTTTGT",
-      "GCCATGCTAGTTGTGGTTTGTC",
-   };
-
-   for (int i = 0 ; i < 3 ; i++) {
-      node_t *node = insert_string(root, seq[i]);
-      g_assert(node != NULL);
-      node->data = node;
-   }
-
-   search(root, "CCATGCTAGTTGTGGTTTGTCC", 2, hits);
-   //g_assert_cmpint(hits->idx, ==, 1);
-
-   free(hits);
-   destroy_nodes_downstream_of(root, NULL);
-
-}
-
-
-// String representation of the triei as a depth first search
+// String representation of the trie as a depth first search
 // traversal. The stars indicate the a series of with no further
 // children. I also use indentation to ease the reading.
 char repr[1024];
 char trierepr[] =
-"ANAA***"
- "AAA**"
-  "T**"
- "CAA***"
- "TA*"
-  "T***"
-"GGG**"
- "TATGCTGATGGACC*******"
-        "TGGACC**************"
-"TAT**"
- "GA*"
-  "C**"
-"TA****";
-
+"AAAAAAAAAAAAAAAAAAAA*"
+"T********************"
+"TAAAAAAAAAAAAAAAAAAA*********************";
 
 void
 strie(
@@ -99,12 +60,12 @@ setup(
 // SYNOPSIS:                                                             
 //   Construct a very simple trie for testing purposes.                  
 {
-   f->root = new_trienode();
-   if (f->root == NULL) {
+   f->trie = new_trie(3, 20);
+   if (f->trie == NULL) {
       g_error("failed to initialize fixture\n");
    }
    for (int i = 0 ; i < NSTRINGS ; i++) {
-      node_t *node = insert_string(f->root, string[i]);
+      node_t *node = insert_string(f->trie, string[i]);
       // Set node data to non 'NULL'.
       if (node != NULL) {
          node->data = (char *) string[i];
@@ -115,7 +76,7 @@ setup(
    }
 
    // Assert that the trie has the correct structure.
-   strie(f->root, 1);
+   strie(f->trie, 1);
    g_assert_cmpstr(trierepr, ==, repr);
 
    return;
@@ -129,7 +90,7 @@ teardown(
    gconstpointer test_data
 )
 {
-   destroy_nodes_downstream_of(f->root, NULL);
+   destroy_trie(f->trie, NULL);
 }
 
 
@@ -143,247 +104,40 @@ test_search(
    narray_t *hits = new_narray();
    g_assert(hits != NULL);
 
-   // Short queries.
-   
-   // Case 1. //
-   search(f->root, "A", 0, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("A", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
+   search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, hits, 0, 18);
+   g_assert_cmpint(hits->pos, ==, 4);
 
-   // Case 2. //
    reset(hits);
-   search(f->root, "AAA", 0, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("AAA", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
+   search(f->trie, "AAAAAAAAAAAAAAAAAATA", 3, hits, 18, 3);
+   g_assert_cmpint(hits->pos, ==, 4);
 
-   // Case 3. //
    reset(hits);
-   search(f->root, "AAA", 1, hits);
-   g_assert_cmpint(hits->idx, ==, 7);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
+   search(f->trie, "AAAGAAAAAAAAAAAAAATA", 3, hits, 3, 15);
+   g_assert_cmpint(hits->pos, ==, 4);
 
-   // Case 4. //
    reset(hits);
-   search(f->root, "AAA", 2, hits);
-   g_assert_cmpint(hits->idx, ==, 12);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
+   search(f->trie, "AAAGAAAAAAAAAAAGACTG", 3, hits, 15, 15);
+   g_assert_cmpint(hits->pos, ==, 0);
 
-   // Case 5. //
    reset(hits);
-   search(f->root, "TTT", 1, hits);
-   g_assert_cmpint(hits->idx, ==, 3);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
+   search(f->trie, "AAAGAAAAAAAAAAAAAAAA", 3, hits, 15, 0);
+   g_assert_cmpint(hits->pos, ==, 4);
 
-   // Long search queries.
-   // Perfect matches.
-   
-   // Case 6. //
    reset(hits);
-   search(f->root, "GTATGCTGATGGACC", 0, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("GTATGCTGATGGACC", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
+   search(f->trie, "TAAAAAAAAAAAAAAAAAAA", 3, hits, 0, 19);
+   g_assert_cmpint(hits->pos, ==, 4);
 
-   // Case 7. //
    reset(hits);
-   search(f->root, "GTATGCTGTGGACC", 0, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("GTATGCTGTGGACC", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
+   search(f->trie, "TAAAAAAAAAAAAAAAAAAG", 3, hits, 19, 0);
+   g_assert_cmpint(hits->pos, ==, 4);
 
-   // External deletions.
-   
-   // Case 8. //
    reset(hits);
-   search(f->root, "TATGCTGATGGACC", 1, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("GTATGCTGATGGACC", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
+   search(f->trie, " AAAAAAAAAAAAAAAAAAA", 3, hits, 0, 18);
+   g_assert_cmpint(hits->pos, ==, 4);
 
-   // Case 9. //
    reset(hits);
-   search(f->root, "GTATGCTGATGGAC", 1, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("GTATGCTGATGGACC", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Case 10. //
-   reset(hits);
-   search(f->root, "TATGCTGATGGAC", 2, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("GTATGCTGATGGACC", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Case 11. //
-   reset(hits);
-   search(f->root, "GTATGCTGATGGA", 2, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("GTATGCTGATGGACC", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Case 12. //
-   reset(hits);
-   search(f->root, "ATGCTGATGGACC", 2, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("GTATGCTGATGGACC", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Case 13. //
-   reset(hits);
-   search(f->root, "TATGCTGATGGA", 3, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("GTATGCTGATGGACC", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Case 14. //
-   reset(hits);
-   search(f->root, "ATGCTGATGGAC", 3, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("GTATGCTGATGGACC", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Case 15. //
-   reset(hits);
-   search(f->root, "GTATGCTGATGG", 3, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("GTATGCTGATGGACC", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Case 16. //
-   reset(hits);
-   search(f->root, "TGCTGATGGACC", 3, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("GTATGCTGATGGACC", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // External and internal deletions.
-
-   // Case 17. //
-   reset(hits);
-   search(f->root, "TATGCGATGGAC", 3, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("GTATGCTGATGGACC", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Combinations of deletions and mismatches.
-   
-   // Case 18. //
-   reset(hits);
-   search(f->root, "TATGCTGATGGACG", 2, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("GTATGCTGATGGACC", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Case 19. //
-   reset(hits);
-   search(f->root, "TTATGCTGATGGAC", 2, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("GTATGCTGATGGACC", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Case 20. //
-   reset(hits);
-   search(f->root, "GAGTGCAGATGGAGT", 5, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("GTATGCTGATGGACC", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Case 21. //
-   reset(hits);
-   search(f->root, "GAGTGCAGATGGAGT", 6, hits);
-   g_assert_cmpint(hits->idx, ==, 2);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // One mismatch, several hits.
-   
-   // Case 22. //
-   reset(hits);
-   search(f->root, "GTATGCTGATGGACC", 1, hits);
-   g_assert_cmpint(hits->idx, ==, 2);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Queries with "N".
-   
-   // Case 23. //
-   reset(hits);
-   search(f->root, "GTATGNTGATGGACC", 1, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("GTATGCTGATGGACC", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Case 24. //
-   reset(hits);
-   search(f->root, "NTATGCTGATGGACC", 1, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("GTATGCTGATGGACC", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Case 25. //
-   reset(hits);
-   search(f->root, "GTATGCTGATGGACN", 1, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("GTATGCTGATGGACC", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Case 26. //
-   reset(hits);
-   search(f->root, "NNATGCTGATGGACC", 2, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("GTATGCTGATGGACC", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Case 27. //
-   reset(hits);
-   search(f->root, "GTATGCTGATGGANN", 2, hits);
-   g_assert_cmpint(hits->idx, ==, 1);
-   g_assert_cmpstr("GTATGCTGATGGACC", ==, (char *) hits->nodes[0]->data);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Case 28. //
-   reset(hits);
-   search(f->root, "GTATGCTGNTGGACC", 1, hits);
-   g_assert_cmpint(hits->idx, ==, 2);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Queries with no match.
-
-   // Case 29. //
-   reset(hits);
-   search(f->root, "GAGTGCAGATGGAGT", 4, hits);
-   g_assert_cmpint(hits->idx, ==, 0);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Case 30. //
-   reset(hits);
-   search(f->root, "NNNNNNNN", 4, hits);
-   g_assert_cmpint(hits->idx, ==, 0);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Case 31. //
-   reset(hits);
-   search(f->root, "NNNNNNNN", 7, hits);
-   g_assert_cmpint(hits->idx, ==, 0);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Case 32. //
-   reset(hits);
-   search(f->root, "ANAA", 0, hits);
-   g_assert_cmpint(hits->idx, ==, 0);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Case 33. //
-   reset(hits);
-   search(f->root, "GATCGATC", 4, hits);
-   g_assert_cmpint(hits->idx, ==, 0);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Case 34. //
-   reset(hits);
-   search(f->root, "GTAGCTGATGACC", 1, hits);
-   g_assert_cmpint(hits->idx, ==, 0);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
+   search(f->trie, " AAAAAAAAAAAAAAAAAAT", 3, hits, 18, 18);
+   g_assert_cmpint(hits->pos, ==, 4);
 
    free(hits);
 
@@ -398,15 +152,16 @@ test_mem(
 
    // Test hits dynamic growth. Build a trie with 1000 sequences
    // and search with maxdist of 20 (should return all the sequences).
-   char seq[21];
-   seq[20] = '\0';
-   node_t *root = new_trienode();
-   g_assert(root != NULL);
+   char seq[9];
+   seq[8] = '\0';
+   node_t *trie = new_trie(8, 8);
+   g_assert(trie != NULL);
+   // Insert 2049 random sequences.
    for (int i = 0 ; i < 2049 ; i++) {
-      for (int j = 0 ; j < 20 ; j++) {
+      for (int j = 0 ; j < 8 ; j++) {
          seq[j] = untranslate[(int)(5 * drand48())];
       }
-      node_t *node = insert_string(root, seq);
+      node_t *node = insert_string(trie, seq);
       g_assert(node != NULL);
       node->data = node;
    }
@@ -414,27 +169,38 @@ test_mem(
    narray_t *hits = new_narray();
    g_assert(hits != NULL);
    reset(hits);
-   search(root, "NNNNNNNNNNNNNNNNNNNA", 20, hits);
-   g_assert_cmpint(hits->idx, >, 0);
+   search(trie, "NNNNNNNN", 8, hits, 0, 0);
+   g_assert_cmpint(hits->pos, >, 0);
    g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
 
-   destroy_nodes_downstream_of(root, NULL);
+   destroy_trie(trie, NULL);
 
    // Construct 1000 tries with a `malloc` failure rate of 1%.
    // If a segmentation fault happens the test will fail.
    set_malloc_failure_rate_to(0.01);
 
    for (int i = 0 ; i < 1000 ; i++) {
-      node_t *root = new_trienode();
-      if (root == NULL) continue;
-      for (int j = 0 ; j < NSTRINGS ; j++) {
-         node_t *node = insert_string(root, string[j]);
-         // Set node data to non 'NULL'.
-         if (node != NULL) node->data = malloc(sizeof(char));
+      node_t *trie = new_trie(3, 20);
+      if (trie == NULL) {
+         g_assert_cmpint(check_trie_error_and_reset(), >, 0);
+         continue;
       }
-      destroy_nodes_downstream_of(root, free);
+      for (int j = 0 ; j < NSTRINGS ; j++) {
+         node_t *node = insert_string(trie, string[j]);
+         // Set node data to non 'NULL'.
+         if (node == NULL) {
+            g_assert_cmpint(check_trie_error_and_reset(), >, 0);
+         }
+         else {
+            node->data = malloc(sizeof(char));
+         }
+      }
+      destroy_trie(trie, free);
    }
 
+   reset_malloc();
+
+   /*
    // Check that the errors do not go unreported.
    g_assert_cmpint(check_trie_error_and_reset(), >, 0);
 
@@ -442,7 +208,7 @@ test_mem(
    for (int i = 0 ; i < 1000 ; i++) {
       reset(hits);
       search(f->root, "A", 0, hits);
-      g_assert_cmpint(hits->idx, ==, 1);
+      g_assert_cmpint(hits->pos, ==, 1);
       g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
    }
 
@@ -464,27 +230,27 @@ test_mem(
 
    free(hits);
    reset_malloc();
+   */
 
 }
-
 
 
 void
 test_run
 (void)
 {
-   FILE *outputf = fopen("/dev/null", "w");
-   FILE *inputf = fopen("input_test_file.txt", "r");
-   g_assert(inputf != NULL);
+   //FILE *outputf = fopen("out", "w");
+   //FILE *inputf = fopen("input_test_file.txt", "r");
+   //g_assert(inputf != NULL);
 
    // Just check that input can be read (test will fail if
    // things go wrong here).
-   starcode(inputf, outputf, 2, 0);
-   fclose(inputf);
-   fclose(outputf);
+   //starcode(inputf, outputf, 3, 1);
+   //fclose(inputf);
+   //fclose(outputf);
 
-   outputf = fopen("out", "w");
-   inputf = fopen("input_test_file_large.txt", "r");
+   FILE *outputf = fopen("out", "w");
+   FILE *inputf = fopen("input_test_file_large.txt", "r");
    g_assert(inputf != NULL);
    g_assert(outputf != NULL);
    //g_test_timer_start();
@@ -495,7 +261,6 @@ test_run
    // The command line call to 'perf' shows the elapsed time.
    //fprintf(stdout, "\nelapsed: %.3f sec\n", g_test_timer_elapsed());
 }
-
 
 
 int

@@ -2,8 +2,6 @@
 
 #define str(a) *(char **)(a)
 
-void debug(void){return;}
-
 useq_t *new_useq(int, char*);
 useq_t **get_useq(char**, int, int*);
 char **read_file(FILE*, int*);
@@ -34,57 +32,62 @@ tquery
 
    OUTPUT = outputf;
 
-   if (verbose) fprintf(stderr, "reading index file...");
-   int total;
-   char **all_seq = read_file(indexf, &total);
+   if (verbose) fprintf(stderr, "reading input files...");
+   int ni_seq;
+   int nq_seq;
+   char **all_i_seq = read_file(indexf, &ni_seq);
+   char **all_q_seq = read_file(queryf, &nq_seq);
+   if (verbose) fprintf(stderr, " done\n");
+
+   if (verbose) fprintf(stderr, "preprocessing...");
+   int ni_u;
+   int nq_u;
+   useq_t **i_useq = get_useq(all_i_seq, ni_seq, &ni_u);
+   useq_t **q_useq = get_useq(all_q_seq, nq_seq, &nq_u);
+   free(all_i_seq); all_i_seq = NULL;
+   free(all_q_seq); all_q_seq = NULL;
+
+   // Bundle all pointers in a single array.
+   useq_t **ptr = realloc(i_useq, (ni_u + nq_u) * sizeof(useq_t *));
+   if (ptr == NULL) exit(EXIT_FAILURE);
+   memcpy(ptr + ni_u, q_useq, nq_u * sizeof(useq_t *));
+   free(q_useq);
+   i_useq = ptr;
+   q_useq = ptr + ni_u;
+
+   // Get a joint maximum length.
+   int bottom = pad_useq(i_useq, ni_u + nq_u);
+   qsort(q_useq, nq_u, sizeof(useq_t *), ualpha);
    if (verbose) fprintf(stderr, " done\n");
 
    if (verbose) fprintf(stderr, "building index...");
-   int utotal;
-   useq_t **all_useq = get_useq(all_seq, total, &utotal);
-   free(all_seq);
-
-   int bottom = pad_useq(all_useq, utotal);
-
    node_t *trie = new_trie(tau, bottom);
-
    if (trie == NULL) exit(EXIT_FAILURE);
-
-   for (int i = 0 ; i < utotal ; i++) {
-      useq_t *ref = all_useq[i];
-      // Use the count for the query.
-      ref->count = 0;
-      node_t *node = insert_string(trie, ref->seq);
+   for (int i = 0 ; i < ni_u ; i++) {
+      useq_t *u = i_useq[i];
+      // Set the count to 0 ('count' is used at query time).
+      u->count = 0;
+      node_t *node = insert_string(trie, u->seq);
       if (node == NULL) exit(EXIT_FAILURE);
-      if (node != trie) node->data = all_useq[i];
+      if (node != trie) node->data = u;
    }
-
-   free(all_useq);
    if (verbose) fprintf(stderr, " done\n");
 
-   if (verbose) fprintf(stderr, "reading query file...");
-   all_seq = read_file(queryf, &total);
-   if (verbose) fprintf(stderr, " done\n");
-
-   if (verbose) fprintf(stderr, "sorting queries... ");
-   all_useq = get_useq(all_seq, total, &utotal);
-   free(all_seq);
-   if (verbose) fprintf(stderr, "done\n");
-
+   // Start the query.
    narray_t *hits = new_narray();
    if (hits == NULL) exit(EXIT_FAILURE);
 
    int start = 0;
-   for (int i = 0 ; i < utotal ; i++) {
-      useq_t *query = all_useq[i];
+   for (int i = 0 ; i < nq_u ; i++) {
+      useq_t *query = q_useq[i];
       int trail = 0;
-      if (i < utotal-1) {
-         useq_t *next_query = all_useq[i+1];
+      if (i < nq_u - 1) {
+         useq_t *next_query = q_useq[i+1];
          for ( ; query->seq[trail] == next_query->seq[trail] ; trail++);
       }
       // Clear hits.
       hits->pos = 0;
-      hits = search(trie, query->seq, tau, hits, start, trail);
+      hits = search(trie, query->seq, tau, &hits, start, trail);
       if (check_trie_error_and_reset()) {
          fprintf(stderr, "search error: %s\n", query->seq);
          continue;
@@ -95,18 +98,18 @@ tquery
          match->count += query->count;
       }
       if (verbose && ((i & 255) == 128)) {
-         fprintf(stderr, "tquery: %d/%d\r", i+1, utotal);
+         fprintf(stderr, "tquery: %d/%d\r", i+1, nq_u);
       }
       start = trail;
    }
-   if (verbose) fprintf(stderr, "tquery: %d/%d\n", utotal, utotal);
+   if (verbose) fprintf(stderr, "tquery: %d/%d\n", nq_u, nq_u);
 
+   unpad_useq(i_useq, ni_u);
 
    destroy_trie(trie, print_and_destroy);
-   for (int i = 0 ; i < utotal ; i++) {
-      destroy_useq(all_useq[i]);
-   }
-   free(all_useq);
+   for (int i = 0 ; i < nq_u ; i++) destroy_useq(q_useq[i]);
+
+   free(i_useq);
    free(hits);
 
    OUTPUT = NULL;
@@ -139,6 +142,7 @@ starcode
    free(all_seq);
 
    int bottom = pad_useq(all_useq, utotal);
+   qsort(all_useq, utotal, sizeof(useq_t *), ualpha);
    if (verbose) fprintf(stderr, " done\n");
 
    node_t *trie = new_trie(tau, bottom);
@@ -166,7 +170,7 @@ starcode
 
       // Clear hits.
       hits->pos = 0;
-      hits = search(trie, query->seq, tau, hits, start, trail);
+      hits = search(trie, query->seq, tau, &hits, start, trail);
       if (check_trie_error_and_reset()) {
          fprintf(stderr, "search error: %s\n", query->seq);
          continue;
@@ -230,14 +234,14 @@ char **
 read_file
 (
    FILE *inputf,
-   int *total
+   int *nlines
 )
 {
    size_t size = 1024;
    char **all_seq = malloc(size * sizeof(char *));
    if (all_seq == NULL) exit(EXIT_FAILURE);
 
-   *total = 0;
+   *nlines = 0;
    ssize_t nread;
    size_t nchar = MAXBRCDLEN;
    char *seq = malloc(MAXBRCDLEN * sizeof(char));
@@ -250,13 +254,13 @@ read_file
       if (new == NULL) exit(EXIT_FAILURE);
       strncpy(new, seq, nread);
       // Grow 'all_seq' if needed.
-      if (*total >= size) {
+      if (*nlines >= size) {
          size *= 2;
          char **ptr = realloc(all_seq, size * sizeof(char *));
          if (ptr == NULL) exit(EXIT_FAILURE);
          all_seq = ptr;
       }
-      all_seq[(*total)++] = new;
+      all_seq[(*nlines)++] = new;
    }
 
    free(seq);
@@ -333,7 +337,6 @@ pad_useq
    }
 
    free(spaces);
-   qsort(all_useq, utotal, sizeof(useq_t *), ualpha);
 
    return maxlen;
 
@@ -468,6 +471,7 @@ new_useq
    return new;
 }
 
+
 void
 print_and_destroy
 (
@@ -476,8 +480,7 @@ print_and_destroy
 {
    useq_t *useq = (useq_t *)u;
    fprintf(OUTPUT, "%s\t%d\n", useq->seq, useq->count);
-   free(useq->seq);
-   free(useq);
+   destroy_useq(useq);
 }
 
 

@@ -61,7 +61,7 @@ setup(
 //   Construct a very simple trie for testing purposes.                  
 {
    f->trie = new_trie(3, 20);
-   if (f->trie == NULL) {
+   if (f->trie == NULL || f->trie->data == NULL) {
       g_error("failed to initialize fixture\n");
    }
    for (int i = 0 ; i < NSTRINGS ; i++) {
@@ -104,39 +104,39 @@ test_search(
    narray_t *hits = new_narray();
    g_assert(hits != NULL);
 
-   search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, hits, 0, 18);
+   search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 18);
    g_assert_cmpint(hits->pos, ==, 4);
 
    reset(hits);
-   search(f->trie, "AAAAAAAAAAAAAAAAAATA", 3, hits, 18, 3);
+   search(f->trie, "AAAAAAAAAAAAAAAAAATA", 3, &hits, 18, 3);
    g_assert_cmpint(hits->pos, ==, 4);
 
    reset(hits);
-   search(f->trie, "AAAGAAAAAAAAAAAAAATA", 3, hits, 3, 15);
+   search(f->trie, "AAAGAAAAAAAAAAAAAATA", 3, &hits, 3, 15);
    g_assert_cmpint(hits->pos, ==, 4);
 
    reset(hits);
-   search(f->trie, "AAAGAAAAAAAAAAAGACTG", 3, hits, 15, 15);
+   search(f->trie, "AAAGAAAAAAAAAAAGACTG", 3, &hits, 15, 15);
    g_assert_cmpint(hits->pos, ==, 0);
 
    reset(hits);
-   search(f->trie, "AAAGAAAAAAAAAAAAAAAA", 3, hits, 15, 0);
+   search(f->trie, "AAAGAAAAAAAAAAAAAAAA", 3, &hits, 15, 0);
    g_assert_cmpint(hits->pos, ==, 4);
 
    reset(hits);
-   search(f->trie, "TAAAAAAAAAAAAAAAAAAA", 3, hits, 0, 19);
+   search(f->trie, "TAAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 19);
    g_assert_cmpint(hits->pos, ==, 4);
 
    reset(hits);
-   search(f->trie, "TAAAAAAAAAAAAAAAAAAG", 3, hits, 19, 0);
+   search(f->trie, "TAAAAAAAAAAAAAAAAAAG", 3, &hits, 19, 0);
    g_assert_cmpint(hits->pos, ==, 4);
 
    reset(hits);
-   search(f->trie, " AAAAAAAAAAAAAAAAAAA", 3, hits, 0, 18);
+   search(f->trie, " AAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 18);
    g_assert_cmpint(hits->pos, ==, 4);
 
    reset(hits);
-   search(f->trie, " AAAAAAAAAAAAAAAAAAT", 3, hits, 18, 18);
+   search(f->trie, " AAAAAAAAAAAAAAAAAAT", 3, &hits, 18, 18);
    g_assert_cmpint(hits->pos, ==, 4);
 
    free(hits);
@@ -166,10 +166,12 @@ test_mem(
       node->data = node;
    }
 
+   // The node array 'hits' is properly initialized.
    narray_t *hits = new_narray();
    g_assert(hits != NULL);
+
    reset(hits);
-   search(trie, "NNNNNNNN", 8, hits, 0, 0);
+   hits = search(trie, "NNNNNNNN", 8, &hits, 0, 0);
    g_assert_cmpint(hits->pos, >, 0);
    g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
 
@@ -182,55 +184,65 @@ test_mem(
    for (int i = 0 ; i < 1000 ; i++) {
       node_t *trie = new_trie(3, 20);
       if (trie == NULL) {
+         // Make sure errors are reported.
          g_assert_cmpint(check_trie_error_and_reset(), >, 0);
          continue;
       }
       for (int j = 0 ; j < NSTRINGS ; j++) {
          node_t *node = insert_string(trie, string[j]);
-         // Set node data to non 'NULL'.
          if (node == NULL) {
+            // Make sure errors are reported.
             g_assert_cmpint(check_trie_error_and_reset(), >, 0);
          }
          else {
+            // This can fail, but should not cause problem
+            // when the trie is destroyed.
             node->data = malloc(sizeof(char));
          }
       }
       destroy_trie(trie, free);
    }
 
-   reset_malloc();
-
-   /*
-   // Check that the errors do not go unreported.
-   g_assert_cmpint(check_trie_error_and_reset(), >, 0);
-
    // Test 'search()' 1000 times in a perfectly built trie.
    for (int i = 0 ; i < 1000 ; i++) {
       reset(hits);
-      search(f->root, "A", 0, hits);
-      g_assert_cmpint(hits->pos, ==, 1);
-      g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
+      hits = search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 20);
+      if (hits->pos != 4) {
+         g_assert_cmpint(check_trie_error_and_reset(), >, 0);
+      }
    }
 
+   check_trie_error_and_reset();
 
    // Test 'search()' in an imperfectly built trie.
-   for (int i = 0 ; i < 1000 ; i++) {
+   for (int i = 0 ; i < 2048 ; i++) {
       for (int j = 0 ; j < 20 ; j++) {
          seq[j] = untranslate[(int)(5 * drand48())];
       }
-      node_t *node = insert_string(f->root, seq);
-      if (node != NULL) node->data = node;
+      node_t *node = insert_string(f->trie, seq);
+      if (node == NULL) {
+         g_assert_cmpint(check_trie_error_and_reset(), > , 0);
+      }
+      else {
+         node->data = node;
+      }
+
    }
 
-   // Check that the errors do not go unreported.
-   g_assert_cmpint(check_trie_error_and_reset(), >, 0);
+   for (int i = 0 ; i < 512 ; i++) {
+      for (int j = 0 ; j < 20 ; j++) {
+         seq[j] = untranslate[(int)(5 * drand48())];
+      }
+      reset(hits);
+      hits = search(f->trie, seq, 3, &hits, 0, 20);
+   }
 
-   reset(hits);
-   search(f->root, "NNNNNNNNNNNNNNNNNNNN", 20, hits);
+   // Calls to 'search()' do not create errors. 'realloc()' is called
+   // when 'hits' is full, which won't happen with a sparse trie.
+   g_assert_cmpint(check_trie_error_and_reset(), == , 0);
 
-   free(hits);
    reset_malloc();
-   */
+   free(hits);
 
 }
 
@@ -270,9 +282,8 @@ main(
 )
 {
    g_test_init(&argc, &argv, NULL);
-   //g_test_add_func("/trie/sandbox", sandbox);
-   g_test_add("/trie/search", fixture, NULL, setup, test_search, teardown);
-   g_test_add("/test_mem", fixture, NULL, setup, test_mem, teardown);
+   g_test_add("/search", fixture, NULL, setup, test_search, teardown);
+   g_test_add("/mem", fixture, NULL, setup, test_mem, teardown);
    if (g_test_perf()) {
       g_test_add_func("/starcode/run", test_run);
    }

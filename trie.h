@@ -6,9 +6,9 @@
 #ifndef __STARCODE_TRIE_LOADED_
 #define __STARCODE_TRIE_LOADED_
 
-#define EOS -1
-#define M 128           // MAXBRCDLEN + 1 for short.
+#define EOS -1          // End Of String -- for 'dash()'.
 #define MAXBRCDLEN 127  // Maximum barcode length.
+#define M 128           // MAXBRCDLEN + 1 for short.
 
 struct tnode_t;
 struct tstack_t;
@@ -20,11 +20,10 @@ typedef struct info_t info_t;
 
 int        check_trie_error_and_reset(void);
 void       destroy_trie(node_t*, void(*)(void *));
-node_t   * new_trienode(unsigned char);
 node_t   * new_trie(unsigned char, unsigned char);
 node_t   * insert_string(node_t*, const char*);
 narray_t * new_narray(void);
-narray_t * search(node_t*, const char*, int, narray_t*, int, int);
+narray_t * search(node_t*, const char*, int, narray_t**, int, int);
 
 
 // Translation tables between letters and numbers.
@@ -47,25 +46,25 @@ static const int altranslate[256] = {
 
 struct tnode_t
 {
-            void     * data;       // Data (for tail nodes only).
-   struct   tnode_t  * child[6];   // Array of 6 children pointers.
-            uint32_t   path;       // Encoded path end to the node.
-            char       cache[];    // Dynamic programming space.
+            void     * data;           // Data (for tail nodes only).
+   struct   tnode_t  * child[6];       // Array of 6 children pointers.
+            uint32_t   path;           // Encoded path end to the node.
+            char       cache[];        // Dynamic programming space.
 };
 
 
 struct tstack_t
 {
-            int        lim;        // Stack size.
-            int        pos;        // Number of items.
-   struct   tnode_t  * nodes[];    // Items.
+            int        lim;            // Stack size.
+            int        pos;            // Number of items.
+   struct   tnode_t  * nodes[];        // Items.
 };
 
 
 struct info_t
 {
-   unsigned char       maxtau;     // Max distance the trie can accept.
-            int        bottom;     // Critical depth with all hits.
-   struct   tstack_t * miles[M];   // Prefix caching for recusive search
+   unsigned char       maxtau;         // Max distance the trie can take.
+            int        bottom;         // Critical depth with all hits.
+   struct   tstack_t * milestones[M];  // Milestones for trail search.
 };
 #endif

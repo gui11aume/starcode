@@ -19,6 +19,7 @@ typedef struct tstack_t narray_t;
 typedef struct info_t info_t;
 
 int        check_trie_error_and_reset(void);
+int        count_nodes(node_t*);
 void       destroy_trie(node_t*, void(*)(void *));
 node_t   * new_trie(unsigned char, unsigned char);
 node_t   * insert_string(node_t*, const char*);
@@ -64,7 +65,7 @@ struct tstack_t
 struct info_t
 {
    unsigned char       maxtau;         // Max distance the trie can take.
-            int        bottom;         // Critical depth with all hits.
+            int        height;         // Critical depth with all hits.
    struct   tstack_t * milestones[M];  // Milestones for trail search.
 };
 #endif

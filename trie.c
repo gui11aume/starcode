@@ -16,7 +16,7 @@ char        TAU;
 char        MAXTAU;
 int      *  QUERY;
 int         TRAIL;
-int         BOTTOM;
+int         HEIGHT;
 
 
 
@@ -33,7 +33,7 @@ void push(node_t*, narray_t**);
 int check_trie_error_and_reset(void);
 // Here functions.
 int get_maxtau(node_t *root) { return ((info_t *)root->data)->maxtau; }
-int get_bottom(node_t *root) { return ((info_t *)root->data)->bottom; }
+int get_height(node_t *root) { return ((info_t *)root->data)->height; }
 
 
 
@@ -77,7 +77,7 @@ search
 {
    
    char maxtau = get_maxtau(trie);
-   char bottom = get_bottom(trie);
+   char height = get_height(trie);
    if (tau > maxtau) {
       ERROR = 82;
       // DETAIL: the nodes' cache has been allocated just enough
@@ -89,7 +89,7 @@ search
    }
 
    int length = strlen(query);
-   if (length > MAXBRCDLEN) {
+   if (length > height) {
       ERROR = 93;
       fprintf(stderr, "query longer than allowed max\n");
       return *hits;
@@ -99,7 +99,7 @@ search
    info_t *info = (info_t *) trie->data;
 
    // Reset the milestones that will be overwritten.
-   for (int i = start+1 ; i <= min(trail, bottom) ; i++) {
+   for (int i = start+1 ; i <= min(trail, height) ; i++) {
       info->milestones[i]->pos = 0;
    }
 
@@ -119,7 +119,7 @@ search
    MAXTAU      = maxtau;
    MILESTONES  = info->milestones;
    TRAIL       = trail;
-   BOTTOM      = bottom;
+   HEIGHT      = height;
 
    // Run recursive search from cached nodes.
    narray_t *milestones = info->milestones[start];
@@ -153,7 +153,7 @@ _search
 //   and queries have the same length. This is done by adding a "magic"   
 //   node (in position 5) corresponding to a dummy prefix (printed as a   
 //   white space). All the leaves of the trie are at a depth called the   
-//   "bottom", which is the depth at which the recursion is stopped to    
+//   "height", which is the depth at which the recursion is stopped to    
 //   check for hits. If the maximum edit distance 'TAU' is exceeded the   
 //   search is interrupted. On the other hand, if the search has passed   
 //   trailing depth and 'TAU' is exactly reached, the search finishes by  
@@ -224,8 +224,8 @@ _search
       // Cache nodes in milestones when trailing.
       if (depth <= TRAIL) push(child, MILESTONES+depth);
 
-      // Reached the bottom, it's a hit!
-      if (depth == BOTTOM) {
+      // Reached the height, it's a hit!
+      if (depth == HEIGHT) {
          push(child, &HITS);
          continue;
       }
@@ -290,14 +290,14 @@ node_t *
 new_trie
 (
    unsigned char maxtau,
-   unsigned char bottom
+   unsigned char height
 )
 // SYNOPSIS:                                                              
 //   Front end trie constructor.                                          
 //                                                                        
 // PARAMETERS:                                                            
 //   maxtau: the max value that tau can take in a search                  
-//   bottom: the fixed depth of the leaves                                
+//   height: the fixed depth of the leaves                                
 //                                                                        
 // RETURN:                                                                
 //   A pointer to trie root with meta information and no children.        
@@ -327,7 +327,7 @@ new_trie
 
    // Set the values of the meta information.
    info->maxtau = maxtau;
-   info->bottom = bottom;
+   info->height = height;
    memset(info->milestones, 0, M * sizeof(narray_t *));
 
    root->data = info;
@@ -496,7 +496,7 @@ init_milestones
 //   accordingly.                                                         
 {
    info_t *info = (info_t *) trie->data;
-   for (int i = 0 ; i < get_bottom(trie) + 1 ; i++) {
+   for (int i = 0 ; i < get_height(trie) + 1 ; i++) {
       info->milestones[i] = new_narray();
       if (info->milestones[i] == NULL) {
          ERROR = 502;
@@ -656,4 +656,14 @@ int check_trie_error_and_reset(void) {
       return last_error_at_line;
    }
    return 0;
+}
+
+// Snippet to count nodes of a trie.
+int count_nodes(node_t* node) {
+   int count = 1;
+   for (int i = 0 ; i < 6 ; i++) {
+      if (node->child[i] == NULL) continue;
+      count += count_nodes(node->child[i]);
+   }
+   return count;
 }

@@ -31,6 +31,6 @@ struct c_t {
    struct u_t  * u[];
 };
 
-int starcode(FILE*, FILE*, const int, const int);
+int starcode(FILE*, FILE*, const int, const int, const int);
 int tquery(FILE*, FILE*, FILE*, const int, const int);
 #endif

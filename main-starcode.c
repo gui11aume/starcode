@@ -1,9 +1,10 @@
 #include "starcode.h"
 
 char *USAGE = "Usage:\n"
-"  starcode [-v] [-d dist] [-i input] [-o output]\n"
+"  starcode [-v] [-d dist] [-f format] [-i input] [-o output]\n"
 "    -v --verbose: verbose\n"
 "    -d --dist: maximum Levenshtein distance\n"
+"    -f --format: output format (default compact)\n"
 "    -i --input: input file (default stdin)\n"
 "    -o --output: output file (default stdout)";
 
@@ -71,13 +72,10 @@ main(
 
          case 'f':
             if (format_option == UNSET) {
-               if (strcmp(optarg, "counts") == 0) {
-                  format_flag = 2;
-               }
-               else if (strcmp(optarg, "graph") == 0) {
+               if (strcmp(optarg, "compact") == 0) {
                   format_flag = 0;
                }
-               else if (strcmp(optarg, "both") == 0) {
+               else if (strcmp(optarg, "full") == 0) {
                   format_flag = 1;
                }
                else {
@@ -166,11 +164,18 @@ main(
       outputf = stdout;
    }
 
+   // Set default flags.
    if (verbose_flag < 0) verbose_flag = 0;
-   if (format_flag < 0) format_flag = 2;
+   if (format_flag < 0) format_flag = 0;
    if (dist_flag < 0) dist_flag = 3;
 
-   int exitcode = starcode(inputf, outputf, dist_flag, verbose_flag); 
+   int exitcode = starcode(
+                      inputf,
+                      outputf,
+                      dist_flag,
+                      format_flag,
+                      verbose_flag
+                  );
 
    if (inputf != stdin) fclose(inputf);
    if (outputf != stdout) fclose(outputf);

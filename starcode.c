@@ -9,6 +9,7 @@ void destroy_useq (void*);
 void print_and_destroy(void*);
 void addchild(useq_t*, useq_t*);
 void print_children(useq_t*, useq_t*);
+void transfer_counts(useq_t*, useq_t*);
 void unpad_useq (useq_t**, int);
 int pad_useq(useq_t**, int);
 int abcd(const void *a, const void *b) { return strcmp(str(a), str(b)); }
@@ -56,12 +57,10 @@ tquery
    q_useq = ptr + ni_u;
 
    // Get a joint maximum length.
-   int bottom = pad_useq(i_useq, ni_u + nq_u);
+   int height = pad_useq(i_useq, ni_u + nq_u);
    qsort(q_useq, nq_u, sizeof(useq_t *), ualpha);
-   if (verbose) fprintf(stderr, " done\n");
 
-   if (verbose) fprintf(stderr, "building index...");
-   node_t *trie = new_trie(tau, bottom);
+   node_t *trie = new_trie(tau, height);
    if (trie == NULL) exit(EXIT_FAILURE);
    for (int i = 0 ; i < ni_u ; i++) {
       useq_t *u = i_useq[i];
@@ -92,6 +91,7 @@ tquery
          fprintf(stderr, "search error: %s\n", query->seq);
          continue;
       }
+
       if (hits->pos == 1) {
          useq_t *match = (useq_t *)hits->nodes[0]->data;
          // Transfer counts to match.
@@ -125,6 +125,7 @@ starcode
    FILE *inputf,
    FILE *outputf,
    const int tau,
+   const int fmt,
    const int verbose
 )
 {
@@ -141,11 +142,11 @@ starcode
    useq_t **all_useq = get_useq(all_seq, total, &utotal);
    free(all_seq);
 
-   int bottom = pad_useq(all_useq, utotal);
+   int height = pad_useq(all_useq, utotal);
    qsort(all_useq, utotal, sizeof(useq_t *), ualpha);
    if (verbose) fprintf(stderr, " done\n");
 
-   node_t *trie = new_trie(tau, bottom);
+   node_t *trie = new_trie(tau, height);
    narray_t *hits = new_narray();
    if (trie == NULL || hits == NULL) exit(EXIT_FAILURE);
 
@@ -209,19 +210,39 @@ starcode
 
    }
 
+   free(hits);
+   if (verbose) {
+      fprintf(stderr, "starcode: %d/%d\n", utotal, utotal);
+   }
+
    unpad_useq(all_useq, utotal);
 
-   free(hits);
+   if (fmt == 0) {
+      for (int i = 0 ; i < utotal ; i++) {
+         useq_t *parent = all_useq[i];
+         if (parent->children == NULL) continue;
+         for (int j = 0 ; j < parent->children->pos ; j++) {
+            transfer_counts(parent, parent->children->u[j]);
+         }
+      }
+      qsort(all_useq, utotal, sizeof(useq_t *), bycount);
+      for (int i = 0 ; i < utotal ; i++) {
+         useq_t *u = all_useq[i];
+         // Do not show sequences with 0 count.
+         if (u->count == 0) break;
+         fprintf(OUTPUT, "%s\t%d\n", u->seq, u->count);
+      }
+   }
 
-   qsort(all_useq, utotal, sizeof(useq_t *), bycount);
-   for (int i = 0 ; i < utotal ; i++) {
-      print_children(all_useq[i], all_useq[i]);
+   else if (fmt == 1) {
+      qsort(all_useq, utotal, sizeof(useq_t *), bycount);
+      for (int i = 0 ; i < utotal ; i++) {
+         print_children(all_useq[i], all_useq[i]);
+      }
    }
 
    free(all_useq);
    destroy_trie(trie, destroy_useq);
-
-   if (verbose) fprintf(stderr, "starcode: %d/%d\n", utotal, utotal);
 
    OUTPUT = NULL;
 
@@ -360,6 +381,34 @@ unpad_useq
       all_useq[i]->seq = unpadded;
    }
 }
+
+
+void
+transfer_counts
+(
+   useq_t *uref,
+   useq_t *child
+)
+{
+
+   // Check if the sequence has been processed.
+   if (uref->count == 0 || child->count == 0) return;
+
+   //fprintf(OUTPUT, "%s:%d\t%s:%d\n",
+   //      child->seq, child->count, uref->seq, uref->count);
+   uref->count += child->count;
+   
+   if (child->children != NULL) {
+      for (int i = 0 ; i < child->children->pos ; i++) {
+         transfer_counts(uref, child->children->u[i]);
+      }
+   }
+
+   // Mark the child as processed.
+   child->count = 0;
+
+}
+
 
 void
 print_children

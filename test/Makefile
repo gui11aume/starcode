@@ -4,7 +4,7 @@ vpath %.h ..
 P=testset
 OBJECTS= trie.o starcode.o
 CFLAGS= -I.. `pkg-config --cflags glib-2.0` -g -pg -Wall -std=gnu99 \
-	-O3 -fprofile-arcs -ftest-coverage
+	-O3 -fprofile-arcs -ftest-coverage -Wno-aggressive-loop-optimizations
 LDLIBS= -L`pwd` -Wl,-rpath=`pwd` `pkg-config --libs glib-2.0` -lfaultymalloc 
 CC= gcc
 $(P): $(OBJECTS) libfaultymalloc.so

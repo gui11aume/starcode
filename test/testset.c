@@ -1,11 +1,12 @@
 #include <glib.h>
 #include <stdio.h>
 #include <string.h>
+#include <fcntl.h>
 #include "faultymalloc.h"
 #include "trie.h"
 #include "starcode.h"
 
-#define NSTRINGS 4
+#define NSTRINGS 22
 
 typedef struct {
    node_t *trie;
@@ -14,13 +15,62 @@ typedef struct {
 
 const char *string[NSTRINGS] = {
    "AAAAAAAAAAAAAAAAAAAA",
+   "AAAAAAAAAANAAAAAAAAA",
+   "NAAAAAAAAAAAAAAAAAAN",
+   "NNAAAAAAAAAAAAAAAANN",
    "AAAAAAAAAAAAAAAAAAAT",
    "TAAAAAAAAAAAAAAAAAAA",
+   "GGATTAGATCACCGCTTTCG",
+   "TTGGTATATGTCATAGAAAT",
+   "TTCGGAGCGACTAATATAGG",
+   "CGAGGCGTATAGTGTTTCCA",
+   "ATGCTAGGGTACTCGATAAC",
+   "CATACAGTATTCGACTAAGG",
+   "TGGAGATGATGAAGAAGACC",
+   "GGGAGACTTTTCCAGGGTAT",
+   "TCATTGTGATAGCTCGTAAC",
+   " GGATATCAAGGGTTACTAG",
    " AAAAAAAAAAAAAAAAAAA",
+   "            AAAAAAAA",
+   "            NNNNNNNN",
+   "                   A",
+   "                   N",
+   "                    ",
 };
 
 
+// Convenience function.
 void reset(narray_t *h) { h->pos = 0; }
+
+
+// Error message handling functions.
+char error_buffer[1024];
+int backup_file_descriptor;
+
+void
+redirect_stderr_to
+(char buffer[])
+{
+   // Flush stderr, redirect to /dev/null and set buffer.
+   fflush(stderr);
+   int temp = open("/dev/null", O_WRONLY);
+   dup2(temp, STDERR_FILENO);
+   memset(buffer, '\0', 1024 * sizeof(char));
+   setvbuf(stderr, buffer, _IOFBF, 1024);
+   close(temp);
+   // Fill the buffer (needed for reset).
+   fprintf(stderr, "fill the buffer");
+   fflush(stderr);
+}
+
+void
+unredirect_sderr
+(void)
+{
+   fflush(stderr);
+   dup2(backup_file_descriptor, STDERR_FILENO);
+   setvbuf(stderr, NULL, _IONBF, 0);
+}
 
 
 // String representation of the trie as a depth first search
@@ -28,9 +78,51 @@ void reset(narray_t *h) { h->pos = 0; }
 // children. I also use indentation to ease the reading.
 char repr[1024];
 char trierepr[] =
-"AAAAAAAAAAAAAAAAAAAA*"
-"T********************"
-"TAAAAAAAAAAAAAAAAAAA*********************";
+"NNAAAAAAAAAAAAAAAANN"
+ "*******************"
+ "AAAAAAAAAAAAAAAAAAN"
+"********************"
+"AAAAAAAAAANAAAAAAAAA"
+          "**********"
+          "AAAAAAAAAA"
+                   "*"
+                   "T"
+ "*******************"
+ "TGCTAGGGTACTCGATAAC"
+"********************"
+"CATACAGTATTCGACTAAGG"
+ "*******************"
+ "GAGGCGTATAGTGTTTCCA"
+"********************"
+"GGATTAGATCACCGCTTTCG"
+  "******************"
+  "GAGACTTTTCCAGGGTAT"
+"********************"
+"TAAAAAAAAAAAAAAAAAAA"
+ "*******************"
+ "CATTGTGATAGCTCGTAAC"
+ "*******************"
+ "GGAGATGATGAAGAAGACC"
+ "*******************"
+ "TCGGAGCGACTAATATAGG"
+  "******************"
+  "GGTATATGTCATAGAAAT"
+"********************"
+" AAAAAAAAAAAAAAAAAAA"
+ "*******************"
+ "GGATATCAAGGGTTACTAG"
+ "*******************"
+ "           NNNNNNNN"
+            "********"
+            "AAAAAAAA"
+            "********"
+            "       N"
+                   "*"
+                   "A"
+                   "*"
+                   " "
+"********************"
+"*";
 
 void
 strie(
@@ -41,7 +133,7 @@ strie(
 {
    static int j;
    if (restart) j = 0;
-   for (int i = 0 ; i < 5 ; i++) {
+   for (int i = 0 ; i < 6 ; i++) {
       if (node->child[i] != NULL) {
          repr[j++] = untranslate[i];
          strie(node->child[i], 0);
@@ -105,15 +197,15 @@ test_search(
    g_assert(hits != NULL);
 
    search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 18);
-   g_assert_cmpint(hits->pos, ==, 4);
+   g_assert_cmpint(hits->pos, ==, 6);
 
    reset(hits);
    search(f->trie, "AAAAAAAAAAAAAAAAAATA", 3, &hits, 18, 3);
-   g_assert_cmpint(hits->pos, ==, 4);
+   g_assert_cmpint(hits->pos, ==, 6);
 
    reset(hits);
    search(f->trie, "AAAGAAAAAAAAAAAAAATA", 3, &hits, 3, 15);
-   g_assert_cmpint(hits->pos, ==, 4);
+   g_assert_cmpint(hits->pos, ==, 5);
 
    reset(hits);
    search(f->trie, "AAAGAAAAAAAAAAAGACTG", 3, &hits, 15, 15);
@@ -121,23 +213,104 @@ test_search(
 
    reset(hits);
    search(f->trie, "AAAGAAAAAAAAAAAAAAAA", 3, &hits, 15, 0);
-   g_assert_cmpint(hits->pos, ==, 4);
+   g_assert_cmpint(hits->pos, ==, 6);
 
    reset(hits);
    search(f->trie, "TAAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 19);
-   g_assert_cmpint(hits->pos, ==, 4);
+   g_assert_cmpint(hits->pos, ==, 6);
 
    reset(hits);
    search(f->trie, "TAAAAAAAAAAAAAAAAAAG", 3, &hits, 19, 0);
-   g_assert_cmpint(hits->pos, ==, 4);
+   g_assert_cmpint(hits->pos, ==, 6);
 
    reset(hits);
-   search(f->trie, " AAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 18);
-   g_assert_cmpint(hits->pos, ==, 4);
+   search(f->trie, " AAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 19);
+   g_assert_cmpint(hits->pos, ==, 6);
 
    reset(hits);
-   search(f->trie, " AAAAAAAAAAAAAAAAAAT", 3, &hits, 18, 18);
-   g_assert_cmpint(hits->pos, ==, 4);
+   search(f->trie, " AAAAAAAAAAAAAAAAAAT", 3, &hits, 19, 0);
+   g_assert_cmpint(hits->pos, ==, 6);
+
+   reset(hits);
+   search(f->trie, "ATGCTAGGGTACTCGATAAC", 0, &hits, 0, 0);
+   g_assert_cmpint(hits->pos, ==, 1);
+
+   reset(hits);
+   search(f->trie, " TGCTAGGGTACTCGATAAC", 1, &hits, 0, 20);
+   g_assert_cmpint(hits->pos, ==, 1);
+
+   reset(hits);
+   search(f->trie, "NAAAAAAAAAAAAAAAAAAN", 2, &hits, 0, 1);
+   g_assert_cmpint(hits->pos, ==, 5);
+
+   reset(hits);
+   search(f->trie, "NNAAAAAAAAAAAAAAAANN", 3, &hits, 1, 0);
+   g_assert_cmpint(hits->pos, ==, 0);
+
+   reset(hits);
+   search(f->trie, "AAAAAAAAAANAAAAAAAAA", 0, &hits, 0, 0);
+   g_assert_cmpint(hits->pos, ==, 0);
+
+   reset(hits);
+   search(f->trie, "NNNAGACTTTTCCAGGGTAT", 3, &hits, 0, 0);
+   g_assert_cmpint(hits->pos, ==, 1);
+
+   reset(hits);
+   search(f->trie, "GGGAGACTTTTCCAGGGNNN", 3, &hits, 0, 17);
+   g_assert_cmpint(hits->pos, ==, 1);
+
+   reset(hits);
+   search(f->trie, "GGGAGACTTTTCCAGGG   ", 3, &hits, 17, 0);
+   g_assert_cmpint(hits->pos, ==, 1);
+
+   reset(hits);
+   search(f->trie, "   AGACTTTTCCAGGGTAT", 3, &hits, 0, 3);
+   g_assert_cmpint(hits->pos, ==, 1);
+
+   reset(hits);
+   search(f->trie, "                   N", 1, &hits, 3, 19);
+   g_assert_cmpint(hits->pos, ==, 3);
+
+   reset(hits);
+   search(f->trie, "                    ", 1, &hits, 19, 0);
+   g_assert_cmpint(hits->pos, ==, 3);
+
+   // Caution here: the hit is present but the initial
+   // search conditions are wrong.
+   reset(hits);
+   search(f->trie, "ATGCTAGGGTACTCGATAAC", 0, &hits, 20, 1);
+   g_assert_cmpint(hits->pos, ==, 0);
+
+   // Check error messages.
+   reset(hits);
+   redirect_stderr_to(error_buffer);
+   search(f->trie, "AAAAAAAAAAAAAAAAAAAAA", 3, &hits, 1, 0);
+   unredirect_sderr();
+   g_assert_cmpint(check_trie_error_and_reset(), ==, 93);
+   g_assert_cmpstr(error_buffer, ==,
+         "query longer than allowed max\n");
+   g_assert_cmpint(hits->pos, ==, 0);
+
+   reset(hits);
+   redirect_stderr_to(error_buffer);
+   search(f->trie, " TGCTAGGGTACTCGATAAC", 4, &hits, 0, 0);
+   unredirect_sderr();
+   g_assert_cmpint(check_trie_error_and_reset(), ==, 82);
+   g_assert_cmpstr(error_buffer, ==,
+         "requested tau greater than 'maxtau'\n");
+   g_assert_cmpint(hits->pos, ==, 0);
+
+
+   // Repeat first test cases.
+   reset(hits);
+   search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 18);
+   g_assert_cmpint(hits->pos, ==, 6);
+
+   reset(hits);
+   search(f->trie, "AAAAAAAAAAAAAAAAAATA", 3, &hits, 18, 18);
+   g_assert_cmpint(hits->pos, ==, 6);
+
+
 
    free(hits);
 
@@ -207,7 +380,7 @@ test_mem(
    for (int i = 0 ; i < 1000 ; i++) {
       reset(hits);
       hits = search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 20);
-      if (hits->pos != 4) {
+      if (hits->pos != 6) {
          g_assert_cmpint(check_trie_error_and_reset(), >, 0);
       }
    }
@@ -257,7 +430,7 @@ test_run
 
    // Just check that input can be read (test will fail if
    // things go wrong here).
-   //starcode(inputf, outputf, 3, 1);
+   //starcode(inputf, outputf, 3, 0, 1);
    //fclose(inputf);
    //fclose(outputf);
 
@@ -267,7 +440,7 @@ test_run
    g_assert(outputf != NULL);
    //g_test_timer_start();
    fprintf(stderr, "\n");
-   starcode(inputf, outputf, 3, 1);
+   starcode(inputf, outputf, 3, 0, 1);
    fclose(inputf);
    fclose(outputf);
    // The command line call to 'perf' shows the elapsed time.
@@ -281,6 +454,9 @@ main(
    char **argv
 )
 {
+   // Save the stderr file descriptor upon start.
+   backup_file_descriptor = dup(STDERR_FILENO);
+
    g_test_init(&argc, &argv, NULL);
    g_test_add("/search", fixture, NULL, setup, test_search, teardown);
    g_test_add("/mem", fixture, NULL, setup, test_mem, teardown);

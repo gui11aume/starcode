@@ -86,8 +86,9 @@ tquery
       }
       // Clear hits.
       hits->pos = 0;
-      hits = search(trie, query->seq, tau, &hits, start, trail);
-      if (check_trie_error_and_reset()) {
+      search(trie, query->seq, tau, &hits, start, trail);
+      if (hits->err) {
+         hits->err = 0;
          fprintf(stderr, "search error: %s\n", query->seq);
          continue;
       }
@@ -148,7 +149,10 @@ starcode
 
    node_t *trie = new_trie(tau, height);
    narray_t *hits = new_narray();
-   if (trie == NULL || hits == NULL) exit(EXIT_FAILURE);
+   if (trie == NULL || hits == NULL) {
+      fprintf(stderr, "error %d\n", check_trie_error_and_reset());
+      exit(EXIT_FAILURE);
+   }
 
    int start = 0;
    for (int i = 0 ; i < utotal ; i++) {
@@ -167,20 +171,32 @@ starcode
 
       // Insert the prefix in the trie.
       node_t *node = insert_string(trie, prefix);
-      if (node == NULL) exit(EXIT_FAILURE);
+      if (node == NULL) {
+         fprintf(stderr, "error %d\n", check_trie_error_and_reset());
+         exit(EXIT_FAILURE);
+      }
 
       // Clear hits.
       hits->pos = 0;
-      hits = search(trie, query->seq, tau, &hits, start, trail);
-      if (check_trie_error_and_reset()) {
-         fprintf(stderr, "search error: %s\n", query->seq);
-         continue;
+      int err = search(trie, query->seq, tau, &hits, start, trail);
+      if (err) {
+         fprintf(stderr, "error %d\n", err);
+         exit(EXIT_FAILURE);
       }
 
       // Insert the rest of the new sequence in the trie.
       node = insert_string(trie, query->seq);
-      if (node == NULL) exit(EXIT_FAILURE);
+      if (node == NULL) {
+         fprintf(stderr, "error %d\n", check_trie_error_and_reset());
+         exit(EXIT_FAILURE);
+      }
       if (node != trie) node->data = all_useq[i];
+
+      if (hits->err) {
+         hits->err = 0;
+         fprintf(stderr, "search error: %s\n", query->seq);
+         continue;
+      }
 
       // Link matching pairs.
       for (int j = 0 ; j < hits->pos ; j++) {

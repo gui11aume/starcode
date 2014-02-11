@@ -1,2 +1,2 @@
-b search
+b starcode.c:150
 r

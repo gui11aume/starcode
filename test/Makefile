@@ -25,3 +25,6 @@ testperf: testset
 
 debug: testset
 	gdb --command=debug.gdb --args testset -m=perf
+
+valgrind:
+	valgrind --vgdb=yes --vgdb-error=0 ./testset -m=perf

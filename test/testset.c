@@ -40,7 +40,7 @@ const char *string[NSTRINGS] = {
 
 
 // Convenience function.
-void reset(narray_t *h) { h->pos = 0; }
+void reset(narray_t *h) { h->pos = 0; h->err = 0; }
 
 
 // Error message handling functions.
@@ -193,6 +193,7 @@ test_search(
 )
 {
 
+   int err = 0 ;
    narray_t *hits = new_narray();
    g_assert(hits != NULL);
 
@@ -284,18 +285,18 @@ test_search(
    // Check error messages.
    reset(hits);
    redirect_stderr_to(error_buffer);
-   search(f->trie, "AAAAAAAAAAAAAAAAAAAAA", 3, &hits, 1, 0);
+   err = search(f->trie, "AAAAAAAAAAAAAAAAAAAAA", 3, &hits, 1, 0);
+   g_assert_cmpint(err, ==, 91);
    unredirect_sderr();
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 93);
    g_assert_cmpstr(error_buffer, ==,
          "query longer than allowed max\n");
    g_assert_cmpint(hits->pos, ==, 0);
 
    reset(hits);
    redirect_stderr_to(error_buffer);
-   search(f->trie, " TGCTAGGGTACTCGATAAC", 4, &hits, 0, 0);
+   err = search(f->trie, " TGCTAGGGTACTCGATAAC", 4, &hits, 0, 0);
    unredirect_sderr();
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 82);
+   g_assert_cmpint(err, ==, 85);
    g_assert_cmpstr(error_buffer, ==,
          "requested tau greater than 'maxtau'\n");
    g_assert_cmpint(hits->pos, ==, 0);
@@ -321,6 +322,8 @@ test_mem(
    fixture *f,
    gconstpointer ignore
 )
+// NOTE: It may be that the 'g_assert()' functions call 'malloc()'
+// in which case I am not sure what may sometimes happen.
 {
 
    // Test hits dynamic growth. Build a trie with 1000 sequences
@@ -344,15 +347,25 @@ test_mem(
    g_assert(hits != NULL);
 
    reset(hits);
-   hits = search(trie, "NNNNNNNN", 8, &hits, 0, 0);
+   search(trie, "NNNNNNNN", 8, &hits, 0, 0);
    g_assert_cmpint(hits->pos, >, 0);
    g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
 
+   // Do it again with a memory failure.
+   free(hits);
+   hits = new_narray();
+
+   set_alloc_failure_rate_to(1);
+   search(trie, "NNNNNNNN", 8, &hits, 0, 0);
+   reset_alloc();
+   g_assert_cmpint(hits->err, ==, 1);
+
+   reset(hits);
    destroy_trie(trie, NULL);
 
    // Construct 1000 tries with a `malloc` failure rate of 1%.
    // If a segmentation fault happens the test will fail.
-   set_malloc_failure_rate_to(0.01);
+   set_alloc_failure_rate_to(0.01);
 
    for (int i = 0 ; i < 1000 ; i++) {
       node_t *trie = new_trie(3, 20);
@@ -379,9 +392,9 @@ test_mem(
    // Test 'search()' 1000 times in a perfectly built trie.
    for (int i = 0 ; i < 1000 ; i++) {
       reset(hits);
-      hits = search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 20);
+      search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 20);
       if (hits->pos != 6) {
-         g_assert_cmpint(check_trie_error_and_reset(), >, 0);
+         g_assert_cmpint(hits->err, == , 1);
       }
    }
 
@@ -399,22 +412,21 @@ test_mem(
       else {
          node->data = node;
       }
-
    }
 
-   for (int i = 0 ; i < 512 ; i++) {
+   for (int i = 0 ; i < 1000 ; i++) {
       for (int j = 0 ; j < 20 ; j++) {
          seq[j] = untranslate[(int)(5 * drand48())];
       }
       reset(hits);
-      hits = search(f->trie, seq, 3, &hits, 0, 20);
+      search(f->trie, seq, 3, &hits, 0, 20);
    }
 
    // Calls to 'search()' do not create errors. 'realloc()' is called
    // when 'hits' is full, which won't happen with a sparse trie.
    g_assert_cmpint(check_trie_error_and_reset(), == , 0);
 
-   reset_malloc();
+   reset_alloc();
    free(hits);
 
 }
@@ -424,6 +436,8 @@ void
 test_run
 (void)
 {
+   // Make sure normal 'alloc()' is used throughout.
+   reset_alloc();
    //FILE *outputf = fopen("out", "w");
    //FILE *inputf = fopen("input_test_file.txt", "r");
    //g_assert(inputf != NULL);

@@ -1,2 +1,2 @@
-void set_malloc_failure_rate_to(double p);
-void reset_malloc(void);
+void set_alloc_failure_rate_to(double p);
+void reset_alloc(void);

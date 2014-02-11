@@ -3,26 +3,25 @@
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #define max(a,b) (((a) > (b)) ? (a) : (b))
 
-// Error reporting.
-int ERROR;
+// Global error handling.
+int ERROR = 0;
 
-// Shared part of the dynamic programming table.
-char COMMON[9] = {0,1,2,3,4,5,6,7,8};
-
-// Search globals.
-narray_t *  HITS = NULL;
-narray_t ** MILESTONES;
-char        TAU;
-char        MAXTAU;
-int      *  QUERY;
-int         TRAIL;
-int         HEIGHT;
+struct arg_t {
+   narray_t ** hits;
+   narray_t ** milestones;
+   char        tau;
+   char        maxtau;
+   int       * query;
+   int         trail;
+   int         height;
+   int         err;
+};
 
 
 
 // Search.
-void _search(node_t*, int);
-void dash(node_t*, const int*);
+void _search(node_t*, int, struct arg_t);
+void dash(node_t*, const int*, struct arg_t);
 // Trie creation and destruction.
 node_t *insert(node_t*, int, unsigned char);
 node_t *new_trienode(unsigned char);
@@ -39,8 +38,7 @@ int get_height(node_t *root) { return ((info_t *)root->data)->height; }
 
 // ------  SEARCH FUNCTIONS ------ //
 
-
-narray_t *
+int
 search
 (
          node_t   *  trie,
@@ -79,20 +77,18 @@ search
    char maxtau = get_maxtau(trie);
    char height = get_height(trie);
    if (tau > maxtau) {
-      ERROR = 82;
       // DETAIL: the nodes' cache has been allocated just enough
       // space to hold Levenshtein distances up to a maximum tau.
       // If this is exceeded, the search will try to read from and
       // write to forbidden memory space.
       fprintf(stderr, "requested tau greater than 'maxtau'\n");
-      return *hits;
+      return 85;
    }
 
    int length = strlen(query);
    if (length > height) {
-      ERROR = 93;
       fprintf(stderr, "query longer than allowed max\n");
-      return *hits;
+      return 91;
    }
 
    // Make sure the cache is allocated.
@@ -112,23 +108,25 @@ search
       translated[i+1] = altranslate[(int) query[i]];
    }
 
-   // Set the gobals.
-   HITS        = *hits;
-   QUERY       = translated;
-   TAU         = tau;
-   MAXTAU      = maxtau;
-   MILESTONES  = info->milestones;
-   TRAIL       = trail;
-   HEIGHT      = height;
+   // Set the search options.
+   struct arg_t arg = {
+      .hits        = hits,
+      .query       = translated,
+      .tau         = tau,
+      .maxtau      = maxtau,
+      .milestones  = info->milestones,
+      .trail       = trail,
+      .height      = height,
+   };
 
    // Run recursive search from cached nodes.
    narray_t *milestones = info->milestones[start];
    for (int i = 0 ; i < milestones->pos ; i++) {
       node_t *start_node = milestones->nodes[i];
-      _search(start_node, start + 1);
+      _search(start_node, start + 1, arg);
    }
 
-   return HITS;
+   return 0;
 
 }
 
@@ -136,8 +134,9 @@ search
 void
 _search
 (
-         node_t   *  restrict node,
-   const int         depth
+          node_t * restrict node,
+   const  int      depth,
+   struct arg_t    arg
 )
 // SYNOPSIS:                                                              
 //   Back end recursive "trail search" algorithm. Most of the time is     
@@ -154,9 +153,9 @@ _search
 //   node (in position 5) corresponding to a dummy prefix (printed as a   
 //   white space). All the leaves of the trie are at a depth called the   
 //   "height", which is the depth at which the recursion is stopped to    
-//   check for hits. If the maximum edit distance 'TAU' is exceeded the   
+//   check for hits. If the maximum edit distance 'tau' is exceeded the   
 //   search is interrupted. On the other hand, if the search has passed   
-//   trailing depth and 'TAU' is exactly reached, the search finishes by  
+//   trailing depth and 'tau' is exactly reached, the search finishes by  
 //   a 'dash()' which checks whether an exact suffix can be found.        
 //   While trailing, the nodes are pushed in milestone node arrays that   
 //   can be serve as starting points for future searches.                 
@@ -169,9 +168,8 @@ _search
 //   'void'.                                                              
 //                                                                        
 // SIDE EFFECTS:                                                          
-//   Same as 'search()', it modifies nodes of the trie and the global     
-//   node array 'HITS' where hits are pushed.                             
-
+//   Same as 'search()', it modifies nodes of the trie and the node       
+//   array 'arg.hits' where hits are pushed.                              
 {
 
    // Point to the middle of parent cache, ie the angle of the L.
@@ -179,23 +177,26 @@ _search
    // with positive index and requiring the path, from the part that
    // goes horizontally, with negative index and requiring previous
    // characters of the query.
-   char *pcache = node->cache + MAXTAU + 1;
+   char *pcache = node->cache + arg.maxtau + 1;
 
-   // Risk of overflow at depth lower than 'TAU'.
-   int maxa = min((depth-1), TAU);
+   // Risk of overflow at depth lower than 'tau'.
+   int maxa = min((depth-1), arg.tau);
 
    // Penalty for match/mismatch and insertion/deletion resepectively.
    unsigned char mmatch;
    unsigned char shift;
+
+   // Part of the cache that is shared between all the children.
+   char common[9] = {0,1,2,3,4,5,6,7,8};
 
    // The branch of the L that is identical among all children
    // is computed separately. It will be copied later.
    uint32_t path = node->path;
    for (int a = maxa ; a > 0 ; a--) {
       // Upper arm of the L (need the path).
-      mmatch = pcache[a] + ((path >> 4*(a-1) & 15) != QUERY[depth]);
-      shift = min(pcache[a-1], COMMON[a+1]) + 1;
-      COMMON[a] = min(mmatch, shift);
+      mmatch = pcache[a] + ((path >> 4*(a-1) & 15) != arg.query[depth]);
+      shift = min(pcache[a-1], common[a+1]) + 1;
+      common[a] = min(mmatch, shift);
    }
 
    node_t *child;
@@ -204,39 +205,39 @@ _search
       if ((child = node->child[i]) == NULL) continue;
 
       // Same remark as for parent cache.
-      char *ccache = child->cache + MAXTAU + 1;
-      memcpy(ccache, COMMON, MAXTAU * sizeof(char));
+      char *ccache = child->cache + arg.maxtau + 1;
+      memcpy(ccache, common, arg.maxtau * sizeof(char));
 
       for (int a = maxa ; a > 0 ; a--) {
          // Horizontal arm of the L (need previous characters).
-         mmatch = pcache[-a] + (i != QUERY[depth-a]);
+         mmatch = pcache[-a] + (i != arg.query[depth-a]);
          shift = min(pcache[1-a], ccache[-a-1]) + 1;
          ccache[-a] = min(mmatch, shift);
       }
       // Center cell (need both arms to be computed).
-      mmatch = pcache[0] + (i != QUERY[depth]);
+      mmatch = pcache[0] + (i != arg.query[depth]);
       shift = min(ccache[-1], ccache[1]) + 1;
       ccache[0] = min(mmatch, shift);
 
-      // Stop searching if 'TAU' is exceeded.
-      if (ccache[0] > TAU) continue;
+      // Stop searching if 'tau' is exceeded.
+      if (ccache[0] > arg.tau) continue;
 
       // Cache nodes in milestones when trailing.
-      if (depth <= TRAIL) push(child, MILESTONES+depth);
+      if (depth <= arg.trail) push(child, (arg.milestones)+depth);
 
       // Reached the height, it's a hit!
-      if (depth == HEIGHT) {
-         push(child, &HITS);
+      if (depth == arg.height) {
+         push(child, arg.hits);
          continue;
       }
 
       // Use 'dash()' if no more mismatches allowed.
-      if ((ccache[0] == TAU) && (depth > TRAIL)) {
-         dash(child, QUERY+depth+1);
+      if ((ccache[0] == arg.tau) && (depth > arg.trail)) {
+         dash(child, arg.query+depth+1, arg);
          continue;
       }
 
-      _search(child, depth+1);
+      _search(child, depth+1, arg);
 
    }
 
@@ -246,8 +247,9 @@ _search
 void
 dash
 (
-         node_t * restrict node,
-   const int    * restrict suffix
+          node_t * restrict node,
+   const  int    * restrict suffix,
+   struct arg_t    arg
 )
 // SYNOPSIS:                                                              
 //   Checks whether node has the given suffix and reports a hit if this   
@@ -261,7 +263,7 @@ dash
 //   'void'.                                                              
 //                                                                        
 // SIDE EFFECTS:                                                          
-//   Updates 'HITS' if the suffix is found.                               
+//   Updates 'arg.hits' if the suffix is found.                           
 {
 
    int c;
@@ -274,9 +276,7 @@ dash
    }
 
    // End of query, check whether node is a tail.
-   if (node->data != NULL) {
-      push(node, &HITS);
-   }
+   if (node->data != NULL) push(node, arg.hits);
 
    return;
 
@@ -598,11 +598,12 @@ new_narray
 //   Allocates the memory for the node array.                             
 {
    // Allocate memory for a node array, with 32 initial slots.
-   narray_t *new = malloc(2 * sizeof(int) + 32 * sizeof(node_t *));
+   narray_t *new = malloc(3 * sizeof(int) + 32 * sizeof(node_t *));
    if (new == NULL) {
       ERROR = 603;
       return NULL;
    }
+   new->err = 0;
    new->pos = 0;
    new->lim = 32;
    return new;
@@ -633,10 +634,10 @@ push
 
    // Resize if needed.
    if (stack->pos >= stack->lim) {
-      size_t newsize = 2 * sizeof(int) + 2*stack->lim * sizeof(node_t *);
+      size_t newsize = 3 * sizeof(int) + 2*stack->lim * sizeof(node_t *);
       narray_t *ptr = realloc(stack, newsize);
       if (ptr == NULL) {
-         ERROR = 639;
+         stack->err = 1;
          return;
       }
       *stack_addr = stack = ptr;
@@ -644,6 +645,7 @@ push
    }
 
    stack->nodes[stack->pos++] = node;
+
 }
 
 

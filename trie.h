@@ -20,11 +20,11 @@ typedef struct info_t info_t;
 
 int        check_trie_error_and_reset(void);
 int        count_nodes(node_t*);
+int        search(node_t*, const char*, int, narray_t**, int, int);
 void       destroy_trie(node_t*, void(*)(void *));
 node_t   * new_trie(unsigned char, unsigned char);
 node_t   * insert_string(node_t*, const char*);
 narray_t * new_narray(void);
-narray_t * search(node_t*, const char*, int, narray_t**, int, int);
 
 
 // Translation tables between letters and numbers.
@@ -56,9 +56,10 @@ struct tnode_t
 
 struct tstack_t
 {
+            int        err;            // Trace memory errors.
             int        lim;            // Stack size.
             int        pos;            // Number of items.
-   struct   tnode_t  * nodes[];        // Items.
+   struct   tnode_t  * nodes[];        // Nodes (items).
 };
 
 

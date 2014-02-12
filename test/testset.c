@@ -433,6 +433,65 @@ test_mem(
 
 
 void
+test_count
+(
+   fixture *f,
+   gconstpointer ignore
+)
+{
+   int n_nodes = 1;
+   // Count nodes from the string representation of the trie,
+   // not forgetting the root which is not represented.
+   for (int i = 0 ; i < strlen(trierepr) ; i++) {
+      n_nodes += trierepr[i] != '*';
+   }
+   g_assert_cmpint(n_nodes, ==, count_nodes(f->trie));
+}
+
+
+void
+test_compress
+(
+   fixture *f,
+   gconstpointer ignore
+)
+{
+   // Set the 'data' of every node to its own address (except root).
+   narray_t *stack = new_narray();
+   push(f->trie, &stack);
+   while (stack->pos > 0) {
+      node_t *node = stack->nodes[--stack->pos];
+      for (int i = 0 ; i < 6 ; i++) {
+         node_t *child = node->child[i];
+         if (child != NULL) {
+            child->data = child;
+            push(child, &stack);
+         }
+      }
+   }
+
+   a_node_t *a_trie = compress_trie(f->trie);
+   int n_nodes = count_nodes(f->trie);
+
+   // Check the trie structure in the array trie.
+   for (int i = 1 ; i < n_nodes ; i++) {
+      a_node_t *a_node = &a_trie[i];
+      node_t *node = (node_t *) a_node->data;
+      for (int j = 0 ; j < 6 ; j++) {
+         // If no child in the array trie, no child in the trie.
+         if (!a_node->child[j]) g_assert(node->child[j] == NULL);
+         // Otherwise, make sure that children are the same.
+         else {
+            node_t *a = (node_t *) a_trie[a_node->child[j]].data;
+            node_t *b = (node_t *) node->child[j]->data;
+            g_assert(a == b);
+         }
+      }
+   }
+}
+
+
+void
 test_run
 (void)
 {
@@ -472,8 +531,10 @@ main(
    backup_file_descriptor = dup(STDERR_FILENO);
 
    g_test_init(&argc, &argv, NULL);
+   g_test_add("/count", fixture, NULL, setup, test_count, teardown);
    g_test_add("/search", fixture, NULL, setup, test_search, teardown);
    g_test_add("/mem", fixture, NULL, setup, test_mem, teardown);
+   g_test_add("/compress", fixture, NULL, setup, test_compress, teardown);
    if (g_test_perf()) {
       g_test_add_func("/starcode/run", test_run);
    }

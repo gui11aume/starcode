@@ -1,2 +1,2 @@
-b starcode.c:150
+b test_compress
 r

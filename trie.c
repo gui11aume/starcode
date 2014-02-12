@@ -7,6 +7,8 @@
 int ERROR = 0;
 
 struct arg_t {
+// Search parameters grouped in the same structure
+// for simplicity.
    narray_t ** hits;
    narray_t ** milestones;
    char        tau;
@@ -27,8 +29,9 @@ node_t *insert(node_t*, int, unsigned char);
 node_t *new_trienode(unsigned char);
 void init_milestones(node_t*);
 void destroy_nodes_downstream_of(node_t*, void(*)(void*));
+// Trie compression.
+int fill_a_trie(node_t*, a_node_t*, int);
 // Utility.
-void push(node_t*, narray_t**);
 int check_trie_error_and_reset(void);
 // Here functions.
 int get_maxtau(node_t *root) { return ((info_t *)root->data)->maxtau; }
@@ -668,4 +671,42 @@ int count_nodes(node_t* node) {
       count += count_nodes(node->child[i]);
    }
    return count;
+}
+
+
+a_node_t *
+compress_trie
+(
+   node_t *trie
+)
+{
+   int n_nodes = count_nodes(trie);
+   a_node_t *a_trie = malloc(n_nodes * sizeof(a_node_t));
+   fill_a_trie(trie, a_trie, 0);
+   return a_trie;
+}
+
+
+int
+fill_a_trie
+(
+   node_t *node,
+   a_node_t *a_trie,
+   int idx
+)
+{
+   // Copy data pointer and path struct members.
+   a_node_t *a_node = &a_trie[idx];
+   a_node->data = node->data;
+   a_node->path = node->path;
+   // Recursively insert children positions.
+   for (int i = 0 ; i < 6 ; i++) {
+      node_t *child = node->child[i];
+      if (child == NULL) a_node->child[i] = 0;
+      else {
+         a_node->child[i] = ++idx;
+         idx = fill_a_trie(child, a_trie, idx);
+      }
+   }
+   return idx;
 }

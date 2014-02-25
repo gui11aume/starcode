@@ -10,21 +10,43 @@
 #define MAXBRCDLEN 127  // Maximum barcode length.
 #define M 128           // MAXBRCDLEN + 1 for short.
 
-struct tnode_t;
-struct tstack_t;
 struct info_t;
+struct nstash_t;
+struct nstack_t;
+struct node_t;
+struct trie_t;
 
-typedef struct tnode_t node_t;
-typedef struct tstack_t narray_t;
 typedef struct info_t info_t;
+typedef struct nstack_t nstack_t;
+typedef struct nstash_t nstash_t;
+typedef struct node_t node_t;
+typedef struct trie_t trie_t;
+typedef char* (DP_map_t)(const node_t*, const void*);
+
+// Search.
+int search
+(
+         trie_t   *  trie,
+   const char     *  query,
+   const int         tau,
+         nstack_t ** hits,
+         nstash_t *  stash,
+   const int         start,
+   const int         trail,
+         DP_map_t *  DP_map,
+   const void     *  maparg
+);
 
 int        check_trie_error_and_reset(void);
 int        count_nodes(node_t*);
-int        search(node_t*, const char*, int, narray_t**, int, int);
-void       destroy_trie(node_t*, void(*)(void *));
-node_t   * new_trie(unsigned char, unsigned char);
-node_t   * insert_string(node_t*, const char*);
-narray_t * new_narray(void);
+void       destroy_trie(trie_t*, void(*)(void *));
+void       destroy_nstash(nstash_t*);
+node_t   * insert_string(trie_t*, const char*);
+char     * map_to_external(const node_t*, const void*);
+char     * new_external_cache(uint32_t);
+trie_t   * new_trie(unsigned char, unsigned char);
+nstash_t * new_nstash_for_trie(trie_t*);
+nstack_t * new_nstack(void);
 
 
 // Translation tables between letters and numbers.
@@ -45,21 +67,38 @@ static const int altranslate[256] = {
 };
 
 
-struct tnode_t
+struct node_t
 {
-            void     * data;           // Data (for tail nodes only).
-   struct   tnode_t  * child[6];       // Array of 6 children pointers.
+   struct   node_t   * child[6];       // Array of 6 children pointers.
             uint32_t   path;           // Encoded path end to the node.
+            uint32_t   numid;          // The numeric ID of the node.
+            void     * data;           // Data (for tail nodes only).
             char       cache[];        // Dynamic programming space.
 };
 
 
-struct tstack_t
+struct nstack_t
 {
             int        err;            // Trace memory errors.
             int        lim;            // Stack size.
             int        pos;            // Number of items.
-   struct   tnode_t  * nodes[];        // Nodes (items).
+   struct   node_t   * nodes[];        // Nodes (items).
+};
+
+
+struct nstash_t
+{
+            int        size;
+            nstack_t * slots[];
+};
+
+
+struct trie_t
+{
+   unsigned char       maxtau;         // Max distance the trie can take.
+            int        height;         // Critical depth with all hits.
+            uint32_t   size;           // Number of nodes in the trie.
+            node_t   * root;           // Root of the trie.
 };
 
 
@@ -67,6 +106,6 @@ struct info_t
 {
    unsigned char       maxtau;         // Max distance the trie can take.
             int        height;         // Critical depth with all hits.
-   struct   tstack_t * milestones[M];  // Milestones for trail search.
+   struct   nstack_t * milestones[M];  // Milestones for trail search.
 };
 #endif

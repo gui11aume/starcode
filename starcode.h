@@ -1,9 +1,10 @@
 #define _GNU_SOURCE
 #include <ctype.h>
+#include <getopt.h>
+#include <pthread.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <getopt.h>
 #include "trie.h"
 
 #ifndef __STARCODE_LOADED_
@@ -31,6 +32,6 @@ struct c_t {
    struct u_t  * u[];
 };
 
-int starcode(FILE*, FILE*, const int, const int, const int);
+int starcode(FILE*, FILE*, const int, const int, const int, const int);
 int tquery(FILE*, FILE*, FILE*, const int, const int);
 #endif

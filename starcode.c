@@ -19,7 +19,182 @@ int bycount(const void*, const void*);
 
 
 FILE *OUTPUT = NULL;
+useq_t **ALL_USEQ = NULL;
+trie_t *TRIE = NULL;
+int TAU = 3;
+int HEIGHT;
 
+void *
+build_trie
+(
+   void *arg_as_void
+)
+{
+   // Cast arguments.
+   int *arg = (int *) arg_as_void;
+
+   trie_t *trie = new_trie(TAU, HEIGHT);
+   nstack_t *hits = new_nstack();
+   nstash_t *stash = new_nstash_for_trie(trie);
+   if (trie == NULL || hits == NULL || stash == NULL) {
+      fprintf(stderr, "error %d\n", check_trie_error_and_reset());
+      exit(EXIT_FAILURE);
+   }
+
+   int start = 0;
+   for (int i = arg[0] ; i < arg[1] ; i++) {
+      char prefix[MAXBRCDLEN];
+      useq_t *query = ALL_USEQ[i];
+      int trail = 0;
+
+      if (i < arg[1]-1) {
+         useq_t *next_query = ALL_USEQ[i+1];
+         while (query->seq[trail] == next_query->seq[trail]) {
+            prefix[trail] = query->seq[trail];
+            trail++;
+         }
+         prefix[trail] = '\0';
+      }
+
+      // Insert the prefix in the trie.
+      node_t *node = insert_string(trie, prefix);
+      if (node == NULL) {
+         fprintf(stderr, "error %d\n", check_trie_error_and_reset());
+         exit(EXIT_FAILURE);
+      }
+
+      // Clear hits.
+      hits->pos = 0;
+      int err = search(trie, query->seq, TAU,
+            &hits, stash, start, trail, NULL, NULL);
+      if (err) {
+         fprintf(stderr, "error %d\n", err);
+         exit(EXIT_FAILURE);
+      }
+
+      // Insert the rest of the new sequence in the trie.
+      node = insert_string(trie, query->seq);
+      if (node == NULL) {
+         fprintf(stderr, "error %d\n", check_trie_error_and_reset());
+         exit(EXIT_FAILURE);
+      }
+      node->data = ALL_USEQ[i];
+
+      if (hits->err) {
+         hits->err = 0;
+         fprintf(stderr, "search error: %s\n", query->seq);
+         continue;
+      }
+
+      // Link matching pairs.
+      for (int j = 0 ; j < hits->pos ; j++) {
+         useq_t *match = (useq_t *)hits->nodes[j]->data;
+         // No relationship if count is equal.
+         if (query->count == match->count) continue;
+         useq_t *u1;
+         useq_t *u2;
+         if (query->count > match->count) {
+            u1 = query;
+            u2 = match;
+         }
+         else {
+            u2 = query;
+            u1 = match;
+         }
+         addchild(u1, u2);
+      }
+
+      if ((i & 4095) == 2048) {
+         fprintf(stderr, "starcode: %d\n", i);
+      }
+
+      start = trail;
+
+   }
+
+   free(hits);
+   destroy_nstash(stash);
+   return (void *) trie;
+
+}
+
+
+
+void *
+query_trie
+(
+   void *arg_as_void
+)
+{
+   // Cast arguments.
+   int *arg = (int *) arg_as_void;
+   nstack_t *hits = new_nstack();
+   nstash_t *stash = new_nstash_for_trie(TRIE);
+   char *cache = new_external_cache(TRIE->size);
+   if (hits == NULL || cache == NULL) {
+      fprintf(stderr, "error %d\n", check_trie_error_and_reset());
+      exit(EXIT_FAILURE);
+   }
+
+   int start = 0;
+   for (int i = arg[0] ; i < arg[1] ; i++) {
+      useq_t *query = ALL_USEQ[i];
+      int trail = 0;
+
+      if (i < arg[1]-1) {
+         useq_t *next_query = ALL_USEQ[i+1];
+         while (query->seq[trail] == next_query->seq[trail]) {
+            trail++;
+         }
+      }
+
+      // Clear hits.
+      hits->pos = 0;
+      int err = search(TRIE, query->seq, TAU,
+            &hits, stash, start, trail, map_to_external, cache);
+
+      if (err) {
+         fprintf(stderr, "error %d\n", err);
+         exit(EXIT_FAILURE);
+      }
+      if (hits->err) {
+         hits->err = 0;
+         fprintf(stderr, "search error: %s\n", query->seq);
+         continue;
+      }
+
+      // Link matching pairs.
+      for (int j = 0 ; j < hits->pos ; j++) {
+         useq_t *match = (useq_t *)hits->nodes[j]->data;
+         // No relationship if count is equal.
+         if (query->count == match->count) continue;
+         useq_t *u1;
+         useq_t *u2;
+         if (query->count > match->count) {
+            u1 = query;
+            u2 = match;
+         }
+         else {
+            u2 = query;
+            u1 = match;
+         }
+         addchild(u1, u2);
+      }
+
+      if ((i & 4095) == 2048) {
+         fprintf(stderr, "starcode: %d\n", i);
+      }
+
+      start = trail;
+
+   }
+
+   destroy_nstash(stash);
+   free(cache);
+   return NULL;
+
+}
+ 
 int
 tquery
 (
@@ -60,7 +235,7 @@ tquery
    int height = pad_useq(i_useq, ni_u + nq_u);
    qsort(q_useq, nq_u, sizeof(useq_t *), ualpha);
 
-   node_t *trie = new_trie(tau, height);
+   trie_t *trie = new_trie(tau, height);
    if (trie == NULL) exit(EXIT_FAILURE);
    for (int i = 0 ; i < ni_u ; i++) {
       useq_t *u = i_useq[i];
@@ -68,13 +243,18 @@ tquery
       u->count = 0;
       node_t *node = insert_string(trie, u->seq);
       if (node == NULL) exit(EXIT_FAILURE);
-      if (node != trie) node->data = u;
+      node->data = u;
    }
    if (verbose) fprintf(stderr, " done\n");
 
    // Start the query.
-   narray_t *hits = new_narray();
-   if (hits == NULL) exit(EXIT_FAILURE);
+   nstack_t *hits = new_nstack();
+   nstash_t *stash = new_nstash_for_trie(trie);
+   char *cache = new_external_cache(trie->size);
+   if (hits == NULL || stash == NULL || cache == NULL) {
+      fprintf(stderr, "error %d\n", check_trie_error_and_reset());
+      exit(EXIT_FAILURE);
+   }
 
    int start = 0;
    for (int i = 0 ; i < nq_u ; i++) {
@@ -86,7 +266,8 @@ tquery
       }
       // Clear hits.
       hits->pos = 0;
-      search(trie, query->seq, tau, &hits, start, trail);
+      search(trie, query->seq, tau,
+            &hits, stash, start, trail, map_to_external, cache);
       if (hits->err) {
          hits->err = 0;
          fprintf(stderr, "search error: %s\n", query->seq);
@@ -107,6 +288,8 @@ tquery
 
    unpad_useq(i_useq, ni_u);
 
+   destroy_nstash(stash);
+   free(cache);
    destroy_trie(trie, print_and_destroy);
    for (int i = 0 ; i < nq_u ; i++) destroy_useq(q_useq[i]);
 
@@ -126,6 +309,7 @@ starcode
    FILE *inputf,
    FILE *outputf,
    const int tau,
+   const int n_threads,
    const int fmt,
    const int verbose
 )
@@ -143,90 +327,46 @@ starcode
    useq_t **all_useq = get_useq(all_seq, total, &utotal);
    free(all_seq);
 
-   int height = pad_useq(all_useq, utotal);
+   HEIGHT = pad_useq(all_useq, utotal);
    qsort(all_useq, utotal, sizeof(useq_t *), ualpha);
    if (verbose) fprintf(stderr, " done\n");
 
-   node_t *trie = new_trie(tau, height);
-   narray_t *hits = new_narray();
-   if (trie == NULL || hits == NULL) {
-      fprintf(stderr, "error %d\n", check_trie_error_and_reset());
-      exit(EXIT_FAILURE);
+   ALL_USEQ = all_useq;
+   TAU = tau;
+
+   pthread_t tid[2];
+   int bkpts[3]; 
+   for (int i = 0 ; i < n_threads + 1 ; i++) {
+      bkpts[i] = (i * utotal) / n_threads;
    }
 
-   int start = 0;
-   for (int i = 0 ; i < utotal ; i++) {
-      char prefix[MAXBRCDLEN];
-      useq_t *query = all_useq[i];
-      int trail = 0;
-
-      if (i < utotal-1) {
-         useq_t *next_query = all_useq[i+1];
-         while (query->seq[trail] == next_query->seq[trail]) {
-            prefix[trail] = query->seq[trail];
-            trail++;
-         }
-         prefix[trail] = '\0';
-      }
-
-      // Insert the prefix in the trie.
-      node_t *node = insert_string(trie, prefix);
-      if (node == NULL) {
-         fprintf(stderr, "error %d\n", check_trie_error_and_reset());
-         exit(EXIT_FAILURE);
-      }
-
-      // Clear hits.
-      hits->pos = 0;
-      int err = search(trie, query->seq, tau, &hits, start, trail);
+   for (int i = 0 ; i < 2 ; i++) {
+      int err = pthread_create(tid+i, NULL, build_trie, bkpts+i);
       if (err) {
-         fprintf(stderr, "error %d\n", err);
-         exit(EXIT_FAILURE);
-      }
-
-      // Insert the rest of the new sequence in the trie.
-      node = insert_string(trie, query->seq);
-      if (node == NULL) {
-         fprintf(stderr, "error %d\n", check_trie_error_and_reset());
-         exit(EXIT_FAILURE);
-      }
-      if (node != trie) node->data = all_useq[i];
-
-      if (hits->err) {
-         hits->err = 0;
-         fprintf(stderr, "search error: %s\n", query->seq);
-         continue;
-      }
-
-      // Link matching pairs.
-      for (int j = 0 ; j < hits->pos ; j++) {
-         // Do not mess up with root node.
-         if (hits->nodes[j] == trie) continue;
-         useq_t *match = (useq_t *)hits->nodes[j]->data;
-         // No relationship if count is equal.
-         if (query->count == match->count) continue;
-         useq_t *u1;
-         useq_t *u2;
-         if (query->count > match->count) {
-            u1 = query;
-            u2 = match;
-         }
-         else {
-            u2 = query;
-            u1 = match;
-         }
-         addchild(u1, u2);
-      }
-
-      if (verbose && ((i & 255) == 128)) {
-         fprintf(stderr, "starcode: %d/%d\r", i, utotal);
-      }
-
-      start = trail;
-
+         fprintf(stderr, "Fucking hell (%d)!!!!\n", err);
+         return err;
+      }   
    }
 
-   free(hits);
+   void *tries[2];
+   for (int i = 0 ; i < 2 ; i++) pthread_join(tid[i], tries+i);
+
+   // Now match the queries in the constructed tries.
+   // We won't need the second trie.
+   TRIE = tries[0];
+
+   bkpts[0] = bkpts[1];
+   bkpts[1] += 0.3 * (bkpts[2] - bkpts[1]);
+   for (int i = 0 ; i < 2 ; i++) {
+      int err = pthread_create(tid+i, NULL, query_trie, bkpts+i);
+      if (err) {
+         fprintf(stderr, "Fucking hell (%d)!!!!\n", err);
+         return err;
+      }   
+   }
+
+   for (int i = 0 ; i < 2 ; i++) pthread_join(tid[i], NULL);
+   
    if (verbose) {
       fprintf(stderr, "starcode: %d/%d\n", utotal, utotal);
    }
@@ -258,7 +398,9 @@ starcode
    }
 
    free(all_useq);
-   destroy_trie(trie, destroy_useq);
+   destroy_trie(tries[0], NULL);
+   destroy_trie(tries[1], NULL);
+   // TODO: Destroy useq.
 
    OUTPUT = NULL;
 

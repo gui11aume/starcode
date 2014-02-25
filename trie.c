@@ -7,32 +7,31 @@
 int ERROR = 0;
 
 struct arg_t {
-   narray_t ** hits;
-   narray_t ** milestones;
-   char        tau;
+   DP_map_t  * DP_map;
+   int         err;
+   int         height;
+   nstack_t ** hits;
+const void   * maparg;
    char        maxtau;
    int       * query;
+   nstash_t  * stash;
+   char        tau;
    int         trail;
-   int         height;
-   int         err;
 };
-
 
 
 // Search.
 void _search(node_t*, int, struct arg_t);
 void dash(node_t*, const int*, struct arg_t);
 // Trie creation and destruction.
-node_t *insert(node_t*, int, unsigned char);
+node_t *insert(node_t*, int, unsigned char, uint32_t);
 node_t *new_trienode(unsigned char);
 void init_milestones(node_t*);
 void destroy_nodes_downstream_of(node_t*, void(*)(void*));
 // Utility.
-void push(node_t*, narray_t**);
+void push(node_t*, nstack_t**);
 int check_trie_error_and_reset(void);
-// Here functions.
-int get_maxtau(node_t *root) { return ((info_t *)root->data)->maxtau; }
-int get_height(node_t *root) { return ((info_t *)root->data)->height; }
+char *map_to_self(const node_t*, const void*);
 
 
 
@@ -41,12 +40,15 @@ int get_height(node_t *root) { return ((info_t *)root->data)->height; }
 int
 search
 (
-         node_t   *  trie,
-   const char     *  query,
+         trie_t    * trie,
+   const char      * query,
    const int         tau,
-         narray_t ** hits,
+         nstack_t ** hits,
+         nstash_t  * stash,
    const int         start,
-   const int         trail
+   const int         trail,
+         DP_map_t  * DP_map,
+   const void      * maparg
 )
 // SYNOPSIS:                                                              
 //   Front end query of a trie with the "trail search" algorithm. Search  
@@ -74,29 +76,26 @@ search
 //   effect of the search.                                                
 {
    
-   char maxtau = get_maxtau(trie);
-   char height = get_height(trie);
+   char maxtau = trie->maxtau;
+   char height = trie->height;
    if (tau > maxtau) {
       // DETAIL: the nodes' cache has been allocated just enough
       // space to hold Levenshtein distances up to a maximum tau.
       // If this is exceeded, the search will try to read from and
       // write to forbidden memory space.
       fprintf(stderr, "requested tau greater than 'maxtau'\n");
-      return 85;
+      return 83;
    }
 
    int length = strlen(query);
    if (length > height) {
       fprintf(stderr, "query longer than allowed max\n");
-      return 91;
+      return 89;
    }
-
-   // Make sure the cache is allocated.
-   info_t *info = (info_t *) trie->data;
 
    // Reset the milestones that will be overwritten.
    for (int i = start+1 ; i <= min(trail, height) ; i++) {
-      info->milestones[i]->pos = 0;
+      stash->slots[i]->pos = 0;
    }
 
    // Translate the query string. The first 'char' is kept to store
@@ -108,21 +107,26 @@ search
       translated[i+1] = altranslate[(int) query[i]];
    }
 
+   if (DP_map == NULL) DP_map = map_to_self;
+
    // Set the search options.
    struct arg_t arg = {
-      .hits        = hits,
-      .query       = translated,
-      .tau         = tau,
-      .maxtau      = maxtau,
-      .milestones  = info->milestones,
-      .trail       = trail,
+      .DP_map      = DP_map,
+      .err         = 0,
       .height      = height,
+      .hits        = hits,
+      .maparg      = maparg,
+      .maxtau      = maxtau,
+      .query       = translated,
+      .stash       = stash,
+      .tau         = tau,
+      .trail       = trail,
    };
 
    // Run recursive search from cached nodes.
-   narray_t *milestones = info->milestones[start];
-   for (int i = 0 ; i < milestones->pos ; i++) {
-      node_t *start_node = milestones->nodes[i];
+   nstack_t *restart = stash->slots[start];
+   for (int i = 0 ; i < restart->pos ; i++) {
+      node_t *start_node = restart->nodes[i];
       _search(start_node, start + 1, arg);
    }
 
@@ -177,7 +181,7 @@ _search
    // with positive index and requiring the path, from the part that
    // goes horizontally, with negative index and requiring previous
    // characters of the query.
-   char *pcache = node->cache + arg.maxtau + 1;
+   char *pcache = (*arg.DP_map)(node, arg.maparg) + arg.maxtau + 1;
 
    // Risk of overflow at depth lower than 'tau'.
    int maxa = min((depth-1), arg.tau);
@@ -205,7 +209,8 @@ _search
       if ((child = node->child[i]) == NULL) continue;
 
       // Same remark as for parent cache.
-      char *ccache = child->cache + arg.maxtau + 1;
+      //char *ccache = child->cache + arg.maxtau + 1;
+      char *ccache = (*arg.DP_map)(child, arg.maparg) + arg.maxtau + 1;
       memcpy(ccache, common, arg.maxtau * sizeof(char));
 
       for (int a = maxa ; a > 0 ; a--) {
@@ -223,7 +228,7 @@ _search
       if (ccache[0] > arg.tau) continue;
 
       // Cache nodes in milestones when trailing.
-      if (depth <= arg.trail) push(child, (arg.milestones)+depth);
+      if (depth <= arg.trail) push(child, (arg.stash->slots)+depth);
 
       // Reached the height, it's a hit!
       if (depth == arg.height) {
@@ -286,7 +291,7 @@ dash
 // ------  TRIE CONSTRUCTION AND DESTRUCTION  ------ //
 
 
-node_t *
+trie_t *
 new_trie
 (
    unsigned char maxtau,
@@ -304,42 +309,44 @@ new_trie
 {
 
    if (maxtau > 8) {
-      ERROR = 307;
-      // DETAIL:                                                         
-      // There is an absolute limit at 'tau' = 8 because the path is     
-      // encoded as a 'char', ie an 8 x 2-bit array. It should be enough 
-      // for most practical purposes.                                    
+      ERROR = 303;
+      // DETAIL:                                                          
+      // There is an absolute limit at 'tau' = 8 because the path is      
+      // encoded as a 'char', ie an 8 x 4-bit array. It should be enough  
+      // for most practical purposes.                                     
       return NULL;
    }
 
-   node_t *root = new_trienode(maxtau);
-   if (root == NULL) {
-      ERROR = 317;
+   if (height > M) {
+      ERROR = 312;
+      // DETAIL:                                                          
+      // The heighth of the trie cannot be larger than the max barcode    
+      // length.                                                          
+      // TODO: this is probably a legacy constraint. Check where 'M' is   
+      // involved in queries and construction and update this message or  
+      // remove the checking.                                             
       return NULL;
    }
 
-   info_t *info = malloc(sizeof(info_t));
-   if (info == NULL) {
-      ERROR = 323;
-      free(root);
+   trie_t *trie = malloc(sizeof(trie_t));
+   if (trie == NULL) {
+      ERROR = 324;
+      return NULL;
+   }
+
+   trie->root = new_trienode(maxtau);
+   if (trie->root == NULL) {
+      free(trie);
+      ERROR = 331;
       return NULL;
    }
 
    // Set the values of the meta information.
-   info->maxtau = maxtau;
-   info->height = height;
-   memset(info->milestones, 0, M * sizeof(narray_t *));
+   trie->maxtau = maxtau;
+   trie->height = height;
+   trie->size = 1;
 
-   root->data = info;
-   init_milestones(root);
-   if (info->milestones == NULL) {
-      ERROR = 336;
-      free(info);
-      free(root);
-      return NULL;
-   }
-
-   return root;
+   return trie;
 
 }
 
@@ -364,7 +371,7 @@ new_trienode
    size_t extra = (2*maxtau + 3) * sizeof(char);
    node_t *node = malloc(base + extra);
    if (node == NULL) {
-      ERROR = 367;
+      ERROR = 364;
       return NULL;
    }
 
@@ -383,16 +390,13 @@ new_trienode
 node_t *
 insert_string
 (
-         node_t * trie,
+         trie_t * trie,
    const char   * string
 )
 // SYNOPSIS:                                                              
 //   Front end function to fill in a trie. Insert a string from root, or  
 //   simply return the node at the end of the string path if it already   
 //   exists.                                                              
-//   XXX If the empty string is inserted, this will return the root  XXX  
-//   XXX so modifying the 'data' struct member of the resturn value  XXX  
-//   XXX without checking can cause terrible bugs.                   XXX  
 //                                                                        
 // RETURN:                                                                
 //   The leaf node in case of succes, 'NULL' otherwise.                   
@@ -402,19 +406,20 @@ insert_string
 
    int nchar = strlen(string);
    if (nchar > MAXBRCDLEN) {
-      ERROR = 405;
+      ERROR = 399;
       return NULL;
    }
    
-   unsigned char maxtau = get_maxtau(trie);
+   unsigned char maxtau = trie->maxtau;
+   uint32_t numid = trie->size;
 
    // Find existing path and append one node.
-   node_t *node = trie;
+   node_t *node = trie->root;
    for (i = 0 ; i < nchar ; i++) {
       node_t *child;
       int c = translate[(int) string[i]];
       if ((child = node->child[c]) == NULL) {
-         node = insert(node, c, maxtau);
+         node = insert(node, c, maxtau, numid++);
          break;
       }
       node = child;
@@ -423,13 +428,14 @@ insert_string
    // Append more nodes.
    for (i++ ; i < nchar ; i++) {
       if (node == NULL) {
-         ERROR = 426;
+         ERROR = 420;
          return NULL;
       }
       int c = translate[(int) string[i]];
-      node = insert(node, c, maxtau);
+      node = insert(node, c, maxtau, numid++);
    }
 
+   trie->size = numid;
    return node;
 
 }
@@ -440,7 +446,8 @@ insert
 (
             node_t * parent,
             int      position,
-   unsigned char     maxtau
+   unsigned char     maxtau,
+            uint32_t numid
 )
 // SYNOPSIS:                                                              
 //   Back end function to construct tries. Append a child to an existing  
@@ -463,11 +470,12 @@ insert
    // Initilalize child node.
    node_t *child = new_trienode(maxtau);
    if (child == NULL) {
-      ERROR = 466;
+      ERROR = 460;
       return NULL;
    }
-   // Update child path and parent pointer.
+   // Update child node.
    child->path = (parent->path << 4) + position;
+   child->numid = numid;
    // Update parent node.
    parent->child[position] = child;
 
@@ -476,10 +484,10 @@ insert
 }
 
 
-void
-init_milestones
+nstash_t *
+new_nstash_for_trie
 (
-   node_t *trie
+   trie_t *trie
 )
 // SYNOPSIS:                                                              
 //   Allocate memory for milestones (which is recycled when the trie is   
@@ -495,28 +503,58 @@ init_milestones
 //   Modifies the 'data' struct member of the trie and allocates memory   
 //   accordingly.                                                         
 {
-   info_t *info = (info_t *) trie->data;
-   for (int i = 0 ; i < get_height(trie) + 1 ; i++) {
-      info->milestones[i] = new_narray();
-      if (info->milestones[i] == NULL) {
-         ERROR = 502;
-         while (--i >= 0) {
-            free(info->milestones[i]);
-            info->milestones[i] = NULL;
-         }
-         return;
-      }
+
+   int nslots = trie->height + 1;
+   nstash_t *new = malloc(sizeof(nstash_t) + nslots * sizeof(nstack_t *));
+   if (new == NULL) {
+      ERROR = 496;
+      return NULL;
    }
+
+   int memory_error = 0;
+   for (int i = 0 ; i < nslots ; i++) {
+      new->slots[i] = new_nstack();
+      if (new->slots[i] == NULL) {
+         ERROR = 504;
+         memory_error = 1;
+      }   
+   }   
+
+   if (memory_error) {
+      // Unroll memory allocation.
+      for (int i = 0 ; i < nslots ; i++) {
+         if (new->slots[i] == NULL) free(new->slots[i]);
+      }
+      free(new);
+      return NULL;
+   }
+
    // Push the root into the 0-depth cache.
-   // It will be the only node ever in there.
-   push(trie, info->milestones);
+   push(trie->root, new->slots);
+   new->size = nslots;
+
+   return new;
+
+}
+
+
+void
+destroy_nstash
+(
+   nstash_t *stash
+)
+{
+   for (int i = 0 ; i < stash->size ; i++) {
+      if (stash->slots[i] != NULL) free(stash->slots[i]);
+   }
+   free(stash);
 }
 
 
 void
 destroy_trie
 (
-   node_t *trie,
+   trie_t *trie,
    void (*destruct)(void *)
 )
 // SYNOPSIS:                                                              
@@ -538,18 +576,8 @@ destroy_trie
 //   associated to the root, and possibly the data associated to the tail 
 //   nodes.                                                               
 {
-   // Free the milesones.
-   info_t *info = (info_t *) trie->data;
-   for (int i = 0 ; i < M ; i++) {
-      if (info->milestones[i] != NULL) free(info->milestones[i]);
-   }
-   // Set info to 'NULL' before recursive destruction.
-   // This will prevent 'destroy_nodes_downstream_of()' to
-   // do double free it.
-   free(info);
-   trie->data = NULL;
-   // ... and bye-bye.
-   destroy_nodes_downstream_of(trie, destruct);
+   destroy_nodes_downstream_of(trie->root, destruct);
+   free(trie);
 }
 
 
@@ -585,8 +613,8 @@ destroy_nodes_downstream_of
 // ------  UTILITY FUNCTIONS ------ //
 
 
-narray_t *
-new_narray
+nstack_t *
+new_nstack
 (void)
 // SYNOPSIS:                                                              
 //   Creates a new node array / stack.                                    
@@ -598,9 +626,9 @@ new_narray
 //   Allocates the memory for the node array.                             
 {
    // Allocate memory for a node array, with 32 initial slots.
-   narray_t *new = malloc(3 * sizeof(int) + 32 * sizeof(node_t *));
+   nstack_t *new = malloc(3 * sizeof(int) + 32 * sizeof(node_t *));
    if (new == NULL) {
-      ERROR = 603;
+      ERROR = 617;
       return NULL;
    }
    new->err = 0;
@@ -613,8 +641,8 @@ new_narray
 void
 push
 (
-   node_t *node,
-   narray_t **stack_addr
+         node_t *node,
+   nstack_t **stack_addr
 )
 // SYNOPSIS:                                                              
 //   Push a node into a node array.                                       
@@ -630,12 +658,12 @@ push
 //   Updates the node array and can possibly resize it, which is why the  
 //   address of the pointer is passed as argument.                        
 {
-   narray_t *stack = *stack_addr;
+   nstack_t *stack = *stack_addr;
 
    // Resize if needed.
    if (stack->pos >= stack->lim) {
       size_t newsize = 3 * sizeof(int) + 2*stack->lim * sizeof(node_t *);
-      narray_t *ptr = realloc(stack, newsize);
+      nstack_t *ptr = realloc(stack, newsize);
       if (ptr == NULL) {
          stack->err = 1;
          return;
@@ -668,4 +696,48 @@ int count_nodes(node_t* node) {
       count += count_nodes(node->child[i]);
    }
    return count;
+}
+
+char *
+map_to_self
+(
+   const node_t * node,
+   const void   * ignore
+)
+{
+   return node->cache;
+}
+
+
+char *
+map_to_external
+(
+   const node_t * node,
+   const void   * arg
+)
+{
+   // TODO: Make this 9 a parameter.
+   return ((char *) arg) + 9*node->numid;
+}
+
+
+char*
+new_external_cache
+(
+   uint32_t size
+)
+{
+   char *new = malloc(9 * size * sizeof(char));
+   if (new == NULL) {
+      ERROR = 732;
+      return NULL;
+   }
+
+   char init[] = "\004\003\002\001\000\001\002\003\004";
+   for (int i = 0 ; i < size ; i++) {
+      memcpy(new + 9*i, init, 9);
+   }
+
+   return new;
+
 }

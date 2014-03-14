@@ -47,7 +47,7 @@ for p in prefixes:
     if newgroup == True:
         distgroups.append([p])
 
-for group in distgroups:
-    for prefix in group:
+for i in range(1,len(distgroups)+1):
+    for prefix in distgroups[-i]:
         print ''.join(prefix)
     print ''

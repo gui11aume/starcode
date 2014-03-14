@@ -148,8 +148,72 @@ starcode
    if (verbose) fprintf(stderr, " done\n");
 
    node_t *trie = new_trie(tau, height);
+   if (trie == NULL) {
+      fprintf(stderr, "error %d\n", check_trie_error_and_reset());
+      exit(EXIT_FAILURE);
+   }
+
+   // Compute multithreading plan
+   if (verbose) fprintf("Computing multithreading plan...");
+   mtplan_t * mtplan = prepare_mtplan(all_useq,tau);
+   if (verbose) fprintf(" done\n");
+
+   // Assign threads to their jobs
+   
+
+   free(hits);
+   if (verbose) {
+      fprintf(stderr, "starcode: %d/%d\n", utotal, utotal);
+   }
+
+   unpad_useq(all_useq, utotal);
+
+   if (fmt == 0) {
+      for (int i = 0 ; i < utotal ; i++) {
+         useq_t *parent = all_useq[i];
+         if (parent->children == NULL) continue;
+         for (int j = 0 ; j < parent->children->pos ; j++) {
+            transfer_counts(parent, parent->children->u[j]);
+         }
+      }
+      qsort(all_useq, utotal, sizeof(useq_t *), bycount);
+      for (int i = 0 ; i < utotal ; i++) {
+         useq_t *u = all_useq[i];
+         // Do not show sequences with 0 count.
+         if (u->count == 0) break;
+         fprintf(OUTPUT, "%s\t%d\n", u->seq, u->count);
+      }
+   }
+
+   else if (fmt == 1) {
+      qsort(all_useq, utotal, sizeof(useq_t *), bycount);
+      for (int i = 0 ; i < utotal ; i++) {
+         print_children(all_useq[i], all_useq[i]);
+      }
+   }
+
+   free(all_useq);
+   destroy_trie(trie, destroy_useq);
+
+   OUTPUT = NULL;
+
+   return 0;
+
+}
+
+
+
+void *
+starcode_thread
+(
+   void * job
+)  
+{
+   // Thread routine
+   // Assign index range for each thread (from start (0 before) to end (utotal before))
+   // Precompute indices for each job!
    narray_t *hits = new_narray();
-   if (trie == NULL || hits == NULL) {
+   if (hits == NULL) {
       fprintf(stderr, "error %d\n", check_trie_error_and_reset());
       exit(EXIT_FAILURE);
    }
@@ -225,45 +289,56 @@ starcode
       start = trail;
 
    }
+}
 
-   free(hits);
-   if (verbose) {
-      fprintf(stderr, "starcode: %d/%d\n", utotal, utotal);
-   }
+mtplan_t *
+prepare_mtplan
+(
+   useq_t** useq,
+   int tau
+)
+{
+   char filename[15];
 
-   unpad_useq(all_useq, utotal);
+   sprintf(filename,"prefix/%d.pre",tau);
+   FILE *filein = fopen(filename,"r");
+   ssize_t nread;
+   size_t psize;
+   char *prefix = malloc((tau+2)*sizeof(char));
+   char contbuf[NUMBASES][tau+2];
 
-   if (fmt == 0) {
-      for (int i = 0 ; i < utotal ; i++) {
-         useq_t *parent = all_useq[i];
-         if (parent->children == NULL) continue;
-         for (int j = 0 ; j < parent->children->pos ; j++) {
-            transfer_counts(parent, parent->children->u[j]);
+   // Initialize plan
+   int stacksize = CONTEXT_STACK_SIZE;
+   mtplan_t *plan = (mtplan_t*) malloc(sizeof(mtplan_t));
+   plan->context = (mtcontext_t*) malloc(CONTEXT_STACK_SIZE*sizeof(mtcontext_t));
+   plan->numconts = 0;
+    
+   int njobs = 0;
+   while ((nread = getline(&prefix, &psize, filein)) != -1) {
+      if (strcmp(prefix,"\n") == 0) {
+         // Create jobs
+         plan->context[plan->numconts].numjobs = njobs;
+         plan->context[plan->numconts].jobs = (mtjob_t*) malloc(njobs * sizeof(mtjob_t));
+
+         // Find indices for each job
+         for (int i = 0; i < njobs; i++) {
+            // [Compute start and end] Compare contbuf[i] with useq to find index!
+            
+            // Fill tau, useq, trie
+
+            // Job is defined!
          }
-      }
-      qsort(all_useq, utotal, sizeof(useq_t *), bycount);
-      for (int i = 0 ; i < utotal ; i++) {
-         useq_t *u = all_useq[i];
-         // Do not show sequences with 0 count.
-         if (u->count == 0) break;
-         fprintf(OUTPUT, "%s\t%d\n", u->seq, u->count);
-      }
-   }
 
-   else if (fmt == 1) {
-      qsort(all_useq, utotal, sizeof(useq_t *), bycount);
-      for (int i = 0 ; i < utotal ; i++) {
-         print_children(all_useq[i], all_useq[i]);
+         if (++plan->numconts == stacksize) {
+            stacksize += CONTEXT_STACK_OFFSET;
+            plan->context = realloc(plan->context,stacksize);
+         }
+
+         njobs = 0;
+      } else {
+         strcpy(contbuf[njobs++],prefix);
       }
    }
-
-   free(all_useq);
-   destroy_trie(trie, destroy_useq);
-
-   OUTPUT = NULL;
-
-   return 0;
-
 }
 
 

@@ -155,7 +155,7 @@ starcode
 
    // Compute multithreading plan
    if (verbose) fprintf("Computing multithreading plan...");
-   mtplan_t * mtplan = prepare_mtplan(all_useq,tau);
+   mtplan_t * mtplan = prepare_mtplan(tau,utotal,all_useq,trie);
    if (verbose) fprintf(" done\n");
 
    // Assign threads to their jobs
@@ -294,51 +294,105 @@ starcode_thread
 mtplan_t *
 prepare_mtplan
 (
+   int      tau,
+   int      utotal,
    useq_t** useq,
-   int tau
+   node_t*  trie
 )
 {
    char filename[15];
 
-   sprintf(filename,"prefix/%d.pre",tau);
+   sprintf(filename,"prefix/%d.pre",tau); 
    FILE *filein = fopen(filename,"r");
    ssize_t nread;
    size_t psize;
    char *prefix = malloc((tau+2)*sizeof(char));
    char contbuf[NUMBASES][tau+2];
 
-   // Initialize plan
-   int stacksize = CONTEXT_STACK_SIZE;
+   // Initialize plan.
+   size_t stacksize = CONTEXT_STACK_SIZE;
    mtplan_t *plan = (mtplan_t*) malloc(sizeof(mtplan_t));
    plan->context = (mtcontext_t*) malloc(CONTEXT_STACK_SIZE*sizeof(mtcontext_t));
    plan->numconts = 0;
+
+   // Bisection algorithm steps
+   int bsteps = 1;
+   while((utotal >> bsteps) != 0)
+      bsteps++;
     
    int njobs = 0;
    while ((nread = getline(&prefix, &psize, filein)) != -1) {
       if (strcmp(prefix,"\n") == 0) {
-         // Create jobs
+         // Create jobs.
          plan->context[plan->numconts].numjobs = njobs;
          plan->context[plan->numconts].jobs = (mtjob_t*) malloc(njobs * sizeof(mtjob_t));
 
-         // Find indices for each job
-         for (int i = 0; i < njobs; i++) {
-            // [Compute start and end] Compare contbuf[i] with useq to find index!
-            
-            // Fill tau, useq, trie
+         // Find indices for each job.
+         for (int i = 0, int job = 0; i < njobs; i++) {
+            // Find prefix using bisection
+            int grad;
+            float pos, offset;
+
+            // Find the start index
+            pos = offset = utotal/2.0;
+            for (int j=0; j < bsteps; j++) {
+               // Get the gradient
+               grad = strncmp(contbuf[i], useq[ceil(pos)-1]->seq,tau);
+               // Update search index
+               offset /= 2.0;
+               pos = pos + (grad > 0 ? offset : -offset);
+            }
+
+            // Offset one if the last did not match
+            int start = ceil(pos) + (grad > 0);
+
+            // If the prefix is not present, continue.
+            if (strncmp(contbuf[i], useq[start]->seq,tau) != 0) {
+               fprintf(stderr,"[mtplan] Prefix not found: %s",contbuf[i]);
+               plan->context[plan->numconts].numjobs--;
+               continue;
+            }
+
+            // Find the end index
+            pos = offset = utotal/2.0;
+            for (int j=0; j < bsteps; j++) {
+               // Get the gradient
+               grad = strncmp(contbuf[i], useq[ceil(pos)-1]->seq,tau);
+               // Update search index
+               offset /= 2.0;
+               pos = pos + (grad >= 0 ? offset : -offset);
+            }
+
+            // Offset one if the last did not match
+            int end = ceil(pos) - (grad < 0);
+
+            // Fill mtjob
+            mtjob_t * mtjob = plan->context[plan->numconts].jobs + job;
+            mtjob->start = start;
+            mtjob->end = end;
+            mtjob->tau = tau;
+            mtjob->all_useq = useq;
+            mtjob->trie = trie;
 
             // Job is defined!
+            job++;
          }
+         
+         // Reset job counter
+         njobs = 0;
 
+         // Realloc context buffer if necessary
          if (++plan->numconts == stacksize) {
             stacksize += CONTEXT_STACK_OFFSET;
-            plan->context = realloc(plan->context,stacksize);
+            plan->context = (mtcontext_t*) realloc(plan->context,stacksize*sizeof(mtcontext_t));
          }
 
-         njobs = 0;
       } else {
          strcpy(contbuf[njobs++],prefix);
       }
    }
+
+   return plan;
 }
 
 

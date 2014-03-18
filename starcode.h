@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
+#include <pthread.h>
 #include "trie.h"
 
 #ifndef __STARCODE_LOADED_
@@ -22,6 +23,9 @@ struct c_t;
 
 typedef struct u_t useq_t;
 typedef struct c_t ustack_t;
+typedef struct mtplan_t mtplan_t;
+typedef struct mtcontext_t mtcontext_t;
+typedef struct mtjob_t mtjob_t;
 
 struct u_t {
           int    count;
@@ -38,12 +42,12 @@ struct c_t {
 struct mtplan_t {
    int                  numconts;
    struct mtcontext_t * context;
-}
+};
 
 struct mtcontext_t {
    int               numjobs;
    struct mtjob_t  * jobs;
-}
+};
 
 struct mtjob_t {
    int                start;
@@ -51,11 +55,11 @@ struct mtjob_t {
    int                tau;
    useq_t          ** all_useq; 
    node_t           * trie;
-   pthtread_t         thread;
+   pthread_t         thread;
 };
 
 int starcode(FILE*, FILE*, const int, const int, const int);
 int tquery(FILE*, FILE*, FILE*, const int, const int);
 void * starcode_thread(void*);
-mtplan_t * prepare_mtplan(useq_t**,int);
+mtplan_t * prepare_mtplan(int, int, useq_t**, node_t*);
 #endif

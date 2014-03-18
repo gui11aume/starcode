@@ -3,7 +3,10 @@ import itertools
 import sys
 
 tau = int(sys.argv[1])
-prefixes = [i for i in itertools.product('ACTG N',repeat=tau)]
+prefixes = []
+for j in range(tau+1):
+    prefixes.extend([" "*j + ''.join(i) for i in itertools.product('ACTGN',repeat=tau-j)])
+prefixes.sort()
 distgroups = [[prefixes.pop(0)]]
 
 def nwdist(p,q):
@@ -17,7 +20,7 @@ def nwdist(p,q):
     # Start algorithm.
     for c in range(L-1):
         for r in range(L-1):
-            m[r+1][c+1] = min( m[r][c] + int(p[r]!=q[c]), min(m[r+1][c],m[r][c+1])+1)
+            m[r+1][c+1] = min( m[r][c] + int(p[r]!=q[c]) , min(m[r+1][c],m[r][c+1])+1 )
     
     return m[-1][-1]
    

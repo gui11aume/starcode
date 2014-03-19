@@ -162,17 +162,26 @@ starcode
    for (int c = 0; c < mtplan->numconts; c++) {
       mtcontext_t context = mtplan->context[c];
       // Start jobs
+
+      if (verbose) fprintf(stderr, "Context %d. Jobs=%d. [",c,context.numjobs);
+
       for (int j = 0; j < context.numjobs; j++) {
          pthread_t thread;
          mtjob_t *job = context.jobs + j;
+
+         if (verbose) fprintf(stderr, "job(%d)->brcd=%d",j,job->end - job->start);
+         if (verbose && j < context.numjobs - 1) fprintf(stderr,", ");
+
          if (pthread_create(&thread, NULL, starcode_thread, (void *) job) != 0) {
             fprintf(stderr, "Job failed to start\n");
          }
          context.jobs[j].thread = thread;
       }
+      
+      if (verbose) fprintf(stderr,"]\n");
 
       if (verbose) {
-         fprintf(stderr, "mt context: %d/%d, jobs = %d\r", c, mtplan->numconts, context.numjobs);
+         //         fprintf(stderr, "mt context: %d/%d, jobs = %d\r", c, mtplan->numconts, context.numjobs);
       }
 
       // Join all threads

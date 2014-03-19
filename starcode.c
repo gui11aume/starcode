@@ -86,7 +86,7 @@ tquery
       }
       // Clear hits.
       hits->pos = 0;
-      search(trie, query->seq, tau, &hits, start, trail);
+      search(trie, query->seq, tau, &hits, start, trail, 0);
       if (hits->err) {
          hits->err = 0;
          fprintf(stderr, "search error: %s\n", query->seq);
@@ -161,13 +161,16 @@ starcode
    // Assign threads to their jobs
    for (int c = 0; c < mtplan->numconts; c++) {
       mtcontext_t context = mtplan->context[c];
-      // Start jobs
 
+      // Start jobs
       if (verbose) fprintf(stderr, "Context %d. Jobs=%d. [",c,context.numjobs);
 
       for (int j = 0; j < context.numjobs; j++) {
          pthread_t thread;
          mtjob_t *job = context.jobs + j;
+
+         // Assign job ID (index of root info_t that will be used)
+         job->id = j;
 
          if (verbose) fprintf(stderr, "job(%d)->brcd=%d",j,job->end - job->start);
          if (verbose && j < context.numjobs - 1) fprintf(stderr,", ");
@@ -243,6 +246,7 @@ starcode_thread
    useq_t ** all_useq = job->all_useq;
    node_t  * trie = job->trie;
    int tau = job->tau;
+   int infoid = job->id;
 
    // Create local hits narray.
    narray_t *hits = new_narray();
@@ -276,7 +280,7 @@ starcode_thread
 
       // Clear hits.
       hits->pos = 0;
-      int err = search(trie, query->seq, tau, &hits, start, trail);
+      int err = search(trie, query->seq, tau, &hits, start, trail, infoid);
       if (err) {
          fprintf(stderr, "error %d\n", err);
          exit(EXIT_FAILURE);

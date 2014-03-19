@@ -9,6 +9,7 @@
 #define EOS -1          // End Of String -- for 'dash()'.
 #define MAXBRCDLEN 127  // Maximum barcode length.
 #define M 128           // MAXBRCDLEN + 1 for short.
+#define NUMBASES 6
 
 struct tnode_t;
 struct tstack_t;
@@ -20,7 +21,7 @@ typedef struct info_t info_t;
 
 int        check_trie_error_and_reset(void);
 int        count_nodes(node_t*);
-int        search(node_t*, const char*, int, narray_t**, int, int);
+int        search(node_t*, const char*, int, narray_t**, int, int, int);
 void       destroy_trie(node_t*, void(*)(void *));
 node_t   * new_trie(unsigned char, unsigned char);
 node_t   * insert_string(node_t*, const char*);

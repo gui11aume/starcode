@@ -10,7 +10,6 @@
 #ifndef __STARCODE_LOADED_
 #define __STARCODE_LOADED_
 
-#define NUMBASES 6
 #define CONTEXT_STACK_SIZE 300
 #define CONTEXT_STACK_OFFSET 100
 
@@ -50,6 +49,7 @@ struct mtcontext_t {
 };
 
 struct mtjob_t {
+   int                id;
    int                start;
    int                end;
    int                tau;

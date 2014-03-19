@@ -46,7 +46,8 @@ search
    const int         tau,
          narray_t ** hits,
    const int         start,
-   const int         trail
+   const int         trail,
+   const int         infoid
 )
 // SYNOPSIS:                                                              
 //   Front end query of a trie with the "trail search" algorithm. Search  
@@ -92,7 +93,7 @@ search
    }
 
    // Make sure the cache is allocated.
-   info_t *info = (info_t *) trie->data;
+   info_t *info = ((info_t *) trie->data) + infoid;
 
    // Reset the milestones that will be overwritten.
    for (int i = start+1 ; i <= min(trail, height) ; i++) {
@@ -318,7 +319,8 @@ new_trie
       return NULL;
    }
 
-   info_t *info = malloc(sizeof(info_t));
+   // Allocate one info_t for each thread to avoid SIGSEGV when milestone realloc
+   info_t *info = malloc(NUMBASES * sizeof(info_t));
    if (info == NULL) {
       ERROR = 323;
       free(root);
@@ -326,17 +328,22 @@ new_trie
    }
 
    // Set the values of the meta information.
-   info->maxtau = maxtau;
-   info->height = height;
-   memset(info->milestones, 0, M * sizeof(narray_t *));
+   for (int b=0; b < NUMBASES; b++) {
+      info[b].maxtau = maxtau;
+      info[b].height = height;
+      memset(info[b].milestones, 0, M * sizeof(narray_t *));
+   }
 
    root->data = info;
    init_milestones(root);
-   if (info->milestones == NULL) {
-      ERROR = 336;
-      free(info);
-      free(root);
-      return NULL;
+
+   for (int b = 0; b < NUMBASES; b++) {
+      if (info[b].milestones == NULL) {
+         ERROR = 336;
+         free(info);
+         free(root);
+         return NULL;
+      }
    }
 
    return root;
@@ -495,21 +502,23 @@ init_milestones
 //   Modifies the 'data' struct member of the trie and allocates memory   
 //   accordingly.                                                         
 {
-   info_t *info = (info_t *) trie->data;
-   for (int i = 0 ; i < get_height(trie) + 1 ; i++) {
-      info->milestones[i] = new_narray();
-      if (info->milestones[i] == NULL) {
-         ERROR = 502;
-         while (--i >= 0) {
-            free(info->milestones[i]);
-            info->milestones[i] = NULL;
+   for (int b = 0; b < NUMBASES; b++) {
+      info_t *info = ((info_t *) trie->data) + b;
+      for (int i = 0 ; i < get_height(trie) + 1 ; i++) {
+         info->milestones[i] = new_narray();
+         if (info->milestones[i] == NULL) {
+            ERROR = 502;
+            while (--i >= 0) {
+               free(info->milestones[i]);
+               info->milestones[i] = NULL;
+            }
+            return;
          }
-         return;
       }
+      // Push the root into the 0-depth cache.
+      // It will be the only node ever in there.
+      push(trie, info->milestones);
    }
-   // Push the root into the 0-depth cache.
-   // It will be the only node ever in there.
-   push(trie, info->milestones);
 }
 
 
@@ -539,15 +548,19 @@ destroy_trie
 //   nodes.                                                               
 {
    // Free the milesones.
-   info_t *info = (info_t *) trie->data;
-   for (int i = 0 ; i < M ; i++) {
-      if (info->milestones[i] != NULL) free(info->milestones[i]);
+   for (int b = 0; b < NUMBASES; b++) {
+      info_t *info = ((info_t *) trie->data) + b;
+      for (int i = 0 ; i < M ; i++) {
+         if (info->milestones[i] != NULL) free(info->milestones[i]);
+      }
+      // Set info to 'NULL' before recursive destruction.
+      // This will prevent 'destroy_nodes_downstream_of()' to
+      // do double free it.
    }
-   // Set info to 'NULL' before recursive destruction.
-   // This will prevent 'destroy_nodes_downstream_of()' to
-   // do double free it.
-   free(info);
+
+   free(trie->data);
    trie->data = NULL;
+
    // ... and bye-bye.
    destroy_nodes_downstream_of(trie, destruct);
 }

@@ -20,7 +20,7 @@ struct arg_t {
 
 
 // Search.
-void _search(node_t*, int, struct arg_t);
+void _search(node_t*, int, struct arg_t, int);
 void dash(node_t*, const int*, struct arg_t);
 // Trie creation and destruction.
 node_t *insert(node_t*, int, unsigned char);
@@ -47,7 +47,7 @@ search
          narray_t ** hits,
    const int         start,
    const int         trail,
-   const int         infoid
+   const int         mtid
 )
 // SYNOPSIS:                                                              
 //   Front end query of a trie with the "trail search" algorithm. Search  
@@ -93,7 +93,7 @@ search
    }
 
    // Make sure the cache is allocated.
-   info_t *info = ((info_t *) trie->data) + infoid;
+   info_t *info = ((info_t *) trie->data) + mtid;
 
    // Reset the milestones that will be overwritten.
    for (int i = start+1 ; i <= min(trail, height) ; i++) {
@@ -124,7 +124,7 @@ search
    narray_t *milestones = info->milestones[start];
    for (int i = 0 ; i < milestones->pos ; i++) {
       node_t *start_node = milestones->nodes[i];
-      _search(start_node, start + 1, arg);
+      _search(start_node, start + 1, arg, mtid);
    }
 
    return 0;
@@ -137,7 +137,8 @@ _search
 (
           node_t * restrict node,
    const  int      depth,
-   struct arg_t    arg
+   struct arg_t    arg,
+   const  int      mtid
 )
 // SYNOPSIS:                                                              
 //   Back end recursive "trail search" algorithm. Most of the time is     
@@ -178,8 +179,7 @@ _search
    // with positive index and requiring the path, from the part that
    // goes horizontally, with negative index and requiring previous
    // characters of the query.
-   char *pcache = node->cache + arg.maxtau + 1;
-
+   char *pcache = node->cache[mtid] + arg.maxtau + 1;
    // Risk of overflow at depth lower than 'tau'.
    int maxa = min((depth-1), arg.tau);
 
@@ -206,7 +206,7 @@ _search
       if ((child = node->child[i]) == NULL) continue;
 
       // Same remark as for parent cache.
-      char *ccache = child->cache + arg.maxtau + 1;
+      char *ccache = child->cache[mtid] + arg.maxtau + 1;
       memcpy(ccache, common, arg.maxtau * sizeof(char));
 
       for (int a = maxa ; a > 0 ; a--) {
@@ -238,7 +238,7 @@ _search
          continue;
       }
 
-      _search(child, depth+1, arg);
+      _search(child, depth+1, arg, mtid);
 
    }
 
@@ -367,19 +367,27 @@ new_trienode
 // RETURN:                                                                
 //   A pointer to trie node with no data and no children.                 
 {
-   size_t base = sizeof(node_t);
-   size_t extra = (2*maxtau + 3) * sizeof(char);
-   node_t *node = malloc(base + extra);
+   size_t cachesize = (2*maxtau + 3) * sizeof(char);
+   node_t *node = malloc(sizeof(node_t));
    if (node == NULL) {
       ERROR = 367;
       return NULL;
    }
 
+   node->cache = (char **) malloc(NUMBASES * sizeof(char*));
+   for (int i = 0; i < NUMBASES; i++) {
+      node->cache[i] = (char *) malloc(cachesize);
+   }
+
    // Set all base values to 0.
-   memset(node, 0, base);
+   node->data = NULL;
+   node->path = 0;
+   for(int i = 0; i < 6; i++) node->child[i] = NULL;
    // Set the cache like a root node.
-   for (int i = 0 ; i < 2*maxtau + 3 ; i++) {
-      node->cache[i] = (unsigned char) abs(i-1-maxtau);
+   for (int j = 0 ; j < NUMBASES ; j++) {
+      for (int i = 0 ; i < 2*maxtau + 3 ; i++) {
+         node->cache[j][i] = (unsigned char) abs(i-1-maxtau);
+      }
    }
 
    return node;
@@ -587,7 +595,9 @@ destroy_nodes_downstream_of
    if (node != NULL) {
       for (int i = 0 ; i < 6 ; i++) {
          destroy_nodes_downstream_of(node->child[i], destruct);
+         free(node->cache[i]);
       }
+      free(node->cache);
       if (node->data != NULL && destruct != NULL) (*destruct)(node->data);
       free(node);
    }

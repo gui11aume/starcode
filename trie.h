@@ -51,7 +51,7 @@ struct tnode_t
             void     * data;           // Data (for tail nodes only).
    struct   tnode_t  * child[6];       // Array of 6 children pointers.
             uint32_t   path;           // Encoded path end to the node.
-            char       cache[];        // Dynamic programming space.
+            char    ** cache;          // Dynamic programming space.
 };
 
 

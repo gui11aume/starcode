@@ -163,8 +163,6 @@ starcode
       mtcontext_t context = mtplan->context[c];
 
       // Start jobs
-      if (verbose) fprintf(stderr, "Context %d. Jobs=%d. [",c,context.numjobs);
-
       for (int j = 0; j < context.numjobs; j++) {
          pthread_t thread;
          mtjob_t *job = context.jobs + j;
@@ -172,19 +170,15 @@ starcode
          // Assign job ID (index of root info_t that will be used)
          job->id = j;
 
-         if (verbose) fprintf(stderr, "job(%d)->brcd=%d",j,job->end - job->start);
-         if (verbose && j < context.numjobs - 1) fprintf(stderr,", ");
-
          if (pthread_create(&thread, NULL, starcode_thread, (void *) job) != 0) {
-            fprintf(stderr, "Job failed to start\n");
+            fprintf(stderr, "error: job failed to start (context no. %d, job no. %d).\n",c,j);
+            exit(EXIT_FAILURE);
          }
          context.jobs[j].thread = thread;
       }
       
-      if (verbose) fprintf(stderr,"]\n");
-
       if (verbose) {
-         //         fprintf(stderr, "mt context: %d/%d, jobs = %d\r", c, mtplan->numconts, context.numjobs);
+         fprintf(stderr, "mt context: %d/%d\r", c, mtplan->numconts);
       }
 
       // Join all threads
@@ -246,7 +240,7 @@ starcode_thread
    useq_t ** all_useq = job->all_useq;
    node_t  * trie = job->trie;
    int tau = job->tau;
-   int infoid = job->id;
+   int mtid = job->id;
 
    // Create local hits narray.
    narray_t *hits = new_narray();
@@ -280,7 +274,7 @@ starcode_thread
 
       // Clear hits.
       hits->pos = 0;
-      int err = search(trie, query->seq, tau, &hits, start, trail, infoid);
+      int err = search(trie, query->seq, tau, &hits, start, trail, mtid);
       if (err) {
          fprintf(stderr, "error %d\n", err);
          exit(EXIT_FAILURE);
@@ -301,7 +295,9 @@ starcode_thread
       }
 
       // Link matching pairs.
+      pthread_mutex_lock(job->mutex);
       for (int j = 0 ; j < hits->pos ; j++) {
+         // MUTEX NEEDED, there may be shared hits among threads.
          // Do not mess up with root node.
          if (hits->nodes[j] == trie) continue;
          useq_t *match = (useq_t *)hits->nodes[j]->data;
@@ -319,7 +315,7 @@ starcode_thread
          }
          addchild(u1, u2);
       }
-
+      pthread_mutex_unlock(job->mutex);
       start = trail;
    }
    
@@ -339,9 +335,14 @@ prepare_mtplan
 {
    char filename[15];
 
-   // Minimum distance = tau + 1
+   // Minimum distance = tau + 1.
    int d = tau + 1;
 
+   // Initialize mutex.
+   pthread_mutex_t * mutex = (pthread_mutex_t*) malloc(sizeof(pthread_mutex_t));
+   pthread_mutex_init(mutex,NULL);
+
+   // Files and buffers.
    sprintf(filename,"prefix/%d.pre",d); 
    FILE *filein = fopen(filename,"r");
    ssize_t nread;
@@ -357,120 +358,32 @@ prepare_mtplan
    mtplan_t *plan = (mtplan_t*) malloc(sizeof(mtplan_t));
    plan->context = (mtcontext_t*) malloc(CONTEXT_STACK_SIZE*sizeof(mtcontext_t));
    plan->numconts = 0;
-
-   // Bisection algorithm steps
-   int bsteps = 1;
-   while ((utotal >> bsteps) != 0)
-      bsteps++;
     
    int njobs = 0;
    while ((nread = getline(&prefix, &psize, filein)) != -1) {
       if (strcmp(prefix,"\n") == 0) {
          // Create jobs.
-         plan->context[plan->numconts].numjobs = njobs;
+         plan->context[plan->numconts].numjobs = 0;
          plan->context[plan->numconts].jobs = (mtjob_t*) malloc(njobs * sizeof(mtjob_t));
 
          // Find indices for each job.
-         for (int i = 0, job = 0; i < njobs; i++) {
-            // Find prefix using bisection
-            int grad, pos, numpos, numneg, off;
-
-            // Find the start index
-            pos = utotal/2 + utotal%2;
-            numneg = pos - 1;
-            numpos = utotal - pos;
-            while (1) {
-               // Get the gradient
-               grad = strncmp(contbuf[i], useq[pos-1]->seq,d);
-               // Select positives
-               if (grad < 0) {
-                  // Check end condition
-                  if (numpos < 2) {
-                     if (numpos) {
-                        pos++;
-                        if (strncmp(contbuf[i], useq[pos-1]->seq,d) != 0 && pos < utotal) pos++;
-                     }
-                     break;
-                  }
-                  // Update sets
-                  off = numpos/2 + numpos%2;
-                  pos += off;
-                  numpos -= off;
-                  numneg = off - 1;
-               } // Select negatives
-               else {
-                  // Check end condition
-                  if (numneg < 2) {
-                     if(numneg && strncmp(contbuf[i], useq[pos-2]->seq,d) == 0) pos--;
-                     break;
-                  }
-                  // Update sets
-                  off = numneg/2 + numneg%2;
-                  pos -= off;
-                  numneg -= off;
-                  numpos = off - 1;
-               }
-            }
-
-            // Offset one if the last did not match
-            int start = pos - 1;
-
-            // Check whether the sequence is present or not
-            if (strncmp(contbuf[i], useq[start]->seq,d) != 0) {
-               plan->context[plan->numconts].numjobs--;
-               continue;
-            }
-
-            // Find the end index
-            pos = utotal/2 + utotal%2;
-            numneg = pos - 1;
-            numpos = utotal - pos;
-            while (1) {
-               // Get the gradient
-               grad = strncmp(contbuf[i], useq[pos-1]->seq,d);
-               // Select positives
-               if (grad <= 0) {
-                  // Check end condition
-                  if (numpos < 2) {
-                     if(numpos && strncmp(contbuf[i], useq[pos]->seq,d) == 0) pos++;
-                     break;
-                  }
-                  // Update sets
-                  off = numpos/2 + numpos%2;
-                  pos += off;
-                  numpos -= off;
-                  numneg = off - 1;
-               } // Select negatives
-               else {
-                  // Check end condition
-                  if (numneg < 2) {
-                     if (numneg) {
-                        pos--;
-                        if (strncmp(contbuf[i], useq[pos-1]->seq,d) != 0 && pos > 1) pos--;
-                     }
-                     break;
-                  }
-                  // Update sets
-                  off = numneg/2 + numneg%2;
-                  pos -= off;
-                  numneg -= off;
-                  numpos = off - 1;
-               }
-            }
-
-            // Offset one if the last did not match
-            int end = pos - 1;
+         for (int i = 0; i < njobs; i++) {
+            // Find prefixes using bisection
+            int start = bisection(0,utotal-1,contbuf[i],useq,d,BISECTION_START);
+            if (strncmp(contbuf[i], useq[start]->seq,d) != 0) continue;
+            int end = bisection(0,utotal-1,contbuf[i],useq,d,BISECTION_END);
 
             // Fill mtjob
-            mtjob_t * mtjob = plan->context[plan->numconts].jobs + job;
-            mtjob->start = start;
-            mtjob->end = end;
-            mtjob->tau = tau;
+            mtjob_t * mtjob = plan->context[plan->numconts].jobs + plan->context[plan->numconts].numjobs;
+            mtjob->start    = start;
+            mtjob->end      = end;
+            mtjob->tau      = tau;
             mtjob->all_useq = useq;
-            mtjob->trie = trie;
+            mtjob->trie     = trie;
+            mtjob->mutex    = mutex;
 
             // Job is defined!
-            job++;
+            plan->context[plan->numconts].numjobs++;
          }
          
          // Reset job counter
@@ -491,6 +404,27 @@ prepare_mtplan
 
    return plan;
 }
+
+int
+bisection
+(
+   int       start,
+   int       end,
+   char    * query,
+   useq_t ** useq,
+   int       dist,
+   int       direction
+)
+{
+   int pos = (start + end)/2;
+   int grad = strncmp(query, useq[pos]->seq,dist);
+   if (end - start == 1) return (grad == 0 ? start : end);
+   if (grad == 0) grad = direction;
+   if (grad > 0) return bisection(start, pos, query, useq, dist, direction);
+   else return bisection(pos , end, query, useq, dist, direction);
+}
+   
+
 
 
 char **
@@ -687,7 +621,8 @@ addchild
 {
    if (parent->children == NULL) {
       ustack_t *children = malloc(2*sizeof(int) + 16*sizeof(useq_t *));
-      if (children == NULL) exit(EXIT_FAILURE);
+      // Line commented to avoid deadlocks
+      //if (children == NULL) exit(EXIT_FAILURE);
       parent->children = children;
       children->lim = 16;
       children->pos = 0;
@@ -699,13 +634,13 @@ addchild
       int newlim = 2*children->lim;
       size_t newsize = 2*sizeof(int) + newlim*sizeof(useq_t *);
       ustack_t *ptr = realloc(children, newsize);
-      if (ptr == NULL) exit(EXIT_FAILURE);
+      // Line commented to avoid deadlocks
+      //if (ptr == NULL) exit(EXIT_FAILURE); 
       parent->children = children = ptr;
       children->lim = newlim;
    }
 
    children->u[children->pos++] = child;
-
 }
 
 

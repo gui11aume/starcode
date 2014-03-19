@@ -1,4 +1,6 @@
 #define _GNU_SOURCE
+#include <execinfo.h>
+#include <signal.h>
 #include <ctype.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -12,6 +14,8 @@
 
 #define CONTEXT_STACK_SIZE 300
 #define CONTEXT_STACK_OFFSET 100
+#define BISECTION_START  1
+#define BISECTION_END    -1
 
 #if !defined( __GNUC__) || defined(__APPLE__)
    ssize_t getline(char **lineptr, size_t *n, FILE *stream);
@@ -55,11 +59,13 @@ struct mtjob_t {
    int                tau;
    useq_t          ** all_useq; 
    node_t           * trie;
-   pthread_t         thread;
+   pthread_mutex_t  * mutex;
+   pthread_t          thread;
 };
 
 int starcode(FILE*, FILE*, const int, const int, const int);
 int tquery(FILE*, FILE*, FILE*, const int, const int);
 void * starcode_thread(void*);
 mtplan_t * prepare_mtplan(int, int, useq_t**, node_t*);
+int bisection(int,int,char*,useq_t**,int,int);
 #endif

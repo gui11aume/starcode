@@ -86,7 +86,7 @@ tquery
       }
       // Clear hits.
       hits->pos = 0;
-      search(trie, query->seq, tau, &hits, start, trail, 0);
+      search(trie, query->seq, tau, &hits, start, trail);
       if (hits->err) {
          hits->err = 0;
          fprintf(stderr, "search error: %s\n", query->seq);
@@ -147,15 +147,9 @@ starcode
    qsort(all_useq, utotal, sizeof(useq_t *), ualpha);
    if (verbose) fprintf(stderr, " done\n");
 
-   node_t *trie = new_trie(tau, height);
-   if (trie == NULL) {
-      fprintf(stderr, "error %d\n", check_trie_error_and_reset());
-      exit(EXIT_FAILURE);
-   }
-
    // Compute multithreading plan
    if (verbose) fprintf(stderr,"Computing multithreading plan...");
-   mtplan_t * mtplan = prepare_mtplan(tau,utotal,all_useq,trie);
+   mtplan_t * mtplan = prepare_mtplan(tau, height, utotal, all_useq);
    if (verbose) fprintf(stderr," done\n");
 
    // Assign threads to their jobs
@@ -166,9 +160,6 @@ starcode
       for (int j = 0; j < context.numjobs; j++) {
          pthread_t thread;
          mtjob_t *job = context.jobs + j;
-
-         // Assign job ID (index of root info_t that will be used)
-         job->id = j;
 
          if (pthread_create(&thread, NULL, starcode_thread, (void *) job) != 0) {
             fprintf(stderr, "error: job failed to start (context no. %d, job no. %d).\n",c,j);
@@ -218,7 +209,9 @@ starcode
    }
 
    free(all_useq);
-   destroy_trie(trie, destroy_useq);
+   // Destroy tries malloc'ed at context 0 (build trie)
+   for (int t = 0; t < mtplan->context[0].numjobs; t++)
+      destroy_trie(mtplan->context[0].jobs[t].trie, destroy_useq);
 
    OUTPUT = NULL;
 
@@ -240,7 +233,6 @@ starcode_thread
    useq_t ** all_useq = job->all_useq;
    node_t  * trie = job->trie;
    int tau = job->tau;
-   int mtid = job->id;
 
    // Create local hits narray.
    narray_t *hits = new_narray();
@@ -266,27 +258,32 @@ starcode_thread
       }
 
       // Insert the prefix in the trie.
-      node_t *node = insert_string(trie, prefix);
-      if (node == NULL) {
-         fprintf(stderr, "error %d\n", check_trie_error_and_reset());
-         exit(EXIT_FAILURE);
+      node_t *node;
+      if (job->build) {
+         node = insert_string(trie, prefix);
+         if (node == NULL) {
+            fprintf(stderr, "error %d\n", check_trie_error_and_reset());
+            exit(EXIT_FAILURE);
+         }
       }
 
       // Clear hits.
       hits->pos = 0;
-      int err = search(trie, query->seq, tau, &hits, start, trail, mtid);
+      int err = search(trie, query->seq, tau, &hits, start, trail);
       if (err) {
          fprintf(stderr, "error %d\n", err);
          exit(EXIT_FAILURE);
       }
 
       // Insert the rest of the new sequence in the trie.
-      node = insert_string(trie, query->seq);
-      if (node == NULL) {
-         fprintf(stderr, "error %d\n", check_trie_error_and_reset());
-         exit(EXIT_FAILURE);
+      if (job->build) {
+         node = insert_string(trie, query->seq);
+         if (node == NULL) {
+            fprintf(stderr, "error %d\n", check_trie_error_and_reset());
+            exit(EXIT_FAILURE);
+         }
+         if (node != trie) node->data = all_useq[i];
       }
-      if (node != trie) node->data = all_useq[i];
 
       if (hits->err) {
          hits->err = 0;
@@ -297,7 +294,6 @@ starcode_thread
       // Link matching pairs.
       pthread_mutex_lock(job->mutex);
       for (int j = 0 ; j < hits->pos ; j++) {
-         // MUTEX NEEDED, there may be shared hits among threads.
          // Do not mess up with root node.
          if (hits->nodes[j] == trie) continue;
          useq_t *match = (useq_t *)hits->nodes[j]->data;
@@ -328,77 +324,82 @@ mtplan_t *
 prepare_mtplan
 (
    int      tau,
+   int      height,
    int      utotal,
-   useq_t** useq,
-   node_t*  trie
+   useq_t** useq
 )
 {
-   char filename[15];
+   // Initialize plan.
+   mtplan_t *plan = (mtplan_t*) malloc(sizeof(mtplan_t));
 
-   // Minimum distance = tau + 1.
-   int d = tau + 1;
-
-   // Initialize mutex.
-   pthread_mutex_t * mutex = (pthread_mutex_t*) malloc(sizeof(pthread_mutex_t));
+   // Initialize mutex
+   pthread_mutex_t *mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
    pthread_mutex_init(mutex,NULL);
 
-   // Files and buffers.
-   sprintf(filename,"prefix/%d.pre",d); 
-   FILE *filein = fopen(filename,"r");
-   ssize_t nread;
-   size_t psize;
-   char *prefix = malloc((d+2)*sizeof(char));
-   char *contbuf[NUMBASES];
+   // Compute the first context (build tries).
+   int nbases = strlen(BASES);
+   int ntries = 0;
+   mtjob_t *bjobs = (mtjob_t *) malloc(nbases * sizeof(mtjob_t));
 
-   for (int i=0; i < NUMBASES; i++)
-      contbuf[i] = (char*) malloc((d+2)*sizeof(char));
+   char b[2] = "X";
+   for (int i = 0; i < nbases; i++) {
+      b[0] = BASES[i];
+      // Find prefixes using bisection.
+      int start = bisection(0, utotal-1, b, useq, 1, BISECTION_START);
+      if (BASES[i] != useq[start]->seq[0]) continue;
+      int end = bisection(0, utotal-1, b, useq, 1, BISECTION_END);
 
-   // Initialize plan.
-   size_t stacksize = CONTEXT_STACK_SIZE;
-   mtplan_t *plan = (mtplan_t*) malloc(sizeof(mtplan_t));
-   plan->context = (mtcontext_t*) malloc(CONTEXT_STACK_SIZE*sizeof(mtcontext_t));
-   plan->numconts = 0;
-    
-   int njobs = 0;
-   while ((nread = getline(&prefix, &psize, filein)) != -1) {
-      if (strcmp(prefix,"\n") == 0) {
-         // Create jobs.
-         plan->context[plan->numconts].numjobs = 0;
-         plan->context[plan->numconts].jobs = (mtjob_t*) malloc(njobs * sizeof(mtjob_t));
+      // Fill mtjob.
+      bjobs[i].start    = start;
+      bjobs[i].end      = end;
+      bjobs[i].tau      = tau;
+      bjobs[i].build    = 1;
+      bjobs[i].all_useq = useq;
+      bjobs[i].trie     = new_trie(tau,height);
+      bjobs[i].mutex    = mutex;
 
-         // Find indices for each job.
-         for (int i = 0; i < njobs; i++) {
-            // Find prefixes using bisection
-            int start = bisection(0,utotal-1,contbuf[i],useq,d,BISECTION_START);
-            if (strncmp(contbuf[i], useq[start]->seq,d) != 0) continue;
-            int end = bisection(0,utotal-1,contbuf[i],useq,d,BISECTION_END);
+      ntries++;
+   }
 
-            // Fill mtjob
-            mtjob_t * mtjob = plan->context[plan->numconts].jobs + plan->context[plan->numconts].numjobs;
-            mtjob->start    = start;
-            mtjob->end      = end;
-            mtjob->tau      = tau;
-            mtjob->all_useq = useq;
-            mtjob->trie     = trie;
-            mtjob->mutex    = mutex;
+   // Compute number of contexts.
+   int ncont = 1;
+   while (ntries/ncont != 2) ncont++;
+   // Plus the build context.
+   ncont += 1;
+   
+   // Initialize contexts.
+   plan->context = (mtcontext_t *) malloc(ncont * sizeof(mtcontext_t));
+   plan->numconts = ncont;
 
-            // Job is defined!
-            plan->context[plan->numconts].numjobs++;
-         }
-         
-         // Reset job counter
-         njobs = 0;
+   // Save first context.
+   plan->context[0].numjobs = ntries;
+   plan->context[0].jobs = bjobs;
 
-         // Realloc context buffer if necessary
-         if (plan->context[plan->numconts].numjobs > 0) {
-            if (++plan->numconts == stacksize) {
-               stacksize += CONTEXT_STACK_OFFSET;
-               plan->context = (mtcontext_t*) realloc(plan->context,stacksize*sizeof(mtcontext_t));
-            }
-         }
+   // Compute query contexts.
+   int njobs = ntries;
+   for (int c = 1; c < ncont; c++) {
+      if (c == ncont - 1) {
+         // Fill the remaining query combinations
+         int combs = 0;
+         for (int i = ntries - 1; i > 0; i--) combs += i;
+         njobs = combs % ntries;
+      }
 
-      } else {
-         strcpy(contbuf[njobs++],prefix);
+      plan->context[c].numjobs = njobs;
+      plan->context[c].jobs = (mtjob_t *) malloc(njobs * sizeof(mtjob_t));
+      for (int j = 0; j < njobs; j++) {
+         mtjob_t * job = plan->context[c].jobs + j;
+         // Fill mtjob.
+         job->tau       = tau;
+         job->mutex     = mutex;
+         // Query seq.
+         job->all_useq  = useq;
+         job->start     = plan->context[0].jobs[j].start;
+         job->end       = plan->context[0].jobs[j].end;
+         // Trie to query (query tries shifted by c).
+         job->trie      = plan->context[0].jobs[(j+c)%ntries].trie;
+         // Do not build, just query.
+         job->build     = 0;
       }
    }
 

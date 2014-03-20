@@ -12,8 +12,6 @@
 #ifndef __STARCODE_LOADED_
 #define __STARCODE_LOADED_
 
-#define CONTEXT_STACK_SIZE 300
-#define CONTEXT_STACK_OFFSET 100
 #define BISECTION_START  1
 #define BISECTION_END    -1
 
@@ -53,10 +51,10 @@ struct mtcontext_t {
 };
 
 struct mtjob_t {
-   int                id;
    int                start;
    int                end;
    int                tau;
+   int                build;
    useq_t          ** all_useq; 
    node_t           * trie;
    pthread_mutex_t  * mutex;
@@ -66,6 +64,6 @@ struct mtjob_t {
 int starcode(FILE*, FILE*, const int, const int, const int);
 int tquery(FILE*, FILE*, FILE*, const int, const int);
 void * starcode_thread(void*);
-mtplan_t * prepare_mtplan(int, int, useq_t**, node_t*);
+mtplan_t * prepare_mtplan(int, int, int, useq_t**);
 int bisection(int,int,char*,useq_t**,int,int);
 #endif

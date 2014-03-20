@@ -291,8 +291,7 @@ starcode_thread
          continue;
       }
 
-      // Link matching pairs.
-      pthread_mutex_lock(job->mutex);
+      // Link matching pairs. (No need for mutex when building)
       for (int j = 0 ; j < hits->pos ; j++) {
          // Do not mess up with root node.
          if (hits->nodes[j] == trie) continue;
@@ -309,9 +308,11 @@ starcode_thread
             u2 = query;
             u1 = match;
          }
+         if (job->build) pthread_mutex_lock(job->mutex);
          addchild(u1, u2);
+         if (job->build) pthread_mutex_unlock(job->mutex);
       }
-      pthread_mutex_unlock(job->mutex);
+
       start = trail;
    }
    
@@ -358,7 +359,6 @@ prepare_mtplan
       bjobs[i].trie     = new_trie(tau,height);
       bjobs[i].mutex    = mutex;
 
-      // fprintf(stderr,"Context (0,%d). idx=(%d,%d) trie=%p.\n",ntries,start,end,bjobs[i].trie);
       ntries++;
    }
 
@@ -367,8 +367,6 @@ prepare_mtplan
    while (ntries/ncont != 2) ncont++;
    // Plus the build context.
    ncont += 1;
-
-   //   fprintf(stderr,"Contexts = %d\n",ncont);
    
    // Initialize contexts.
    plan->context = (mtcontext_t *) malloc(ncont * sizeof(mtcontext_t));
@@ -403,7 +401,6 @@ prepare_mtplan
          job->trie      = plan->context[0].jobs[(j+c)%ntries].trie;
          // Do not build, just query.
          job->build     = 0;
-         //         fprintf(stderr,"Context (%d,%d). idx=(%d,%d) trie=%p.\n",c,j,job->start,job->end,job->trie);
       }
    }
 

@@ -358,6 +358,7 @@ prepare_mtplan
       bjobs[i].trie     = new_trie(tau,height);
       bjobs[i].mutex    = mutex;
 
+      // fprintf(stderr,"Context (0,%d). idx=(%d,%d) trie=%p.\n",ntries,start,end,bjobs[i].trie);
       ntries++;
    }
 
@@ -366,6 +367,8 @@ prepare_mtplan
    while (ntries/ncont != 2) ncont++;
    // Plus the build context.
    ncont += 1;
+
+   //   fprintf(stderr,"Contexts = %d\n",ncont);
    
    // Initialize contexts.
    plan->context = (mtcontext_t *) malloc(ncont * sizeof(mtcontext_t));
@@ -379,12 +382,12 @@ prepare_mtplan
    int njobs = ntries;
    for (int c = 1; c < ncont; c++) {
       if (c == ncont - 1) {
-         // Fill the remaining query combinations
+         // Fill the remaining query combinations.
          int combs = 0;
          for (int i = ntries - 1; i > 0; i--) combs += i;
          njobs = combs % ntries;
+         if (njobs == 0) njobs = ntries;
       }
-
       plan->context[c].numjobs = njobs;
       plan->context[c].jobs = (mtjob_t *) malloc(njobs * sizeof(mtjob_t));
       for (int j = 0; j < njobs; j++) {
@@ -400,6 +403,7 @@ prepare_mtplan
          job->trie      = plan->context[0].jobs[(j+c)%ntries].trie;
          // Do not build, just query.
          job->build     = 0;
+         //         fprintf(stderr,"Context (%d,%d). idx=(%d,%d) trie=%p.\n",c,j,job->start,job->end,job->trie);
       }
    }
 

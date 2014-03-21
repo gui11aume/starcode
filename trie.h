@@ -3,12 +3,15 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <limits.h>
+#include <errno.h>
+
 #ifndef __STARCODE_TRIE_LOADED_
 #define __STARCODE_TRIE_LOADED_
 
-#define EOS -1          // End Of String -- for 'dash()'.
-#define MAXBRCDLEN 127  // Maximum barcode length.
-#define M 128           // MAXBRCDLEN + 1 for short.
+#define EOS -1             // End Of String -- for 'dash()'.
+#define MAXBRCDLEN 127     // Maximum barcode length.
+#define M 128              // MAXBRCDLEN + 1 for short.
+#define STACK_INIT_SIZE 32 // Initial node size for narray
 
 static const char BASES[8] = "ACGTN";
 
@@ -61,7 +64,7 @@ struct tstack_t
             int        err;            // Trace memory errors.
             int        lim;            // Stack size.
             int        pos;            // Number of items.
-   struct   tnode_t  * nodes[];        // Nodes (items).
+   struct   tnode_t ** nodes;        // Nodes (items).
 };
 
 

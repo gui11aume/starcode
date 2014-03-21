@@ -606,14 +606,16 @@ new_narray
 //   Allocates the memory for the node array.                             
 {
    // Allocate memory for a node array, with 32 initial slots.
-   narray_t *new = malloc(3 * sizeof(int) + 32 * sizeof(node_t *));
-   if (new == NULL) {
+   narray_t *new = malloc(sizeof(narray_t));
+   new->nodes = (node_t **) malloc(STACK_INIT_SIZE * sizeof(node_t *));
+   if (new == NULL || new->nodes == NULL) {
+      fprintf(stderr,"error: new_narray malloc\n");
       ERROR = 603;
       return NULL;
    }
    new->err = 0;
    new->pos = 0;
-   new->lim = 32;
+   new->lim = STACK_INIT_SIZE;
    return new;
 }
 
@@ -642,18 +644,16 @@ push
 
    // Resize if needed.
    if (stack->pos >= stack->lim) {
-      size_t newsize = 3 * sizeof(int) + 2*stack->lim * sizeof(node_t *);
-      narray_t *ptr = realloc(stack, newsize);
-      if (ptr == NULL) {
+      stack->nodes = (node_t **) realloc(stack->nodes, 2 * stack->lim * sizeof(node_t *));
+      if (stack->nodes == NULL) {
+         fprintf(stderr, "error: push realloc (%s).\n", strerror(errno));
          stack->err = 1;
          return;
       }
-      *stack_addr = stack = ptr;
       stack->lim *= 2;
    }
 
    stack->nodes[stack->pos++] = node;
-
 }
 
 

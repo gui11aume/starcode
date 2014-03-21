@@ -131,7 +131,7 @@ starcode
 )
 {
    // TODO: Make this a param.
-   int subtrie_level = 2;
+   int subtrie_level = 3;
    int maxthreads = 8;
 
    OUTPUT = outputf;
@@ -162,31 +162,22 @@ starcode
          njobs +=  mtplan->tries[t].numjobs;
    }
 
-   // Thread pipeline
+   // Thread Scheduler
    int done = 0;
    int jobsdone = (-mtplan->numtries > -maxthreads ? -mtplan->numtries : -maxthreads);
    int t = 0;
    mttrie_t * mttrie;
 
-   // Block SIGUSR1 for threads
-   sigset_t mask, waitmask;
-   sigemptyset(&mask);
-   sigaddset(&mask, SIGUSR1);
-   sigprocmask(SIG_BLOCK, &mask, &waitmask);
-   sigdelset(&waitmask, SIGUSR1);
-   struct sigaction handler;
-   sigaction(SIGUSR1, NULL, &handler);
-   handler.sa_handler = SIG_IGN;
-   sigaction(SIGUSR1, &handler, NULL);
-   
-   while (done < mtplan->numtries) {
+
+   while (done < mtplan->numtries) { 
 
       // Let's make a fair scheduler.
       t = (t + 1) % mtplan->numtries;
 
       mttrie = mtplan->tries + t;
 
-      // Check whether the trie is free and there are available threads.
+      // Check whether the trie is free and there are available threads
+      pthread_mutex_lock(mtplan->mutex);     
       if (mttrie->flag == TRIE_FREE && mtplan->threadcount < maxthreads) {
 
          // When trie is done, count and flag.
@@ -197,11 +188,9 @@ starcode
 
          // If not yet done but free, assign next job.
          else {
-            mttrie->flag = TRIE_BUSY;
             mtjob_t * job = mttrie->jobs + mttrie->currentjob++;
-            pthread_mutex_lock(job->mutex);
+            mttrie->flag = TRIE_BUSY;
             mtplan->threadcount++;
-            pthread_mutex_unlock(job->mutex);
             pthread_t thread;
             // Start job.
             if (pthread_create(&thread, NULL, starcode_thread, (void *) job) != 0) {
@@ -217,19 +206,18 @@ starcode
             fprintf(stderr, "MT jobs done: %d/%d \r", jobsdone, njobs);
          }
       }
-   
 
       // TODO: Use signals to avoid having one core active for the planner.
       //       May need to use mutex with mttrie->flag, to avoid a deadlock in the case
       //       in which al the threads finish their jobs before going to sleep.
       //       Given that the signals are delievered to the process as a whole, one must
       //       use pthread_sigmask in each thread to block SIGUSR1 from other threads.
-      pthread_mutex_lock(mtplan->mutex);
       while (mtplan->threadcount == maxthreads || mtplan->threadcount == mtplan->numtries) {
          pthread_cond_wait(mtplan->monitor, mtplan->mutex);
       }
-      pthread_mutex_unlock(mtplan->mutex);
+      pthread_mutex_unlock(mtplan->mutex);      
    }
+
 
    if (verbose) {
       fprintf(stderr, "MT jobs done: %d/%d\n", njobs, njobs);
@@ -373,8 +361,8 @@ starcode_thread
 
    // Flag trie, update thread count.
    pthread_mutex_lock(job->mutex);
-   *(job->trieflag) = TRIE_FREE;
    *(job->threadcount) -= 1;
+   *(job->trieflag) = TRIE_FREE;
    pthread_mutex_unlock(job->mutex);
 
    // Signal scheduler

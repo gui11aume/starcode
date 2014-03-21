@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <getopt.h>
 #include <pthread.h>
+#include <errno.h>
 #include "trie.h"
 
 #ifndef __STARCODE_LOADED_

@@ -130,6 +130,9 @@ starcode
    const int verbose
 )
 {
+   // TODO: Make this a param.
+   int subtrie_level = 2;
+   int maxthreads = 8;
 
    OUTPUT = outputf;
 
@@ -149,37 +152,87 @@ starcode
 
    // Compute multithreading plan
    if (verbose) fprintf(stderr,"Computing multithreading plan...");
-   mtplan_t * mtplan = prepare_mtplan(tau, height, utotal, all_useq);
+   mtplan_t * mtplan = prepare_mtplan(tau, height, utotal, subtrie_level, all_useq);
    if (verbose) fprintf(stderr," done\n");
 
-   // Assign threads to their jobs
-   for (int c = 0; c < mtplan->numconts; c++) {
-      mtcontext_t context = mtplan->context[c];
+   // Count total no. of jobs (verbose)
+   int njobs = 0;
+   if (verbose) {
+      for (int t = 0; t < mtplan->numtries; t++)
+         njobs +=  mtplan->tries[t].numjobs;
+   }
 
-      // Start jobs
-      for (int j = 0; j < context.numjobs; j++) {
-         pthread_t thread;
-         mtjob_t *job = context.jobs + j;
+   // Thread pipeline
+   int done = 0;
+   int jobsdone = (-mtplan->numtries > -maxthreads ? -mtplan->numtries : -maxthreads);
+   int t = 0;
+   mttrie_t * mttrie;
 
-         if (pthread_create(&thread, NULL, starcode_thread, (void *) job) != 0) {
-            fprintf(stderr, "error: job failed to start (context no. %d, job no. %d).\n",c,j);
-            exit(EXIT_FAILURE);
+   // Block SIGUSR1 for threads
+   sigset_t mask, waitmask;
+   sigemptyset(&mask);
+   sigaddset(&mask, SIGUSR1);
+   sigprocmask(SIG_BLOCK, &mask, &waitmask);
+   sigdelset(&waitmask, SIGUSR1);
+   struct sigaction handler;
+   sigaction(SIGUSR1, NULL, &handler);
+   handler.sa_handler = SIG_IGN;
+   sigaction(SIGUSR1, &handler, NULL);
+   
+   while (done < mtplan->numtries) {
+
+      // Let's make a fair scheduler.
+      t = (t + 1) % mtplan->numtries;
+
+      mttrie = mtplan->tries + t;
+
+      // Check whether the trie is free and there are available threads.
+      if (mttrie->flag == TRIE_FREE && mtplan->threadcount < maxthreads) {
+
+         // When trie is done, count and flag.
+         if (mttrie->currentjob == mttrie->numjobs) {
+            mttrie->flag = TRIE_DONE;
+            done++;
          }
-         context.jobs[j].thread = thread;
-      }
-      
-      if (verbose) {
-         fprintf(stderr, "mt context: %d/%d\r", c, mtplan->numconts);
-      }
 
-      // Join all threads
-      for (int j = 0; j < context.numjobs; j++)
-         pthread_join(context.jobs[j].thread, NULL);
+         // If not yet done but free, assign next job.
+         else {
+            mttrie->flag = TRIE_BUSY;
+            mtjob_t * job = mttrie->jobs + mttrie->currentjob++;
+            pthread_mutex_lock(job->mutex);
+            mtplan->threadcount++;
+            pthread_mutex_unlock(job->mutex);
+            pthread_t thread;
+            // Start job.
+            if (pthread_create(&thread, NULL, starcode_thread, (void *) job) != 0) {
+               fprintf(stderr, "error: pthread_create (trie no. %d, job no. %d).\n",t,mttrie->currentjob);
+               exit(EXIT_FAILURE);
+            }
+            // Detach thread.
+            pthread_detach(thread);
+         }
 
+         if (verbose) {
+            jobsdone++;
+            fprintf(stderr, "MT jobs done: %d/%d \r", jobsdone, njobs);
+         }
+      }
+   
+
+      // TODO: Use signals to avoid having one core active for the planner.
+      //       May need to use mutex with mttrie->flag, to avoid a deadlock in the case
+      //       in which al the threads finish their jobs before going to sleep.
+      //       Given that the signals are delievered to the process as a whole, one must
+      //       use pthread_sigmask in each thread to block SIGUSR1 from other threads.
+      pthread_mutex_lock(mtplan->mutex);
+      while (mtplan->threadcount == maxthreads || mtplan->threadcount == mtplan->numtries) {
+         pthread_cond_wait(mtplan->monitor, mtplan->mutex);
+      }
+      pthread_mutex_unlock(mtplan->mutex);
    }
 
    if (verbose) {
-      fprintf(stderr, "mt context: %d/%d\n", mtplan->numconts, mtplan->numconts);
+      fprintf(stderr, "MT jobs done: %d/%d\n", njobs, njobs);
    }
 
    unpad_useq(all_useq, utotal);
@@ -210,8 +263,8 @@ starcode
 
    free(all_useq);
    // Destroy tries malloc'ed at context 0 (build trie)
-   for (int t = 0; t < mtplan->context[0].numjobs; t++)
-      destroy_trie(mtplan->context[0].jobs[t].trie, destroy_useq);
+   for (int t = 0; t < mtplan->numtries; t++)
+      destroy_trie(mtplan->tries[t].jobs[0].trie, destroy_useq);
 
    OUTPUT = NULL;
 
@@ -308,9 +361,9 @@ starcode_thread
             u2 = query;
             u1 = match;
          }
-         if (job->build) pthread_mutex_lock(job->mutex);
+         pthread_mutex_lock(job->mutex);
          addchild(u1, u2);
-         if (job->build) pthread_mutex_unlock(job->mutex);
+         pthread_mutex_unlock(job->mutex);
       }
 
       start = trail;
@@ -318,91 +371,132 @@ starcode_thread
    
    free(hits);
 
-   return NULL;
-}
+   // Flag trie, update thread count.
+   pthread_mutex_lock(job->mutex);
+   *(job->trieflag) = TRIE_FREE;
+   *(job->threadcount) -= 1;
+   pthread_mutex_unlock(job->mutex);
 
-mtplan_t *
-prepare_mtplan
-(
-   int      tau,
-   int      height,
-   int      utotal,
-   useq_t** useq
-)
-{
-   // Initialize plan.
-   mtplan_t *plan = (mtplan_t*) malloc(sizeof(mtplan_t));
+   // Signal scheduler
+   pthread_cond_signal(job->monitor);
 
-   // Initialize mutex
-   pthread_mutex_t *mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-   pthread_mutex_init(mutex,NULL);
+    return NULL;
+ }
 
-   // Compute the first context (build tries).
-   int nbases = strlen(BASES);
-   int ntries = 0;
-   mtjob_t *bjobs = (mtjob_t *) malloc(nbases * sizeof(mtjob_t));
+ mtplan_t *
+ prepare_mtplan
+ (
+    int      tau,
+    int      height,
+    int      utotal,
+    int      subtrie_level,
+    useq_t** useq
+ )
+    // subtrie_level: height at which the subtries start.
+ {
+    // Initialize plan.
+    mtplan_t *plan = (mtplan_t*) malloc(sizeof(mtplan_t));
+    plan->threadcount = 0;
 
-   char b[2] = "X";
-   for (int i = 0; i < nbases; i++) {
-      b[0] = BASES[i];
-      // Find prefixes using bisection.
-      int start = bisection(0, utotal-1, b, useq, 1, BISECTION_START);
-      if (BASES[i] != useq[start]->seq[0]) continue;
-      int end = bisection(0, utotal-1, b, useq, 1, BISECTION_END);
+    // Initialize mutex
+    pthread_mutex_t *mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
+    pthread_mutex_init(mutex,NULL);
+    pthread_cond_t *monitor = (pthread_cond_t *) malloc(sizeof(pthread_cond_t));
+    pthread_cond_init(monitor,NULL);
 
-      // Fill mtjob.
-      bjobs[i].start    = start;
-      bjobs[i].end      = end;
-      bjobs[i].tau      = tau;
-      bjobs[i].build    = 1;
-      bjobs[i].all_useq = useq;
-      bjobs[i].trie     = new_trie(tau,height);
-      bjobs[i].mutex    = mutex;
+    plan->mutex = mutex;
+    plan->monitor = monitor;
 
-      ntries++;
+
+    // Compute the first context (build subtries).
+    int nbases = strlen(BASES);
+    int ntries = 0;
+    int maxtries = 1;
+    for (int i = 0; i < subtrie_level; i++) maxtries *= nbases;
+    mtjob_t *bjobs = (mtjob_t *) malloc(maxtries * sizeof(mtjob_t));
+
+    // TODO: Make this dependent on "subtrie_level".
+    // Also define MAXTHREADS (maybe exec param).
+
+    char *prefix = (char *) malloc((subtrie_level+1)*sizeof(char));
+    prefix[subtrie_level] = 0;
+
+    for (int i = 0; i < maxtries; i++) {
+       prefix[0] = BASES[i % nbases];
+       for (int b = 1; b < subtrie_level; b++)
+          prefix[b] = BASES[(i/(b*nbases)) % nbases];
+
+       // Find prefixes using bisection.
+       int start = bisection(0, utotal-1, prefix, useq, subtrie_level, BISECTION_START);
+       if (strncmp(prefix, useq[start]->seq, subtrie_level) != 0) continue;
+       int end = bisection(0, utotal-1, prefix, useq, subtrie_level, BISECTION_END);
+
+       // Fill mtjob.
+       bjobs[i].start       = start;
+       bjobs[i].end         = end;
+       bjobs[i].tau         = tau;
+       bjobs[i].build       = 1;
+       bjobs[i].all_useq    = useq;
+       bjobs[i].trie        = new_trie(tau,height);
+       bjobs[i].mutex       = mutex;
+       bjobs[i].monitor     = monitor;
+       bjobs[i].threadcount = &(plan->threadcount);
+
+       ntries++;
+    }
+
+    // Compute number of jobs and query contexts.
+    int totaljobs = 0;
+    for (int i = ntries; i > 0; i--) totaljobs += i;
+    int ncont = totaljobs/ntries + (totaljobs%ntries > 0);
+
+   // Initialize mttries.
+   plan->tries = (mttrie_t *) malloc(ntries * sizeof(mttrie_t));
+   plan->numtries = ntries;
+   for (int t=0; t < ntries; t++) {
+      // Initialize mttrie.
+      plan->tries[t].flag       = TRIE_FREE;
+      plan->tries[t].currentjob = 0;
+      plan->tries[t].numjobs    = 1;
+      plan->tries[t].jobs       = (mtjob_t *) malloc(ncont * sizeof(mtjob_t));
+      // Add build job to the 1st position.
+      memcpy(plan->tries[t].jobs, bjobs + t, sizeof(mtjob_t));
+      // Assign trie flag pointer
+      plan->tries[t].jobs[0].trieflag = &(plan->tries[t].flag);
    }
-
-   // Compute number of contexts.
-   int ncont = 1;
-   while (ntries/ncont != 2) ncont++;
-   // Plus the build context.
-   ncont += 1;
-   
-   // Initialize contexts.
-   plan->context = (mtcontext_t *) malloc(ncont * sizeof(mtcontext_t));
-   plan->numconts = ncont;
-
-   // Save first context.
-   plan->context[0].numjobs = ntries;
-   plan->context[0].jobs = bjobs;
 
    // Compute query contexts.
    int njobs = ntries;
    for (int c = 1; c < ncont; c++) {
       if (c == ncont - 1) {
          // Fill the remaining query combinations.
-         int combs = 0;
-         for (int i = ntries - 1; i > 0; i--) combs += i;
-         njobs = combs % ntries;
+         njobs = totaljobs % ntries;
          if (njobs == 0) njobs = ntries;
       }
-      plan->context[c].numjobs = njobs;
-      plan->context[c].jobs = (mtjob_t *) malloc(njobs * sizeof(mtjob_t));
+      // Assign query jobs to each trie.
+      // njobs contains the number of jobs (i.e. tries that will be queried) in the current context.
       for (int j = 0; j < njobs; j++) {
-         mtjob_t * job = plan->context[c].jobs + j;
+         plan->tries[j].numjobs++;
+         mtjob_t * job = plan->tries[j].jobs + c;
+
          // Fill mtjob.
-         job->tau       = tau;
-         job->mutex     = mutex;
-         // Query seq.
-         job->all_useq  = useq;
-         job->start     = plan->context[0].jobs[j].start;
-         job->end       = plan->context[0].jobs[j].end;
-         // Trie to query (query tries shifted by c).
-         job->trie      = plan->context[0].jobs[(j+c)%ntries].trie;
+         job->tau         = tau;
+         job->mutex       = mutex;
+         job->monitor     = monitor;
+         job->trieflag    = &(plan->tries[j].flag);
+         job->threadcount = &(plan->threadcount);
+         // Query seq. shifted 'c' positions.
+         job->all_useq    = useq;
+         job->start       = bjobs[(j+c)%ntries].start;
+         job->end         = bjobs[(j+c)%ntries].end;
+         // Trie to query.
+         job->trie        = bjobs[j].trie;
          // Do not build, just query.
-         job->build     = 0;
+         job->build       = 0;
       }
    }
+   
+   free(bjobs);
 
    return plan;
 }

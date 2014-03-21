@@ -10,7 +10,7 @@ char *USAGE = "Usage:\n"
 
 void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
 
-void handler(int sig) {
+void SIGSEGV_handler(int sig) {
   void *array[10];
   size_t size;
 
@@ -30,7 +30,7 @@ main(
 )
 {
    // Backtrace handler
-   signal(SIGSEGV, handler); 
+   signal(SIGSEGV, SIGSEGV_handler); 
 
    // Unset flags (value -1).
    int verbose_flag = -1;

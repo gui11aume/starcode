@@ -75,7 +75,7 @@ struct mtjob_t {
    char             * threadcount;
 };
 
-int starcode(FILE*, FILE*, const int, const int, const int);
+int starcode(FILE*, FILE*, const int, const int, const int, const int, const int);
 int tquery(FILE*, FILE*, FILE*, const int, const int);
 void * starcode_thread(void*);
 mtplan_t * prepare_mtplan(int, int, int, int, useq_t**);

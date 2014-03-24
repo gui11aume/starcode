@@ -127,15 +127,13 @@ starcode
    FILE *outputf,
    const int tau,
    const int fmt,
-   const int verbose
+   const int verbose,
+   const int maxthreads,
+   const int subtrie_level
 )
 {
-   // TODO: Make this a param.
-   int subtrie_level = 2;
-   int maxthreads = 8;
-
    OUTPUT = outputf;
-
+   
    if (verbose) fprintf(stderr, "reading input file...");
    int total;
    char **all_seq = read_file(inputf, &total);
@@ -203,7 +201,7 @@ starcode
 
          if (verbose) {
             jobsdone++;
-            fprintf(stderr, "MT jobs done: %d/%d. currentjob[0]=%d\r", jobsdone, njobs,mtplan->tries[0].currentjob);
+            fprintf(stderr, "Starcode progress: %.2f%% \r", 100*(float)(jobsdone)/njobs);
          }
       }
 
@@ -220,7 +218,7 @@ starcode
 
 
    if (verbose) {
-      fprintf(stderr, "MT jobs done: %d/%d\n", njobs, njobs);
+      fprintf(stderr, "Starcode progress: 100.00%%\n");
    }
 
    unpad_useq(all_useq, utotal);
@@ -249,11 +247,11 @@ starcode
       }
    }
 
+   free(all_useq);
+
    // Destroy tries malloc'ed at context 0 (build trie)
    for (int t = 0; t < mtplan->numtries; t++)
       destroy_trie(mtplan->tries[t].jobs[0].trie, destroy_useq);
-
-   free(all_useq);
 
    OUTPUT = NULL;
 
@@ -411,9 +409,11 @@ starcode_thread
     prefix[subtrie_level] = 0;
 
     for (int i = 0; i < maxtries; i++) {
-       prefix[0] = BASES[i % nbases];
-       for (int b = 1; b < subtrie_level; b++)
-          prefix[b] = BASES[(i/(b*nbases)) % nbases];
+       int period = 1;
+       for (int b = 0; b < subtrie_level; b++) {
+          prefix[b] = BASES[(i/period) % nbases];
+          period *= nbases;
+       }
 
        // Find prefixes using bisection.
        int start = bisection(0, utotal-1, prefix, useq, subtrie_level, BISECTION_START);

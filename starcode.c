@@ -131,7 +131,7 @@ starcode
 )
 {
    // TODO: Make this a param.
-   int subtrie_level = 3;
+   int subtrie_level = 2;
    int maxthreads = 8;
 
    OUTPUT = outputf;
@@ -181,7 +181,7 @@ starcode
       if (mttrie->flag == TRIE_FREE && mtplan->threadcount < maxthreads) {
 
          // When trie is done, count and flag.
-         if (mttrie->currentjob == mttrie->numjobs) {
+         if (mttrie->currentjob == mttrie->numjobs-1) {
             mttrie->flag = TRIE_DONE;
             done++;
          }
@@ -203,7 +203,7 @@ starcode
 
          if (verbose) {
             jobsdone++;
-            fprintf(stderr, "MT jobs done: %d/%d \r", jobsdone, njobs);
+            fprintf(stderr, "MT jobs done: %d/%d. currentjob[0]=%d\r", jobsdone, njobs,mtplan->tries[0].currentjob);
          }
       }
 
@@ -212,10 +212,10 @@ starcode
       //       in which al the threads finish their jobs before going to sleep.
       //       Given that the signals are delievered to the process as a whole, one must
       //       use pthread_sigmask in each thread to block SIGUSR1 from other threads.
-      while (mtplan->threadcount == maxthreads || mtplan->threadcount == mtplan->numtries) {
+      while (mtplan->threadcount == min(maxthreads, mtplan->numtries)) {
          pthread_cond_wait(mtplan->monitor, mtplan->mutex);
       }
-      pthread_mutex_unlock(mtplan->mutex);      
+      pthread_mutex_unlock(mtplan->mutex);
    }
 
 
@@ -249,10 +249,11 @@ starcode
       }
    }
 
-   free(all_useq);
    // Destroy tries malloc'ed at context 0 (build trie)
    for (int t = 0; t < mtplan->numtries; t++)
       destroy_trie(mtplan->tries[t].jobs[0].trie, destroy_useq);
+
+   free(all_useq);
 
    OUTPUT = NULL;
 

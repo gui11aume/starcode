@@ -19,6 +19,8 @@
 #define TRIE_BUSY 1
 #define TRIE_DONE 2
 
+#define min(a,b) (b < a ? b : a)
+
 #if !defined( __GNUC__) || defined(__APPLE__)
    ssize_t getline(char **lineptr, size_t *n, FILE *stream);
 #endif

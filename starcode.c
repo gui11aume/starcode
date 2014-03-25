@@ -180,7 +180,7 @@ starcode
       if (mttrie->flag == TRIE_FREE && mtplan->threadcount < maxthreads) {
 
          // When trie is done, count and flag.
-         if (mttrie->currentjob == mttrie->numjobs-1) {
+         if (mttrie->currentjob == mttrie->numjobs) {
             mttrie->flag = TRIE_DONE;
             done++;
          }
@@ -198,11 +198,11 @@ starcode
             }
             // Detach thread.
             pthread_detach(thread);
-         }
 
-         if (verbose) {
-            jobsdone++;
-            fprintf(stderr, "Starcode progress: %.2f%% \r", 100*(float)(jobsdone)/njobs);
+            if (verbose) {
+               jobsdone++;
+               fprintf(stderr, "Starcode progress: %.2f%% \r", 100*(float)(jobsdone)/njobs);
+            }
          }
       }
 

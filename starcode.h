@@ -15,9 +15,13 @@
 
 #define BISECTION_START  1
 #define BISECTION_END    -1
+
 #define TRIE_FREE 0
 #define TRIE_BUSY 1
 #define TRIE_DONE 2
+
+#define STRATEGY_PREFIX 0
+#define STRATEGY_EQUAL  1
 
 #define min(a,b) (b < a ? b : a)
 
@@ -75,9 +79,9 @@ struct mtjob_t {
    char             * threadcount;
 };
 
-int starcode(FILE*, FILE*, const int, const int, const int, const int, const int);
+int starcode(FILE*, FILE*, const int, const int, const int, const int, const int, const int);
 int tquery(FILE*, FILE*, FILE*, const int, const int);
 void * starcode_thread(void*);
-mtplan_t * prepare_mtplan(int, int, int, int, useq_t**);
+mtplan_t * prepare_mtplan(int, int, int, int, useq_t**, int);
 int bisection(int,int,char*,useq_t**,int,int);
 #endif

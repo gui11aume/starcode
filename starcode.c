@@ -129,7 +129,8 @@ starcode
    const int fmt,
    const int verbose,
    const int maxthreads,
-   const int subtrie_level
+   const int subtrie_level,
+   const int mtstrategy
 )
 {
    OUTPUT = outputf;
@@ -150,7 +151,7 @@ starcode
 
    // Compute multithreading plan
    if (verbose) fprintf(stderr,"Computing multithreading plan...");
-   mtplan_t * mtplan = prepare_mtplan(tau, height, utotal, subtrie_level, all_useq);
+   mtplan_t * mtplan = prepare_mtplan(tau, height, utotal, subtrie_level, all_useq, mtstrategy);
    if (verbose) fprintf(stderr," done\n");
 
    // Count total no. of jobs (verbose)
@@ -377,7 +378,8 @@ starcode_thread
     int      height,
     int      utotal,
     int      subtrie_level,
-    useq_t** useq
+    useq_t** useq,
+    int      strategy
  )
     // subtrie_level: height at which the subtries start.
  {
@@ -395,99 +397,128 @@ starcode_thread
     plan->monitor = monitor;
 
 
-    // Compute the first context (build subtries).
-    int nbases = strlen(BASES);
     int ntries = 0;
-    int maxtries = 1;
-    for (int i = 0; i < subtrie_level; i++) maxtries *= nbases;
-    mtjob_t *bjobs = (mtjob_t *) malloc(maxtries * sizeof(mtjob_t));
+    mtjob_t *bjobs;
 
-    // TODO: Make this dependent on "subtrie_level".
-    // Also define MAXTHREADS (maybe exec param).
+    // Compute the first context (build subtries).
+    if (strategy == STRATEGY_PREFIX) {
+       int nbases = strlen(BASES);
+       int maxtries = 1;
+       for (int i = 0; i < subtrie_level; i++) maxtries *= nbases;
+       bjobs = (mtjob_t *) malloc(maxtries * sizeof(mtjob_t));
 
-    char *prefix = (char *) malloc((subtrie_level+1)*sizeof(char));
-    prefix[subtrie_level] = 0;
+       char *prefix = (char *) malloc((subtrie_level+1)*sizeof(char));
+       prefix[subtrie_level] = 0;
 
-    for (int i = 0; i < maxtries; i++) {
-       int period = 1;
-       for (int b = 0; b < subtrie_level; b++) {
-          prefix[b] = BASES[(i/period) % nbases];
-          period *= nbases;
+       for (int i = 0; i < maxtries; i++) {
+          int period = 1;
+          for (int b = 0; b < subtrie_level; b++) {
+             prefix[b] = BASES[(i/period) % nbases];
+             period *= nbases;
+          }
+
+          // Find prefixes using bisection.
+          int start = bisection(0, utotal-1, prefix, useq, subtrie_level, BISECTION_START);
+          if (strncmp(prefix, useq[start]->seq, subtrie_level) != 0) continue;
+          int end = bisection(0, utotal-1, prefix, useq, subtrie_level, BISECTION_END);
+
+          // Fill mtjob.
+          bjobs[i].start       = start;
+          bjobs[i].end         = end;
+          bjobs[i].tau         = tau;
+          bjobs[i].build       = 1;
+          bjobs[i].all_useq    = useq;
+          bjobs[i].trie        = new_trie(tau,height);
+          bjobs[i].mutex       = mutex;
+          bjobs[i].monitor     = monitor;
+          bjobs[i].threadcount = &(plan->threadcount);
+
+          ntries++;
        }
 
-       // Find prefixes using bisection.
-       int start = bisection(0, utotal-1, prefix, useq, subtrie_level, BISECTION_START);
-       if (strncmp(prefix, useq[start]->seq, subtrie_level) != 0) continue;
-       int end = bisection(0, utotal-1, prefix, useq, subtrie_level, BISECTION_END);
-
-       // Fill mtjob.
-       bjobs[i].start       = start;
-       bjobs[i].end         = end;
-       bjobs[i].tau         = tau;
-       bjobs[i].build       = 1;
-       bjobs[i].all_useq    = useq;
-       bjobs[i].trie        = new_trie(tau,height);
-       bjobs[i].mutex       = mutex;
-       bjobs[i].monitor     = monitor;
-       bjobs[i].threadcount = &(plan->threadcount);
-
-       ntries++;
     }
+    else {
+       ntries = subtrie_level;
+       bjobs = (mtjob_t *) malloc(ntries * sizeof(mtjob_t));
+       int start = 0, end, offset;
+       offset = utotal/ntries;
+       end = offset - 1;
+
+       for (int i=0; i < ntries; i++) {
+
+          if (i == ntries - 1) end = utotal - 1;
+
+          bjobs[i].start       = start;
+          bjobs[i].end         = end;
+          bjobs[i].tau         = tau;
+          bjobs[i].build       = 1;
+          bjobs[i].all_useq    = useq;
+          bjobs[i].trie        = new_trie(tau,height);
+          bjobs[i].mutex       = mutex;
+          bjobs[i].monitor     = monitor;
+          bjobs[i].threadcount = &(plan->threadcount);
+
+          start += offset;
+          end   += offset;
+       }
+    }
+
+   
 
     // Compute number of jobs and query contexts.
     int totaljobs = 0;
     for (int i = ntries; i > 0; i--) totaljobs += i;
     int ncont = totaljobs/ntries + (totaljobs%ntries > 0);
 
-   // Initialize mttries.
-   plan->tries = (mttrie_t *) malloc(ntries * sizeof(mttrie_t));
-   plan->numtries = ntries;
-   for (int t=0; t < ntries; t++) {
-      // Initialize mttrie.
-      plan->tries[t].flag       = TRIE_FREE;
-      plan->tries[t].currentjob = 0;
-      plan->tries[t].numjobs    = 1;
-      plan->tries[t].jobs       = (mtjob_t *) malloc(ncont * sizeof(mtjob_t));
-      // Add build job to the 1st position.
-      memcpy(plan->tries[t].jobs, bjobs + t, sizeof(mtjob_t));
-      // Assign trie flag pointer
-      plan->tries[t].jobs[0].trieflag = &(plan->tries[t].flag);
-   }
+    // Initialize mttries.
+    plan->tries = (mttrie_t *) malloc(ntries * sizeof(mttrie_t));
+    plan->numtries = ntries;
+    for (int t=0; t < ntries; t++) {
+       // Initialize mttrie.
+       plan->tries[t].flag       = TRIE_FREE;
+       plan->tries[t].currentjob = 0;
+       plan->tries[t].numjobs    = 1;
+       plan->tries[t].jobs       = (mtjob_t *) malloc(ncont * sizeof(mtjob_t));
+       // Add build job to the 1st position.
+       memcpy(plan->tries[t].jobs, bjobs + t, sizeof(mtjob_t));
+       // Assign trie flag pointer
+       plan->tries[t].jobs[0].trieflag = &(plan->tries[t].flag);
+    }
 
-   // Compute query contexts.
-   int njobs = ntries;
-   for (int c = 1; c < ncont; c++) {
-      if (c == ncont - 1) {
-         // Fill the remaining query combinations.
-         njobs = totaljobs % ntries;
-         if (njobs == 0) njobs = ntries;
-      }
-      // Assign query jobs to each trie.
-      // njobs contains the number of jobs (i.e. tries that will be queried) in the current context.
-      for (int j = 0; j < njobs; j++) {
-         plan->tries[j].numjobs++;
-         mtjob_t * job = plan->tries[j].jobs + c;
+    // Compute query contexts.
+    int njobs = ntries;
+    for (int c = 1; c < ncont; c++) {
+       if (c == ncont - 1) {
+          // Fill the remaining query combinations.
+          njobs = totaljobs % ntries;
+          if (njobs == 0) njobs = ntries;
+       }
+       // Assign query jobs to each trie.
+       // njobs contains the number of jobs (i.e. tries that will be queried) in the current context.
+       for (int j = 0; j < njobs; j++) {
+          plan->tries[j].numjobs++;
+          mtjob_t * job = plan->tries[j].jobs + c;
 
-         // Fill mtjob.
-         job->tau         = tau;
-         job->mutex       = mutex;
-         job->monitor     = monitor;
-         job->trieflag    = &(plan->tries[j].flag);
-         job->threadcount = &(plan->threadcount);
-         // Query seq. shifted 'c' positions.
-         job->all_useq    = useq;
-         job->start       = bjobs[(j+c)%ntries].start;
-         job->end         = bjobs[(j+c)%ntries].end;
-         // Trie to query.
-         job->trie        = bjobs[j].trie;
-         // Do not build, just query.
-         job->build       = 0;
-      }
-   }
-   
-   free(bjobs);
+          // Fill mtjob.
+          job->tau         = tau;
+          job->mutex       = mutex;
+          job->monitor     = monitor;
+          job->trieflag    = &(plan->tries[j].flag);
+          job->threadcount = &(plan->threadcount);
+          // Query seq. shifted 'c' positions.
+          job->all_useq    = useq;
+          job->start       = bjobs[(j+c)%ntries].start;
+          job->end         = bjobs[(j+c)%ntries].end;
+          // Trie to query.
+          job->trie        = bjobs[j].trie;
+          // Do not build, just query.
+          job->build       = 0;
+       }
+    }
 
-   return plan;
+    free(bjobs);
+
+    return plan;
 }
 
 int

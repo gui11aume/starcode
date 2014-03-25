@@ -5,7 +5,8 @@ char *USAGE = "Usage:\n"
 "    -v --verbose: verbose\n"
 "    -d --dist: maximum Levenshtein distance (default 3)\n"
 "    -t --threads: number of concurrent threads (default 2)\n"
-"    -l --level: subtrie level for multithreading (default 2)\n"
+"    -s --strategy: multithreading strategy [equal(def)/prefix]\n"
+"    -l --level: number of subtries / prefix length (default 2)\n"
 "    -f --format: output format (default compact)\n"
 "    -i --input: input file (default stdin)\n"
 "    -o --output: output file (default stdout)";
@@ -40,6 +41,7 @@ main(
    int dist_flag = -1;
    int threads_flag = -1;
    int level_flag = -1;
+   int mtstrategy = -1;
    // Unset options (value 'UNSET').
    char _u; char *UNSET = &_u;
    char *format_option = UNSET;
@@ -58,6 +60,7 @@ main(
          {"output",  required_argument, 0, 'o'},
          {"threads", required_argument, 0, 't'},
          {"level",   required_argument, 0, 'l'},
+         {"strategy",required_argument, 0, 's'},
          {0, 0, 0, 0}
       };
 
@@ -107,6 +110,25 @@ main(
          }
          else {
             fprintf(stderr, "input option set more than once\n");
+            say_usage();
+            return 1;
+         }
+         break;
+
+      case 's':
+         if (mtstrategy < 0) {
+            if (strcmp(optarg,"equal") == 0)
+               mtstrategy = STRATEGY_EQUAL;
+            else if (strcmp(optarg,"prefix") == 0)
+               mtstrategy = STRATEGY_PREFIX;
+            else {
+               fprintf(stderr, "unknown mt strategy: %s\n", optarg);
+               say_usage();
+               return 1;
+            }
+         }
+         else {
+            fprintf(stderr, "MT strategy set more than once\n");
             say_usage();
             return 1;
          }
@@ -212,6 +234,7 @@ main(
    if (dist_flag < 0) dist_flag = 3;
    if (threads_flag < 0) threads_flag = 2;
    if (level_flag < 0) level_flag = 2;
+   if (mtstrategy < 0) mtstrategy = STRATEGY_EQUAL;
 
    int exitcode = starcode(
                       inputf,
@@ -220,7 +243,8 @@ main(
                       format_flag,
                       verbose_flag,
                       threads_flag,
-                      level_flag
+                      level_flag,
+                      mtstrategy
                   );
 
    if (inputf != stdin) fclose(inputf);

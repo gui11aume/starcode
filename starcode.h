@@ -59,7 +59,7 @@ struct sortargs_t {
    int     size;
    int     b;
    int     thread;
-   int   * unique;
+   int     repeats;
 };
 
 struct mtplan_t {

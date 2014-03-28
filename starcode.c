@@ -572,16 +572,27 @@ _mergesort
       char ** l = (sortargs->b ? arg1.buf0 : arg1.buf1);
       char ** r = (sortargs->b ? arg2.buf0 : arg2.buf1);
       char ** buf = (sortargs->b ? arg1.buf1 : arg1.buf0);
-      //      if(sortargs->size > 10000)
-         //      fprintf(stderr, "size = %d\n", sortargs->size);
+
+      // Accumulate repeats
+      sortargs->repeats = arg1.repeats + arg2.repeats;
 
       // Merge sets (I know it's long and ugly, but does all-in-one superfast!)
-      int i = 0, j = 0, nulli = 0, nullj = 0, cmp = 0;
+      int i = 0, j = 0, nulli = 0, nullj = 0, cmp = 0, repeats = 0;
       for (int k = 0, idx = 0, n = 0; k < sortargs->size; k++) {
-         if (j == arg2.size)
+         if (j == arg2.size) {
+            // Insert pending nulls, if any.
+            for (n = 0; n < nulli; n++)
+               buf[idx++] = NULL;
+            nulli = 0;
             buf[idx++] = l[i++];
-         else if (i == arg1.size)
+         }
+         else if (i == arg1.size) {
+            // Insert pending nulls, if any.
+            for (n = 0; n < nullj; n++)
+               buf[idx++] = NULL;
+            nullj = 0;
             buf[idx++] = r[j++];
+         }
          else if (l[i] == NULL) {
             nulli++;
             i++;
@@ -591,15 +602,15 @@ _mergesort
             j++;
          }
          else if ((cmp = strcmp(l[i],r[j])) == 0) {
-            j++;//free(r[j++]);
-            (*sortargs->unique)--;
+            free(r[j++]);
+            repeats++;
             // Insert sum of repeats as NULL.
             for (n = 0; n <= nulli + nullj; n++) {
                buf[idx++] = NULL;
             }
             nulli = nullj = 0;
          } 
-         else if (cmp > 0) {
+         else if (cmp < 0) {
             // Insert repeats as NULL.
             for (n = 0; n < nulli; n++)
                buf[idx++] = NULL;
@@ -616,7 +627,9 @@ _mergesort
             buf[idx++] = r[j++];
          }
       }
+      sortargs->repeats += repeats;
    }
+   
    return NULL;
 
 }
@@ -629,9 +642,6 @@ mergesort
  int maxthreads
 )
 {
-   // Return vars.
-   int unique = size;
-   
    // Copy to buffer.
    char ** buffer = (char **) malloc(size * sizeof(char *));
    memcpy(buffer, seqs, size * sizeof(char *));
@@ -643,14 +653,14 @@ mergesort
    args.size   = size;
    args.b      = 0; // Important so that data ends in seqs!
    args.thread = 0;
-   args.unique = &unique;
+   args.repeats = 0;
    while ((maxthreads >> (args.thread + 1)) > 0) args.thread++;
 
    _mergesort((void *) &args);
 
    free(buffer);
    
-   return unique;
+   return size - args.repeats;
 }
 
 
@@ -705,20 +715,7 @@ get_useq
 {
    // Sort sequences, count and compact them. Sorting
    // alphabetically is important for speed.
-   //qsort(all_seq, total, sizeof(char *), abcd);
    *utotal = mergesort(all_seq, total, maxthreads);
-
-   int cnt = 0, unique = total;
-   for ( int i = 0; i < total; i++ ) {
-      cnt++;
-      if (all_seq[i] != NULL) {
-         fprintf(stdout,"%d\t%s\n",cnt,all_seq[i]);
-         unique -= cnt - 1;
-         cnt = 0;
-      }
-   }
-   fprintf(stdout,"Unique barcodes = %d, returned by mergesort = %d\n",unique,*utotal);
-   exit(0);
 
    useq_t **all_useq = malloc((*utotal) * sizeof(useq_t *));
    
@@ -726,7 +723,6 @@ get_useq
    int k = 0;
    for (int i = 0 ; i < total; i++) {
       ucount++;
-      //if (strcmp(all_seq[i], all_seq[i+1]) == 0) free(all_seq[i]);
       if (all_seq[i] != NULL) {
          all_useq[k++] = new_useq(ucount, all_seq[i]);
          ucount = 0;
@@ -734,7 +730,6 @@ get_useq
    }
 
    return all_useq;
-
 }
 
 

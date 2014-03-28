@@ -3,7 +3,7 @@
 #define str(a) *(char **)(a)
 
 useq_t *new_useq(int, char*);
-useq_t **get_useq(char**, int, int*);
+useq_t **get_useq(char**, int, int*, int);
 char **read_file(FILE*, int*);
 void destroy_useq (void*);
 void print_and_destroy(void*);
@@ -43,8 +43,8 @@ tquery
    if (verbose) fprintf(stderr, "preprocessing...");
    int ni_u;
    int nq_u;
-   useq_t **i_useq = get_useq(all_i_seq, ni_seq, &ni_u);
-   useq_t **q_useq = get_useq(all_q_seq, nq_seq, &nq_u);
+   useq_t **i_useq = get_useq(all_i_seq, ni_seq, &ni_u, 1);
+   useq_t **q_useq = get_useq(all_q_seq, nq_seq, &nq_u, 1);
    free(all_i_seq); all_i_seq = NULL;
    free(all_q_seq); all_q_seq = NULL;
 
@@ -142,7 +142,7 @@ starcode
 
    if (verbose) fprintf(stderr, "preprocessing...");
    int utotal;
-   useq_t **all_useq = get_useq(all_seq, total, &utotal);
+   useq_t **all_useq = get_useq(all_seq, total, &utotal, maxthreads);
    free(all_seq);
 
    int height = pad_useq(all_useq, utotal);
@@ -206,11 +206,6 @@ starcode
          }
       }
 
-      // TODO: Use signals to avoid having one core active for the planner.
-      //       May need to use mutex with mttrie->flag, to avoid a deadlock in the case
-      //       in which al the threads finish their jobs before going to sleep.
-      //       Given that the signals are delievered to the process as a whole, one must
-      //       use pthread_sigmask in each thread to block SIGUSR1 from other threads.
       while (mtplan->threadcount == min(maxthreads, mtplan->numtries)) {
          pthread_cond_wait(mtplan->monitor, mtplan->mutex);
       }
@@ -539,7 +534,124 @@ bisection
    if (grad > 0) return bisection(start, pos, query, useq, dist, direction);
    else return bisection(pos , end, query, useq, dist, direction);
 }
+
+void *
+_mergesort
+(
+ void * args
+)
+{
+   sortargs_t * sortargs = (sortargs_t *) args;
+   if (sortargs->size > 1) {
+      // Next level params.
+      sortargs_t arg1 = *sortargs, arg2 = *sortargs;
+      arg1.size /= 2;
+      arg2.size = arg1.size + arg2.size % 2;
+      arg2.buf0 += arg1.size;
+      arg2.buf1 += arg1.size;
+      arg1.b = arg2.b = (arg1.b + 1) % 2;
+
+      // Either run threads or DIY.
+      if (arg1.thread) {
+         // Decrease one level.
+         arg1.thread = arg2.thread = arg1.thread - 1;
+         // Create threads.
+         pthread_t thread1, thread2;
+         pthread_create(&thread1, NULL, _mergesort, (void *) &arg1);
+         pthread_create(&thread2, NULL, _mergesort, (void *) &arg2);
+         // Wait for threads.
+         pthread_join(thread1, NULL);
+         pthread_join(thread2, NULL);
+      }
+      else {
+         _mergesort((void *) &arg1);
+         _mergesort((void *) &arg2);
+      }
+
+      // Separate data and buffer (b specifies which is buffer).
+      char ** l = (sortargs->b ? arg1.buf0 : arg1.buf1);
+      char ** r = (sortargs->b ? arg2.buf0 : arg2.buf1);
+      char ** buf = (sortargs->b ? arg1.buf1 : arg1.buf0);
+      //      if(sortargs->size > 10000)
+         //      fprintf(stderr, "size = %d\n", sortargs->size);
+
+      // Merge sets (I know it's long and ugly, but does all-in-one superfast!)
+      int i = 0, j = 0, nulli = 0, nullj = 0, cmp = 0;
+      for (int k = 0, idx = 0, n = 0; k < sortargs->size; k++) {
+         if (j == arg2.size)
+            buf[idx++] = l[i++];
+         else if (i == arg1.size)
+            buf[idx++] = r[j++];
+         else if (l[i] == NULL) {
+            nulli++;
+            i++;
+         }
+         else if (r[j] == NULL) {
+            nullj++;
+            j++;
+         }
+         else if ((cmp = strcmp(l[i],r[j])) == 0) {
+            j++;//free(r[j++]);
+            (*sortargs->unique)--;
+            // Insert sum of repeats as NULL.
+            for (n = 0; n <= nulli + nullj; n++) {
+               buf[idx++] = NULL;
+            }
+            nulli = nullj = 0;
+         } 
+         else if (cmp > 0) {
+            // Insert repeats as NULL.
+            for (n = 0; n < nulli; n++)
+               buf[idx++] = NULL;
+            nulli = 0;
+
+            buf[idx++] = l[i++];
+         }
+         else {
+            // Insert repeats as NULL.
+            for (n = 0; n < nullj; n++)
+               buf[idx++] = NULL;
+            nullj = 0;
+
+            buf[idx++] = r[j++];
+         }
+      }
+   }
+   return NULL;
+
+}
+
+int
+mergesort
+(
+ char ** seqs,
+ int size,
+ int maxthreads
+)
+{
+   // Return vars.
+   int unique = size;
    
+   // Copy to buffer.
+   char ** buffer = (char **) malloc(size * sizeof(char *));
+   memcpy(buffer, seqs, size * sizeof(char *));
+
+   // Prepare args struct.
+   sortargs_t args;
+   args.buf0   = seqs;
+   args.buf1   = buffer;
+   args.size   = size;
+   args.b      = 0; // Important so that data ends in seqs!
+   args.thread = 0;
+   args.unique = &unique;
+   while ((maxthreads >> (args.thread + 1)) > 0) args.thread++;
+
+   _mergesort((void *) &args);
+
+   free(buffer);
+   
+   return unique;
+}
 
 
 
@@ -587,33 +699,39 @@ get_useq
 (
    char ** all_seq,
    int     total,
-   int  *  utotal
+   int  *  utotal,
+   int     maxthreads
 )
 {
    // Sort sequences, count and compact them. Sorting
    // alphabetically is important for speed.
-   qsort(all_seq, total, sizeof(char *), abcd);
+   //qsort(all_seq, total, sizeof(char *), abcd);
+   *utotal = mergesort(all_seq, total, maxthreads);
 
-   int size = 1024;
-   useq_t **all_useq = malloc(size * sizeof(useq_t *));
-   *utotal = 0;
-   int ucount = 0;
-   for (int i = 0 ; i < total-1 ; i++) {
-      ucount++;
-      if (strcmp(all_seq[i], all_seq[i+1]) == 0) free(all_seq[i]);
-      else {
-         all_useq[(*utotal)++] = new_useq(ucount, all_seq[i]);
-         ucount = 0;
-         // Grow 'all_useq' if needed.
-         if (*utotal >= size) {
-            size *= 2;
-            useq_t **ptr = realloc(all_useq, size * sizeof(useq_t *));
-            if (ptr == NULL) exit(EXIT_FAILURE);
-            all_useq = ptr;
-         }
+   int cnt = 0, unique = total;
+   for ( int i = 0; i < total; i++ ) {
+      cnt++;
+      if (all_seq[i] != NULL) {
+         fprintf(stdout,"%d\t%s\n",cnt,all_seq[i]);
+         unique -= cnt - 1;
+         cnt = 0;
       }
    }
-   all_useq[(*utotal)++] = new_useq(ucount+1, all_seq[total-1]);
+   fprintf(stdout,"Unique barcodes = %d, returned by mergesort = %d\n",unique,*utotal);
+   exit(0);
+
+   useq_t **all_useq = malloc((*utotal) * sizeof(useq_t *));
+   
+   int ucount = 0;
+   int k = 0;
+   for (int i = 0 ; i < total; i++) {
+      ucount++;
+      //if (strcmp(all_seq[i], all_seq[i+1]) == 0) free(all_seq[i]);
+      if (all_seq[i] != NULL) {
+         all_useq[k++] = new_useq(ucount, all_seq[i]);
+         ucount = 0;
+      }
+   }
 
    return all_useq;
 

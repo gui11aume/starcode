@@ -39,6 +39,8 @@ typedef struct mtplan_t mtplan_t;
 typedef struct mttrie_t mttrie_t;
 typedef struct mtjob_t mtjob_t;
 
+typedef struct sortargs_t sortargs_t;
+
 struct u_t {
           int    count;
           char * seq;
@@ -49,6 +51,15 @@ struct c_t {
           int    lim;
           int    pos;
    struct u_t  * u[];
+};
+
+struct sortargs_t {
+   char ** buf0;
+   char ** buf1;
+   int     size;
+   int     b;
+   int     thread;
+   int   * unique;
 };
 
 struct mtplan_t {
@@ -84,4 +95,6 @@ int tquery(FILE*, FILE*, FILE*, const int, const int);
 void * starcode_thread(void*);
 mtplan_t * prepare_mtplan(int, int, int, int, useq_t**, int);
 int bisection(int,int,char*,useq_t**,int,int);
+void * _mergesort(void *);
+int mergesort(char **, int, int);
 #endif

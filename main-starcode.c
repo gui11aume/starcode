@@ -233,8 +233,11 @@ main(
    if (format_flag < 0) format_flag = 0;
    if (dist_flag < 0) dist_flag = 3;
    if (threads_flag < 0) threads_flag = 2;
-   if (level_flag < 0) level_flag = 2;
    if (mtstrategy < 0) mtstrategy = STRATEGY_EQUAL;
+   if (level_flag < 0) {
+      if(mtstrategy == STRATEGY_EQUAL) level_flag = 3*threads_flag;
+      else level_flag = 2;
+   }
 
    int exitcode = starcode(
                       inputf,

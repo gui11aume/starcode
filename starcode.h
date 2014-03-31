@@ -54,8 +54,9 @@ struct c_t {
 };
 
 struct sortargs_t {
-   char ** buf0;
-   char ** buf1;
+   void ** buf0;
+   void ** buf1;
+   int     (*compar)(const void*, const void*);
    int     size;
    int     b;
    int     thread;
@@ -96,5 +97,5 @@ void * starcode_thread(void*);
 mtplan_t * prepare_mtplan(int, int, int, int, useq_t**, int);
 int bisection(int,int,char*,useq_t**,int,int);
 void * _mergesort(void *);
-int mergesort(char **, int, int);
+int mergesort(void **, int, int (*)(const void*, const void*), int);
 #endif

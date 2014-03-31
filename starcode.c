@@ -1,6 +1,6 @@
 #include "starcode.h"
 
-#define str(a) *(char **)(a)
+#define str(a) (char *)(a)
 
 useq_t *new_useq(int, char*);
 useq_t **get_useq(char**, int, int*, int);
@@ -146,7 +146,7 @@ starcode
    free(all_seq);
 
    int height = pad_useq(all_useq, utotal);
-   qsort(all_useq, utotal, sizeof(useq_t *), ualpha);
+   mergesort((void **) all_useq, utotal, &ualpha, maxthreads);
    if (verbose) fprintf(stderr, " done\n");
 
    // Compute multithreading plan
@@ -569,14 +569,14 @@ _mergesort
       }
 
       // Separate data and buffer (b specifies which is buffer).
-      char ** l = (sortargs->b ? arg1.buf0 : arg1.buf1);
-      char ** r = (sortargs->b ? arg2.buf0 : arg2.buf1);
-      char ** buf = (sortargs->b ? arg1.buf1 : arg1.buf0);
+      void ** l = (sortargs->b ? arg1.buf0 : arg1.buf1);
+      void ** r = (sortargs->b ? arg2.buf0 : arg2.buf1);
+      void ** buf = (sortargs->b ? arg1.buf1 : arg1.buf0);
 
       // Accumulate repeats
       sortargs->repeats = arg1.repeats + arg2.repeats;
 
-      // Merge sets (I know it's long and ugly, but does all-in-one superfast!)
+      // Merge sets
       int i = 0, j = 0, nulli = 0, nullj = 0, cmp = 0, repeats = 0;
       for (int k = 0, idx = 0, n = 0; k < sortargs->size; k++) {
          if (j == arg2.size) {
@@ -601,8 +601,8 @@ _mergesort
             nullj++;
             j++;
          }
-         else if ((cmp = strcmp(l[i],r[j])) == 0) {
-            free(r[j++]);
+         else if ((cmp = sortargs->compar(l[i],r[j])) == 0) {
+            j++;
             repeats++;
             // Insert sum of repeats as NULL.
             for (n = 0; n <= nulli + nullj; n++) {
@@ -637,30 +637,32 @@ _mergesort
 int
 mergesort
 (
- char ** seqs,
- int size,
+ void ** data,
+ int numels,
+ int (*compar)(const void*, const void*),
  int maxthreads
 )
 {
    // Copy to buffer.
-   char ** buffer = (char **) malloc(size * sizeof(char *));
-   memcpy(buffer, seqs, size * sizeof(char *));
+   void ** buffer = (void **)malloc(numels * sizeof(void *));
+   memcpy(buffer, data, numels * sizeof(void *));
 
    // Prepare args struct.
    sortargs_t args;
-   args.buf0   = seqs;
+   args.buf0   = data;
    args.buf1   = buffer;
-   args.size   = size;
-   args.b      = 0; // Important so that data ends in seqs!
+   args.size   = numels;
+   args.b      = 0; // Important so that sorted elements end in data (not in buffer).
    args.thread = 0;
    args.repeats = 0;
+   args.compar = compar;
    while ((maxthreads >> (args.thread + 1)) > 0) args.thread++;
 
    _mergesort((void *) &args);
 
    free(buffer);
    
-   return size - args.repeats;
+   return numels - args.repeats;
 }
 
 
@@ -715,8 +717,8 @@ get_useq
 {
    // Sort sequences, count and compact them. Sorting
    // alphabetically is important for speed.
-   *utotal = mergesort(all_seq, total, maxthreads);
 
+   *utotal = mergesort((void **)all_seq, total, abcd, maxthreads);
    useq_t **all_useq = malloc((*utotal) * sizeof(useq_t *));
    
    int ucount = 0;
@@ -906,8 +908,8 @@ ualpha
    const void *b
 ) 
 {
-   useq_t *u1 = *(useq_t **)a;
-   useq_t *u2 = *(useq_t **)b;
+   useq_t *u1 = (useq_t *)a;
+   useq_t *u2 = (useq_t *)b;
    return strcmp(u2->seq, u1->seq);
 }
 

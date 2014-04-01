@@ -7,16 +7,16 @@ useq_t **get_useq(char**, int, int*, int);
 char **read_file(FILE*, int*);
 void destroy_useq (void*);
 void print_and_destroy(void*);
-void addchild(useq_t*, useq_t*);
+void addmatch(useq_t*, useq_t*, int);
 void print_children(useq_t*, useq_t*);
-void transfer_counts(useq_t*, useq_t*);
+void transfer_counts(useq_t*);
 void unpad_useq (useq_t**, int);
 int pad_useq(useq_t**, int);
 int abcd(const void *a, const void *b) { return strcmp(str(a), str(b)); }
 int ucmp(const useq_t*, const useq_t*);
 int ualpha(const void*, const void*);
 int bycount(const void*, const void*);
-
+int mintomax(const void*, const void*);
 
 FILE *OUTPUT = NULL;
 
@@ -73,7 +73,7 @@ tquery
    if (verbose) fprintf(stderr, " done\n");
 
    // Start the query.
-   narray_t *hits = new_narray();
+   hstack_t *hits = new_hstack();
    if (hits == NULL) exit(EXIT_FAILURE);
 
    int start = 0;
@@ -92,7 +92,7 @@ tquery
          fprintf(stderr, "search error: %s\n", query->seq);
          continue;
       }
-
+      
       if (hits->pos == 1) {
          useq_t *match = (useq_t *)hits->nodes[0]->data;
          // Transfer counts to match.
@@ -219,15 +219,52 @@ starcode
 
    unpad_useq(all_useq, utotal);
 
+   // Sort from min to max.
+   mergesort((void **)all_useq, utotal, mintomax, maxthreads);
+
    if (fmt == 0) {
+
+      // Reduce network complexity.
       for (int i = 0 ; i < utotal ; i++) {
-         useq_t *parent = all_useq[i];
-         if (parent->children == NULL) continue;
-         for (int j = 0 ; j < parent->children->pos ; j++) {
-            transfer_counts(parent, parent->children->u[j]);
+         useq_t *seq = all_useq[i];
+         if (seq->matches == NULL) continue;
+
+         // Only pick matches within minimum distance.
+         int min = tau;
+         int minseqs = 0;
+         for (int j = 0 ; j < seq->matches->pos ; j++) {
+            int d = seq->matches->u[j]->dist;
+            if (d == min) minseqs++;
+            else if (d < min) {
+               min = d;
+               minseqs = 1;
+            }
+         }
+
+         // Let's get rid of the others.
+         int k = 0, j = 0;
+         while (k < minseqs) {
+            if (seq->matches->u[j]->dist == min)
+               seq->matches->u[k++] = seq->matches->u[j];
+            j++;
+         }
+         seq->matches->lim = seq->matches->pos;
+         seq->matches->pos = minseqs;
+         seq->matches->propidx = 0;
+      }
+
+      // Propagate uniformly.
+      for (int i = 0 ; i < utotal ; i++) {
+         useq_t *seq = all_useq[i];
+         if (seq->count == 0) continue;
+         else if (seq->matches == NULL) continue;
+         else {
+            transfer_counts(seq);
          }
       }
-      qsort(all_useq, utotal, sizeof(useq_t *), bycount);
+
+      // Sort from max to min.
+      mergesort((void **)all_useq, utotal, bycount, maxthreads);
       for (int i = 0 ; i < utotal ; i++) {
          useq_t *u = all_useq[i];
          // Do not show sequences with 0 count.
@@ -237,17 +274,20 @@ starcode
    }
 
    else if (fmt == 1) {
+
+      // TODO: Adapt print_children to new clustering method.
       qsort(all_useq, utotal, sizeof(useq_t *), bycount);
       for (int i = 0 ; i < utotal ; i++) {
          print_children(all_useq[i], all_useq[i]);
       }
    }
 
-   free(all_useq);
+   // WHY free? Will be freed in a usec.
+   //free(all_useq);
 
-   // Destroy tries malloc'ed at context 0 (build trie)
-   for (int t = 0; t < mtplan->numtries; t++)
-      destroy_trie(mtplan->tries[t].jobs[0].trie, destroy_useq);
+   // Destroy tries malloc'ed at context 0 (build trie) 
+   //   for (int t = 0; t < mtplan->numtries; t++)
+   // destroy_trie(mtplan->tries[t].jobs[0].trie, destroy_useq);
 
    OUTPUT = NULL;
 
@@ -271,7 +311,7 @@ starcode_thread
    int tau = job->tau;
 
    // Create local hits narray.
-   narray_t *hits = new_narray();
+   hstack_t *hits = new_hstack();
    if (hits == NULL) {
       fprintf(stderr, "error %d\n", check_trie_error_and_reset());
       exit(EXIT_FAILURE);
@@ -327,13 +367,16 @@ starcode_thread
          continue;
       }
 
-      // Link matching pairs. (No need for mutex when building)
+      // Link matching pairs.
       for (int j = 0 ; j < hits->pos ; j++) {
          // Do not mess up with root node.
          if (hits->nodes[j] == trie) continue;
          useq_t *match = (useq_t *)hits->nodes[j]->data;
-         // No relationship if count is equal.
-         if (query->count == match->count) continue;
+         // No relationship if counts are on the same order of magnitude.
+         int mincount = min(query->count, match->count);
+         int maxcount = max(query->count, match->count);
+         //         if ((maxcount < PARENT_TO_CHILD_FACTOR * mincount)) && (mincount > PARENT_TO_CHILD_MINIMUM) && (maxcount > PARENT_TO_CHILD_MINIMUM)) continue;
+         if ((maxcount < PARENT_TO_CHILD_FACTOR * mincount)) continue;
          useq_t *u1;
          useq_t *u2;
          if (query->count > match->count) {
@@ -345,7 +388,7 @@ starcode_thread
             u1 = match;
          }
          pthread_mutex_lock(job->mutex);
-         addchild(u1, u2);
+         addmatch(u1, u2, hits->dist[j]);
          pthread_mutex_unlock(job->mutex);
       }
 
@@ -793,26 +836,30 @@ unpad_useq
 void
 transfer_counts
 (
-   useq_t *uref,
-   useq_t *child
+   useq_t *seq
 )
 {
+   // Break on parent nodes and empty nodes.
+   if (seq->count == 0 || seq->matches == NULL) return;
 
-   // Check if the sequence has been processed.
-   if (uref->count == 0 || child->count == 0) return;
-
-   //fprintf(OUTPUT, "%s:%d\t%s:%d\n",
-   //      child->seq, child->count, uref->seq, uref->count);
-   uref->count += child->count;
-   
-   if (child->children != NULL) {
-      for (int i = 0 ; i < child->children->pos ; i++) {
-         transfer_counts(uref, child->children->u[i]);
-      }
+   ustack_t * matches = seq->matches;
+   int n = 0;
+   // Distribute counts uniformly among parents.
+   if ((n = seq->count / matches->pos) > 0) {
+      for (int i = 0; i < matches->pos; i++)
+         matches->u[i]->seq->count += n;
+      seq->count -= n * matches->pos;
    }
 
-   // Mark the child as processed.
-   child->count = 0;
+   while (seq->count > 0) {
+      matches->u[matches->propidx]->seq->count++;
+      matches->propidx = (matches->propidx + 1) % matches->pos;
+      seq->count--;
+   }
+
+   // Now continue propagating.
+   for (int i = 0 ; i < matches->pos ; i++)
+      transfer_counts(matches->u[i]->seq);
 
 }
 
@@ -831,11 +878,15 @@ print_children
    fprintf(OUTPUT, "%s:%d\t%s:%d\n",
          child->seq, child->count, uref->seq, uref->count);
    
-   if (child->children != NULL) {
+
+   // TODO: Adapt this function.
+
+
+   /*   if (child->children != NULL) {
       for (int i = 0 ; i < child->children->pos ; i++) {
          print_children(uref, child->children->u[i]);
       }
-   }
+      }*/
 
    // Mark the child as processed.
    child->count = 0;
@@ -844,36 +895,49 @@ print_children
 
 
 void
-addchild
+addmatch
 (
-   useq_t *parent,
-   useq_t *child
+   useq_t * parent,
+   useq_t * child,
+   int      distance
 )
 {
-   if (parent->children == NULL) {
-      ustack_t *children = malloc(2*sizeof(int) + 16*sizeof(useq_t *));
-      // Line commented to avoid deadlocks
-      //if (children == NULL) exit(EXIT_FAILURE);
-      parent->children = children;
-      children->lim = 16;
-      children->pos = 0;
+   // Create stack if not done before.
+   if (child->matches == NULL) {
+      ustack_t *matches = (ustack_t *) malloc(3*sizeof(int) + STACK_INIT_SIZE*sizeof(match_t *));
+      child->matches = matches;
+      matches->lim = STACK_INIT_SIZE;
+      matches->pos = 0;
    }
 
-   ustack_t *children = parent->children;
+   ustack_t *matches = child->matches;
 
-   if (children->pos >= children->lim) {
-      int newlim = 2*children->lim;
-      size_t newsize = 2*sizeof(int) + newlim*sizeof(useq_t *);
-      ustack_t *ptr = realloc(children, newsize);
-      // Line commented to avoid deadlocks
-      //if (ptr == NULL) exit(EXIT_FAILURE); 
-      parent->children = children = ptr;
-      children->lim = newlim;
+   // Resize stack if already full.
+   if (matches->pos >= matches->lim) {
+      int newlim = 2*matches->lim;
+      size_t newsize = 3*sizeof(int) + newlim*sizeof(match_t *);
+      ustack_t *ptr = realloc(matches, newsize);
+
+      child->matches = matches = ptr;
+      matches->lim = newlim;
    }
 
-   children->u[children->pos++] = child;
+   matches->u[matches->pos++] = new_match(parent,distance);
 }
 
+match_t *
+new_match
+(
+   useq_t * parent,
+   int      distance
+)
+{
+   match_t * match = malloc(sizeof(match_t));
+   match->dist = distance;
+   match->seq  = parent;
+
+   return match;
+}
 
 int
 bycount
@@ -882,11 +946,23 @@ bycount
    const void *b
 )
 {
-   useq_t *u1 = *(useq_t **)a;
-   useq_t *u2 = *(useq_t **)b;
+   useq_t *u1 = (useq_t *)a;
+   useq_t *u2 = (useq_t *)b;
    return ucmp(u2, u1);
 }
 
+int
+mintomax
+(
+   const void *a,
+   const void *b
+)
+{
+   useq_t *u1 = (useq_t *)a;
+   useq_t *u2 = (useq_t *)b;
+   if (u1->count > u2->count) return 1;
+   else return -1;
+}
 
 int
 ucmp
@@ -924,7 +1000,7 @@ new_useq
    if (new == NULL) exit(EXIT_FAILURE);
    new->count = count;
    new->seq = seq;
-   new->children = NULL;
+   new->matches = NULL;
    return new;
 }
 
@@ -948,7 +1024,11 @@ destroy_useq
 )
 {
    useq_t *useq = (useq_t *)u;
-   if (useq->children != NULL) free(useq->children);
+   if (useq->matches != NULL) {
+      for (int i = 0; i < useq->matches->lim; i++)
+         free(useq->matches->u[i]);
+      free(useq->matches);
+   }
    free(useq->seq);
    free(useq);
 }

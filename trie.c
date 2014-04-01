@@ -7,7 +7,7 @@
 int ERROR = 0;
 
 struct arg_t {
-   narray_t ** hits;
+   hstack_t ** hits;
    narray_t ** milestones;
    char        tau;
    char        maxtau;
@@ -21,7 +21,7 @@ struct arg_t {
 
 // Search.
 void _search(node_t*, int, struct arg_t);
-void dash(node_t*, const int*, struct arg_t);
+void dash(node_t*, const int*, struct arg_t, int);
 // Trie creation and destruction.
 node_t *insert(node_t*, int, unsigned char);
 node_t *new_trienode(unsigned char);
@@ -29,6 +29,7 @@ void init_milestones(node_t*);
 void destroy_nodes_downstream_of(node_t*, void(*)(void*));
 // Utility.
 void push(node_t*, narray_t**);
+void pushhit(node_t*, hstack_t**, int);
 int check_trie_error_and_reset(void);
 // Here functions.
 int get_maxtau(node_t *root) { return ((info_t *)root->data)->maxtau; }
@@ -44,7 +45,7 @@ search
          node_t   *  trie,
    const char     *  query,
    const int         tau,
-         narray_t ** hits,
+         hstack_t ** hits,
    const int         start,
    const int         trail
 )
@@ -60,7 +61,7 @@ search
 //   trie: the trie to query                                              
 //   query: the query as an ascii string                                  
 //   tau: the maximum edit distance                                       
-//   hits: a node array to push the hits                                  
+//   hits: a hit stack to push the hits                                  
 //   start: the depth to start the search                                 
 //   trail: how deep to trail                                             
 //                                                                        
@@ -226,13 +227,13 @@ _search
 
       // Reached the height, it's a hit!
       if (depth == arg.height) {
-         push(child, arg.hits);
+         pushhit(child, arg.hits, ccache[0]);
          continue;
       }
 
       // Use 'dash()' if no more mismatches allowed.
       if ((ccache[0] == arg.tau) && (depth > arg.trail)) {
-         dash(child, arg.query+depth+1, arg);
+         dash(child, arg.query+depth+1, arg, arg.tau);
          continue;
       }
 
@@ -248,7 +249,8 @@ dash
 (
           node_t * restrict node,
    const  int    * restrict suffix,
-   struct arg_t    arg
+   struct arg_t    arg,
+          int      tau
 )
 // SYNOPSIS:                                                              
 //   Checks whether node has the given suffix and reports a hit if this   
@@ -275,7 +277,7 @@ dash
    }
 
    // End of query, check whether node is a tail.
-   if (node->data != NULL) push(node, arg.hits);
+   if (node->data != NULL) pushhit(node, arg.hits, tau);
 
    return;
 
@@ -619,6 +621,32 @@ new_narray
    return new;
 }
 
+hstack_t *
+new_hstack
+(void)
+// SYNOPSIS:                                                              
+//   Creates a new hit stack.                                    
+//                                                                        
+// RETURN:                                                                
+//   A pointer to the new hit stack.                                     
+//                                                                        
+// SIDE EFFECTS:                                                          
+//   Allocates the memory for the hit stack.                             
+{
+   hstack_t *new = malloc(sizeof(hstack_t));
+   new->nodes = (node_t **) malloc(STACK_INIT_SIZE * sizeof(node_t *));
+   new->dist  = (int *)     malloc(STACK_INIT_SIZE * sizeof(int));
+   if (new == NULL || new->nodes == NULL || new->dist == NULL) {
+      fprintf(stderr,"error: new_hstack malloc\n");
+      ERROR = 603;
+      return NULL;
+   }
+   new->err = 0;
+   new->pos = 0;
+   new->lim = STACK_INIT_SIZE;
+   return new;
+}
+
 
 void
 push
@@ -654,6 +682,46 @@ push
    }
 
    stack->nodes[stack->pos++] = node;
+}
+
+void
+pushhit
+(
+ node_t    * node,
+ hstack_t ** stack_addr,
+ int         dist
+)
+// SYNOPSIS:                                                              
+//   Push a node into a hit stack.
+//                                                                        
+// PARAMETERS:                                                            
+//   node: the node to push                                               
+//   stack_addr: the address of a hit stack pointer
+//   dist: the distance between seqs                      
+//                                                                        
+// RETURN:                                                                
+//   'void'.                                                              
+//                                                                        
+// SIDE EFFECTS:                                                          
+//   Updates the hit stack and can possibly resize it, which is why the  
+//   address of the pointer is passed as argument.                        
+{
+   hstack_t * stack = *stack_addr;
+
+   // Resize if needed.
+   if (stack->pos >= stack->lim) {
+      stack->nodes = (node_t **) realloc(stack->nodes, 2 * stack->lim * sizeof(node_t *));
+      stack->dist  = (int     *) realloc(stack->dist, 2 * stack->lim * sizeof(int));
+      if (stack->nodes == NULL || stack->dist == NULL) {
+         fprintf(stderr, "error: push realloc (%s).\n", strerror(errno));
+         stack->err = 1;
+         return;
+      }
+      stack->lim *= 2;
+   }
+
+   stack->nodes[stack->pos] = node;
+   stack->dist[stack->pos++] = dist;
 }
 
 

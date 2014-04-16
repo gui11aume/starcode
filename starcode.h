@@ -103,9 +103,11 @@ struct mtjob_t {
 };
 
 int starcode(FILE*, FILE*, const int, const int, const int, const int, const int, const int);
-int tquery(FILE*, FILE*, FILE*, const int, const int);
+int tquery(FILE*, FILE*, FILE*, const int, const int, const int, const int);
 void * starcode_thread(void*);
-mtplan_t * prepare_mtplan(int, int, int, int, useq_t**, int);
+void * tquery_thread(void*);
+mtplan_t * starcode_mtplan(int, int, int, int, useq_t**, int);
+mtplan_t * tquery_mtplan(int, int, int, int, useq_t**, node_t**);
 int bisection(int,int,char*,useq_t**,int,int);
 void * _mergesort(void *);
 int mergesort(void **, int, int (*)(const void*, const void*), int);

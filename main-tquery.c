@@ -4,11 +4,26 @@ char *USAGE = "Usage:\n"
 "  tquery [-v] [-d dist] [-i input] [-q query] [-o output]\n"
 "    -v --verbose: verbose\n"
 "    -d --dist: maximum Levenshtein distance\n"
+"    -t --threads: number of concurrent threads (default 2)\n"
+"    -l --level: number of subtries (default 3*threads)\n"
 "    -i --index: index file\n"
 "    -q --query: query file\n"
 "    -o --output: output file (default stdout)";
 
 void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
+
+void SIGSEGV_handler(int sig) {
+  void *array[10];
+  size_t size;
+
+  // get void*'s for all entries on the stack
+  size = backtrace(array, 10);
+
+  // print out all the frames to stderr
+  fprintf(stderr, "Error: signal %d:\n", sig);
+  backtrace_symbols_fd(array, size, STDERR_FILENO);
+  exit(1);
+}
 
 int
 main(
@@ -16,10 +31,13 @@ main(
    char **argv
 )
 {
+   signal(SIGSEGV, SIGSEGV_handler);
 
    // Unset flags (value -1).
    int verbose_flag = -1;
    int dist_flag = -1;
+   int threads_flag = -1;
+   int ntries_flag = -1;
    // Unset options (value 'UNSET').
    char _u; char *UNSET = &_u;
    char *index = UNSET;
@@ -39,7 +57,7 @@ main(
          {0, 0, 0, 0}
       };
 
-      c = getopt_long(argc, argv, "d:i:ho:q:v",
+      c = getopt_long(argc, argv, "t:l:d:i:ho:q:v",
             long_options, &option_index);
  
       /* Detect the end of the options. */
@@ -52,6 +70,28 @@ main(
             }
             else {
                fprintf(stderr, "distance option set more than once\n");
+               say_usage();
+               return 1;
+            }
+            break;
+
+         case 't':
+            if(threads_flag < 0) {
+               threads_flag = atoi(optarg);
+            }
+            else {
+               fprintf(stderr, "threads option set more than once\n");
+               say_usage();
+               return 1;
+            }
+            break;
+
+         case 'l':
+            if(ntries_flag < 0) {
+               ntries_flag = atoi(optarg);
+            }
+            else {
+               fprintf(stderr, "level option set more than once\n");
                say_usage();
                return 1;
             }
@@ -163,8 +203,10 @@ main(
 
    if (verbose_flag < 0) verbose_flag = 0;
    if (dist_flag < 0) dist_flag = 3;
+   if (threads_flag < 0) threads_flag = 2;
+   if (ntries_flag < 0) ntries_flag = 3*threads_flag;
 
-   int exitcode = tquery(indexf, queryf, outputf, dist_flag, verbose_flag); 
+   int exitcode = tquery(indexf, queryf, outputf, dist_flag, verbose_flag, threads_flag, ntries_flag); 
 
    fclose(indexf);
    fclose(queryf);

@@ -13,6 +13,7 @@
 #define M 128              // MAXBRCDLEN + 1 for short.
 #define STACK_INIT_SIZE 32 // Initial node size for narray and ustack
 
+
 static const char BASES[8] = "ACGTN";
 
 struct tnode_t;
@@ -24,6 +25,7 @@ typedef struct tnode_t node_t;
 typedef struct tstack_t narray_t;
 typedef struct info_t info_t;
 typedef struct hstack_t hstack_t;
+
 
 int        check_trie_error_and_reset(void);
 int        count_nodes(node_t*);
@@ -52,6 +54,16 @@ static const int altranslate[256] = {
    ['A'] = 1, ['C'] = 2, ['G'] = 3, ['T'] = 4,
 };
 
+struct arg_t {
+   hstack_t ** hits;
+   narray_t ** milestones;
+   char        tau;
+   char        maxtau;
+   int       * query;
+   int         trail;
+   int         height;
+   int         err;
+};
 
 struct tnode_t
 {
@@ -87,4 +99,18 @@ struct info_t
             int        height;         // Critical depth with all hits.
    struct   tstack_t * milestones[M];  // Milestones for trail search.
 };
+
+// Search.
+void _search(node_t*, int, struct arg_t);
+void dash(node_t*, const int*, struct arg_t);
+// Trie creation and destruction.
+node_t *insert(node_t*, int, unsigned char);
+node_t *new_trienode(unsigned char);
+void init_milestones(node_t*);
+void destroy_nodes_downstream_of(node_t*, void(*)(void*));
+// Utility.
+void push(node_t*, narray_t**);
+void pushhit(node_t*, hstack_t**, int);
+int check_trie_error_and_reset(void);
+
 #endif

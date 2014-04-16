@@ -6,35 +6,9 @@
 // Global error handling.
 int ERROR = 0;
 
-struct arg_t {
-   hstack_t ** hits;
-   narray_t ** milestones;
-   char        tau;
-   char        maxtau;
-   int       * query;
-   int         trail;
-   int         height;
-   int         err;
-};
-
-
-
-// Search.
-void _search(node_t*, int, struct arg_t);
-void dash(node_t*, const int*, struct arg_t, int);
-// Trie creation and destruction.
-node_t *insert(node_t*, int, unsigned char);
-node_t *new_trienode(unsigned char);
-void init_milestones(node_t*);
-void destroy_nodes_downstream_of(node_t*, void(*)(void*));
-// Utility.
-void push(node_t*, narray_t**);
-void pushhit(node_t*, hstack_t**, int);
-int check_trie_error_and_reset(void);
 // Here functions.
 int get_maxtau(node_t *root) { return ((info_t *)root->data)->maxtau; }
 int get_height(node_t *root) { return ((info_t *)root->data)->height; }
-
 
 
 // ------  SEARCH FUNCTIONS ------ //
@@ -74,7 +48,6 @@ search
 //   passed as a parameter) and the trie is modified by the trailinng of  
 //   effect of the search.                                                
 {
-   
    char maxtau = get_maxtau(trie);
    char height = get_height(trie);
    if (tau > maxtau) {
@@ -233,7 +206,7 @@ _search
 
       // Use 'dash()' if no more mismatches allowed.
       if ((ccache[0] == arg.tau) && (depth > arg.trail)) {
-         dash(child, arg.query+depth+1, arg, arg.tau);
+         dash(child, arg.query+depth+1, arg);
          continue;
       }
 
@@ -249,8 +222,7 @@ dash
 (
           node_t * restrict node,
    const  int    * restrict suffix,
-   struct arg_t    arg,
-          int      tau
+   struct arg_t    arg
 )
 // SYNOPSIS:                                                              
 //   Checks whether node has the given suffix and reports a hit if this   
@@ -277,7 +249,7 @@ dash
    }
 
    // End of query, check whether node is a tail.
-   if (node->data != NULL) pushhit(node, arg.hits, tau);
+   if (node->data != NULL) pushhit(node, arg.hits, arg.tau);
 
    return;
 

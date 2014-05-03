@@ -9,6 +9,7 @@
 // -- DECLARATION OF PRIVATE FUNCTIONS FROM trie.c -- //
 node_t *new_trienode(char);
 void destroy_nodes_downstream_of(node_t*, void(*)(void*));
+void init_milestones(node_t*);
 
 
 typedef struct {
@@ -48,7 +49,9 @@ int BACKUP_FILE_DESCRIPTOR;
 
 void
 redirect_stderr_to
-(char buffer[])
+(
+   char buffer[]
+)
 {
    // Flush stderr, redirect to /dev/null and set buffer.
    fflush(stderr);
@@ -326,7 +329,7 @@ test_errmsg
    unredirect_sderr();
    g_assert(trie == NULL);
    g_assert_cmpstr(ERROR_BUFFER, ==,
-         "'maxtau' cannot be greater than 8\n");
+         "error: 'maxtau' cannot be greater than 8\n");
 
    // Check error messages in 'insert()'.
    char too_long_string[M+2];
@@ -335,7 +338,8 @@ test_errmsg
    redirect_stderr_to(ERROR_BUFFER);
    node_t *not_inserted = insert_string(f->trie, too_long_string);
    unredirect_sderr();
-   sprintf(string, "cannot insert string longer than %d\n", MAXBRCDLEN);
+   sprintf(string, "error: cannot insert string longer than %d\n",
+         MAXBRCDLEN);
    g_assert(not_inserted == NULL);
    g_assert_cmpstr(ERROR_BUFFER, ==, string);
  
@@ -346,7 +350,7 @@ test_errmsg
    g_assert_cmpint(err, ==, 65);
    unredirect_sderr();
    g_assert_cmpstr(ERROR_BUFFER, ==,
-         "query longer than allowed max\n");
+         "error: query longer than allowed max\n");
    g_assert_cmpint(hits->pos, ==, 0);
 
    reset(hits);
@@ -355,8 +359,62 @@ test_errmsg
    unredirect_sderr();
    g_assert_cmpint(err, ==, 59);
    g_assert_cmpstr(ERROR_BUFFER, ==,
-         "requested tau greater than 'maxtau'\n");
+         "error: requested tau greater than 'maxtau'\n");
    g_assert_cmpint(hits->pos, ==, 0);
+
+   // Force 'malloc()' to fail and check error messages of constructors.
+   redirect_stderr_to(ERROR_BUFFER);
+   set_alloc_failure_rate_to(1);
+   node_t *trie_fail = new_trie(3, 20);
+   reset_alloc();
+   unredirect_sderr();
+   g_assert(trie_fail == NULL);
+   g_assert_cmpint(check_trie_error_and_reset(), > , 0);
+   g_assert_cmpstr(ERROR_BUFFER, ==,
+      "error: could not create trie node\n"
+      "error: could not create trie\n");
+
+   redirect_stderr_to(ERROR_BUFFER);
+   set_alloc_failure_rate_to(1);
+   node_t *trienode_fail = new_trienode(3);
+   reset_alloc();
+   unredirect_sderr();
+   g_assert(trienode_fail == NULL);
+   g_assert_cmpint(check_trie_error_and_reset(), > , 0);
+   g_assert_cmpstr(ERROR_BUFFER, ==,
+      "error: could not create trie node\n");
+
+   redirect_stderr_to(ERROR_BUFFER);
+   set_alloc_failure_rate_to(1);
+   narray_t *narray_fail = new_narray();
+   reset_alloc();
+   unredirect_sderr();
+   g_assert(narray_fail == NULL);
+   g_assert_cmpint(check_trie_error_and_reset(), > , 0);
+   g_assert_cmpstr(ERROR_BUFFER, ==,
+      "error: could not create node array\n");
+
+   redirect_stderr_to(ERROR_BUFFER);
+   set_alloc_failure_rate_to(1);
+   hstack_t *hits_fail = new_hstack();
+   reset_alloc();
+   unredirect_sderr();
+   g_assert(hits_fail == NULL);
+   g_assert_cmpint(check_trie_error_and_reset(), > , 0);
+   g_assert_cmpstr(ERROR_BUFFER, ==,
+         "error: could not create hit stack\n");
+
+   node_t *dummy_trie = new_trie(3, 20);
+   redirect_stderr_to(ERROR_BUFFER);
+   set_alloc_failure_rate_to(1);
+   init_milestones(dummy_trie);
+   reset_alloc();
+   unredirect_sderr();
+   g_assert_cmpint(check_trie_error_and_reset(), > , 0);
+   g_assert_cmpstr(ERROR_BUFFER, ==,
+      "error: could not create node array\n"
+      "error: could not initialize trie info\n");
+   destroy_trie(dummy_trie, NULL);
 
    destroy_hstack(hits);
    return;
@@ -396,7 +454,9 @@ test_mem_1(
 
    // Search with failure in 'malloc()'.
    set_alloc_failure_rate_to(1);
+   redirect_stderr_to(ERROR_BUFFER);
    err = search(trie, "NNNNNNNN", 8, &hits, 0, 8);
+   unredirect_sderr();
    reset_alloc();
 
    g_assert_cmpint(err, >, 0);
@@ -434,6 +494,7 @@ test_mem_2(
    // If a segmentation fault happens the test will fail.
    set_alloc_failure_rate_to(0.01);
 
+   redirect_stderr_to(ERROR_BUFFER);
    for (int i = 0 ; i < 1000 ; i++) {
       node_t *trie = new_trie(3, 20);
       if (trie == NULL) {
@@ -458,6 +519,7 @@ test_mem_2(
       }
       destroy_trie(trie, free);
    }
+   unredirect_sderr();
    reset_alloc();
    destroy_hstack(hits);
    return;
@@ -486,6 +548,7 @@ test_mem_3(
    // with a 'malloc()' failure rate of 1%.
    set_alloc_failure_rate_to(0.01);
 
+   redirect_stderr_to(ERROR_BUFFER);
    for (int i = 0 ; i < 1000 ; i++) {
       // The following search should not make any call to
       // 'malloc()' and so should have an error code of 0
@@ -521,6 +584,7 @@ test_mem_3(
       reset(hits);
       search(trie, seq, 3, &hits, 0, 20);
    }
+   unredirect_sderr();
    reset_alloc();
    destroy_hstack(hits);
    return;
@@ -542,6 +606,7 @@ test_mem_4(
 
    // Test constructors with a 'malloc()' failure rate of 1%.
    set_alloc_failure_rate_to(0.01);
+   redirect_stderr_to(ERROR_BUFFER);
 
    // Test 'new_trie()'.
    for (int i = 0 ; i < 1000 ; i++) {
@@ -592,6 +657,7 @@ test_mem_4(
       }
    }
 
+   unredirect_sderr();
    reset_alloc();
    return;
 

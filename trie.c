@@ -71,13 +71,13 @@ search
       // space to hold Levenshtein distances up to a maximum tau.
       // If this is exceeded, the search will try to read from and
       // write to forbidden memory space.
-      fprintf(stderr, "requested tau greater than 'maxtau'\n");
+      fprintf(stderr, "error: requested tau greater than 'maxtau'\n");
       return 59;
    }
 
    int length = strlen(query);
    if (length > height) {
-      fprintf(stderr, "query longer than allowed max\n");
+      fprintf(stderr, "error: query longer than allowed max\n");
       return 65;
    }
 
@@ -295,7 +295,7 @@ new_trie
 {
 
    if (maxtau > 8) {
-      fprintf(stderr, "'maxtau' cannot be greater than 8\n");
+      fprintf(stderr, "error: 'maxtau' cannot be greater than 8\n");
       ERROR = 299;
       // DETAIL:                                                         
       // There is an absolute limit at 'tau' = 8 because the struct      
@@ -306,13 +306,15 @@ new_trie
 
    node_t *root = new_trienode(maxtau);
    if (root == NULL) {
-      ERROR = 309;
+      fprintf(stderr, "error: could not create trie\n");
+      ERROR = 310;
       return NULL;
    }
 
    info_t *info = malloc(sizeof(info_t));
    if (info == NULL) {
-      ERROR = 315;
+      fprintf(stderr, "error: could not create trie\n");
+      ERROR = 317;
       free(root);
       return NULL;
    }
@@ -326,7 +328,8 @@ new_trie
    init_milestones(root);
 
    if (*(info->milestones) == NULL) {
-      ERROR = 329;
+      fprintf(stderr, "error: could not create trie\n");
+      ERROR = 332;
       free(info);
       free(root);
       return NULL;
@@ -356,14 +359,16 @@ new_trienode
    size_t cachesize = (2*maxtau + 3) * sizeof(char);
    node_t *node = malloc(sizeof(node_t));
    if (node == NULL) {
-      ERROR = 359;
+      fprintf(stderr, "error: could not create trie node\n");
+      ERROR = 363;
       return NULL;
    }
 
    node->cache = malloc(cachesize);
    if (node->cache == NULL) {
+      fprintf(stderr, "error: could not create trie node\n");
       free(node);
-      ERROR = 366;
+      ERROR = 371;
       return NULL;
    }
 
@@ -401,8 +406,9 @@ insert_string
 
    int nchar = strlen(string);
    if (nchar > MAXBRCDLEN) {
-      fprintf(stderr, "cannot insert string longer than %d\n", MAXBRCDLEN);
-      ERROR = 405;
+      fprintf(stderr, "error: cannot insert string longer than %d\n",
+            MAXBRCDLEN);
+      ERROR = 411;
       return NULL;
    }
    
@@ -423,7 +429,8 @@ insert_string
    // Append more nodes.
    for (i++ ; i < nchar ; i++) {
       if (node == NULL) {
-         ERROR = 426;
+         fprintf(stderr, "error: could not insert string\n");
+         ERROR = 433;
          return NULL;
       }
       int c = translate[(int) string[i]];
@@ -463,7 +470,8 @@ insert
    // Initilalize child node.
    node_t *child = new_trienode(maxtau);
    if (child == NULL) {
-      ERROR = 466;
+      fprintf(stderr, "error: could not insert node\n");
+      ERROR = 474;
       return NULL;
    }
    // Update child path and parent pointer.
@@ -499,7 +507,8 @@ init_milestones
    for (int i = 0 ; i < get_height(trie) + 1 ; i++) {
       info->milestones[i] = new_narray();
       if (info->milestones[i] == NULL) {
-         ERROR = 502;
+         fprintf(stderr, "error: could not initialize trie info\n");
+         ERROR = 511;
          while (--i >= 0) {
             free(info->milestones[i]);
             info->milestones[i] = NULL;
@@ -606,14 +615,16 @@ new_narray
    // Allocate memory for a node array, with 'STACK_INIT_SIZE' slots.
    narray_t *new = malloc(sizeof(narray_t));
    if (new == NULL) {
-      ERROR = 609;
+      fprintf(stderr, "error: could not create node array\n");
+      ERROR = 619;
       return NULL;
    }
    new->nodes = (node_t **) malloc(STACK_INIT_SIZE * sizeof(node_t *));
    if (new->nodes == NULL) {
       //fprintf(stderr,"error: new_narray malloc\n");
       free(new);
-      ERROR = 616;
+      fprintf(stderr, "error: could not create node array\n");
+      ERROR = 627;
       return NULL;
    }
    new->err = 0;
@@ -637,7 +648,8 @@ new_hstack
 {
    hstack_t *new = malloc(sizeof(hstack_t));
    if (new == NULL) {
-      ERROR = 640;
+      fprintf(stderr, "error: could not create hit stack\n");
+      ERROR = 652;
       return NULL;
    }
    new->nodes = malloc(STACK_INIT_SIZE * sizeof(node_t *));
@@ -645,7 +657,8 @@ new_hstack
    if (new->nodes == NULL || new->dist == NULL) {
       //fprintf(stderr,"error: new_hstack malloc\n");
       free(new);
-      ERROR = 648;
+      fprintf(stderr, "error: could not create hit stack\n");
+      ERROR = 661;
       return NULL;
    }
    new->err = 0;
@@ -694,7 +707,8 @@ push
       node_t **ptr = realloc(stack->nodes, newlim * sizeof(node_t *));
       if (ptr == NULL) {
          // Cannot add node to stack, increase error number.
-         ERROR = 697;
+         fprintf(stderr, "error: could not push to node array\n");
+         ERROR = 711;
          stack->err++;
          return;
       }
@@ -738,7 +752,8 @@ pushhit
       if (ptr_1 == NULL || ptr_2 == NULL) {
          //fprintf(stderr, "error: push realloc (%s).\n", strerror(errno));
          // Cannot add node to stack, increase error number.
-         ERROR = 741;
+         fprintf(stderr, "error: could not push to hit stack\n");
+         ERROR = 756;
          stack->err++;
          return;
       }

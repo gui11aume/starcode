@@ -7,9 +7,12 @@
 #include "starcode.h"
 
 // -- DECLARATION OF PRIVATE FUNCTIONS FROM trie.c -- //
+node_t *insert (node_t *, int, unsigned char);
 void init_milestones(node_t*);
 node_t *new_trienode(char);
 void destroy_nodes_downstream_of(node_t*, void(*)(void*));
+void push(node_t*, narray_t**);
+void pushhit(node_t*, hstack_t**, int);
 int get_maxtau(node_t*);
 int get_height(node_t*);
 
@@ -260,6 +263,24 @@ test_base_2
 
 
 void
+test_base_3
+(void)
+{
+   node_t *trie = new_trie(3, 20);
+   g_assert(trie != NULL);
+
+   for (int i = 0 ; i < 6 ; i++) {
+      node_t *node = insert(trie, i, 3);
+      g_assert(node != NULL);
+      g_assert(trie->child[i] == node);
+      g_assert_cmpint(node->path, ==, i);
+   }
+   destroy_trie(trie, NULL);
+   return;
+}
+
+
+void
 test_base_4
 (void)
 {
@@ -274,7 +295,58 @@ test_base_4
    return;
 
 }
- 
+
+
+void
+test_base_5
+(void)
+{
+   narray_t *narray = new_narray();
+   g_assert(narray != NULL);
+   g_assert(narray->nodes != NULL);
+   g_assert_cmpint(narray->lim, ==, STACK_INIT_SIZE);
+   g_assert_cmpint(narray->pos, ==, 0);
+   g_assert_cmpint(narray->err, ==, 0);
+
+   node_t *node = new_trienode(3);
+   push(node, &narray);
+   g_assert(node == narray->nodes[0]);
+   g_assert_cmpint(narray->lim, ==, STACK_INIT_SIZE);
+   g_assert_cmpint(narray->pos, ==, 1);
+   g_assert_cmpint(narray->err, ==, 0);
+
+   free(node);
+   free(narray->nodes);
+   free(narray);
+   return;
+}
+
+
+void
+test_base_6
+(void)
+{
+   hstack_t *hits = new_hstack();
+   g_assert(hits != NULL);
+   g_assert(hits->nodes != NULL);
+   g_assert(hits->dist != NULL);
+   g_assert_cmpint(hits->lim, ==, STACK_INIT_SIZE);
+   g_assert_cmpint(hits->pos, ==, 0);
+   g_assert_cmpint(hits->err, ==, 0);
+
+   node_t *node = new_trienode(3);
+   pushhit(node, &hits, 3);
+   g_assert(node == hits->nodes[0]);
+   g_assert_cmpint(hits->dist[0], ==, 3);
+   g_assert_cmpint(hits->lim, ==, STACK_INIT_SIZE);
+   g_assert_cmpint(hits->pos, ==, 1);
+   g_assert_cmpint(hits->err, ==, 0);
+
+   free(node);
+   destroy_hstack(hits);
+   return;
+}
+
 
 void
 test_search(
@@ -780,7 +852,10 @@ main(
    g_test_init(&argc, &argv, NULL);
    g_test_add_func("/base/1", test_base_1);
    g_test_add_func("/base/2", test_base_2);
+   g_test_add_func("/base/3", test_base_3);
    g_test_add_func("/base/4", test_base_4);
+   g_test_add_func("/base/5", test_base_5);
+   g_test_add_func("/base/6", test_base_6);
    g_test_add("/search", fixture, NULL, setup, test_search, teardown);
    g_test_add("/errmsg", fixture, NULL, setup, test_errmsg, teardown);
    g_test_add("/mem/1", fixture, NULL, setup, test_mem_1, teardown);

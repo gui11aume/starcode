@@ -82,7 +82,7 @@ struct tstack_t
             int        err;            // Trace memory errors.
             int        lim;            // Stack size.
             int        pos;            // Number of items.
-   struct   tnode_t ** nodes;        // Nodes (items).
+   struct   tnode_t ** nodes;          // Nodes (items).
 };
 
 

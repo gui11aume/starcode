@@ -47,7 +47,7 @@ void reset(hstack_t *h) { h->pos = 0; h->err = 0; }
 
 
 // Error message handling functions.
-char error_buffer[1024];
+char ERROR_BUFFER[1024];
 int backup_file_descriptor;
 
 void
@@ -196,7 +196,6 @@ test_search(
 )
 {
 
-   int err = 0 ;
    hstack_t *hits = new_hstack();
    g_assert(hits != NULL);
 
@@ -285,26 +284,6 @@ test_search(
    search(f->trie, "ATGCTAGGGTACTCGATAAC", 0, &hits, 20, 1);
    g_assert_cmpint(hits->pos, ==, 0);
 
-   // Check error messages.
-   reset(hits);
-   redirect_stderr_to(error_buffer);
-   err = search(f->trie, "AAAAAAAAAAAAAAAAAAAAA", 3, &hits, 1, 0);
-   g_assert_cmpint(err, ==, 65);
-   unredirect_sderr();
-   g_assert_cmpstr(error_buffer, ==,
-         "query longer than allowed max\n");
-   g_assert_cmpint(hits->pos, ==, 0);
-
-   reset(hits);
-   redirect_stderr_to(error_buffer);
-   err = search(f->trie, " TGCTAGGGTACTCGATAAC", 4, &hits, 0, 0);
-   unredirect_sderr();
-   g_assert_cmpint(err, ==, 59);
-   g_assert_cmpstr(error_buffer, ==,
-         "requested tau greater than 'maxtau'\n");
-   g_assert_cmpint(hits->pos, ==, 0);
-
-
    // Repeat first test cases.
    reset(hits);
    search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 18);
@@ -313,6 +292,61 @@ test_search(
    reset(hits);
    search(f->trie, "AAAAAAAAAAAAAAAAAATA", 3, &hits, 18, 18);
    g_assert_cmpint(hits->pos, ==, 6);
+
+   destroy_hstack(hits);
+   return;
+
+}
+
+void
+test_errmsg
+(
+   fixture *f,
+   gconstpointer ignore
+)
+{
+
+   char string[1024];
+   hstack_t *hits = new_hstack();
+   int err = 0;
+
+   // Check error messages in 'new_trie()'.
+   redirect_stderr_to(ERROR_BUFFER);
+   node_t *trie = new_trie(9, 20);
+   unredirect_sderr();
+   g_assert(trie == NULL);
+   g_assert_cmpstr(ERROR_BUFFER, ==,
+         "'maxtau' cannot be greater than 8\n");
+
+   // Check error messages in 'insert()'.
+   char too_long_string[M+2];
+   too_long_string[M+1] = '\0';
+   for (int i = 0 ; i < M+1 ; i++) too_long_string[i] = 'A';
+   redirect_stderr_to(ERROR_BUFFER);
+   node_t *not_inserted = insert_string(f->trie, too_long_string);
+   unredirect_sderr();
+   sprintf(string, "cannot insert string longer than %d\n", MAXBRCDLEN);
+   g_assert(not_inserted == NULL);
+   g_assert_cmpstr(ERROR_BUFFER, ==, string);
+ 
+  
+   // Check error messages in 'search()'.
+   redirect_stderr_to(ERROR_BUFFER);
+   err = search(f->trie, "AAAAAAAAAAAAAAAAAAAAA", 3, &hits, 1, 0);
+   g_assert_cmpint(err, ==, 65);
+   unredirect_sderr();
+   g_assert_cmpstr(ERROR_BUFFER, ==,
+         "query longer than allowed max\n");
+   g_assert_cmpint(hits->pos, ==, 0);
+
+   reset(hits);
+   redirect_stderr_to(ERROR_BUFFER);
+   err = search(f->trie, " TGCTAGGGTACTCGATAAC", 4, &hits, 0, 0);
+   unredirect_sderr();
+   g_assert_cmpint(err, ==, 59);
+   g_assert_cmpstr(ERROR_BUFFER, ==,
+         "requested tau greater than 'maxtau'\n");
+   g_assert_cmpint(hits->pos, ==, 0);
 
    destroy_hstack(hits);
    return;
@@ -352,14 +386,16 @@ test_mem_1(
 
    // Search with failure in 'malloc()'.
    set_alloc_failure_rate_to(1);
-   err = search(trie, "NNNNNNNN", 8, &hits, 0, 0);
+   err = search(trie, "NNNNNNNN", 8, &hits, 0, 8);
    reset_alloc();
 
    g_assert_cmpint(err, >, 0);
    g_assert_cmpint(hits->err, >, 0);
 
+   reset(hits);
+
    // Do it again without failure.
-   err = search(trie, "NNNNNNNN", 8, &hits, 0, 0);
+   err = search(trie, "NNNNNNNN", 8, &hits, 0, 8);
    g_assert_cmpint(err, ==, 0);
    g_assert_cmpint(hits->pos, >, 0);
 
@@ -587,6 +623,7 @@ main(
 
    g_test_init(&argc, &argv, NULL);
    g_test_add("/search", fixture, NULL, setup, test_search, teardown);
+   g_test_add("/errmsg", fixture, NULL, setup, test_errmsg, teardown);
    g_test_add("/mem/1", fixture, NULL, setup, test_mem_1, teardown);
    g_test_add("/mem/2", fixture, NULL, setup, test_mem_2, teardown);
    g_test_add("/mem/3", fixture, NULL, setup, test_mem_3, teardown);

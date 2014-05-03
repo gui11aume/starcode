@@ -295,11 +295,12 @@ new_trie
 {
 
    if (maxtau > 8) {
+      fprintf(stderr, "'maxtau' cannot be greater than 8\n");
       ERROR = 307;
       // DETAIL:                                                         
-      // There is an absolute limit at 'tau' = 8 because the path is     
-      // encoded as a 'char', ie an 8 x 2-bit array. It should be enough 
-      // for most practical purposes.                                    
+      // There is an absolute limit at 'tau' = 8 because the struct      
+      // member 'path' is encoded as a 32 bit 'int', ie an 8 x 4-bit     
+      // array. It should be enough for most practical purposes.         
       return NULL;
    }
 
@@ -309,8 +310,7 @@ new_trie
       return NULL;
    }
 
-   // Allocate one info_t for each thread to avoid SIGSEGV when milestone realloc
-   info_t *info = (info_t *) malloc(sizeof(info_t));
+   info_t *info = malloc(sizeof(info_t));
    if (info == NULL) {
       ERROR = 323;
       free(root);
@@ -325,7 +325,7 @@ new_trie
    root->data = info;
    init_milestones(root);
 
-   if (info->milestones == NULL) {
+   if (*(info->milestones) == NULL) {
       ERROR = 336;
       free(info);
       free(root);
@@ -401,6 +401,7 @@ insert_string
 
    int nchar = strlen(string);
    if (nchar > MAXBRCDLEN) {
+      fprintf(stderr, "cannot insert string longer than %d\n", MAXBRCDLEN);
       ERROR = 405;
       return NULL;
    }
@@ -509,7 +510,6 @@ init_milestones
    // Push the root into the 0-depth cache.
    // It will be the only node ever in there.
    push(trie, info->milestones);
-
 }
 
 
@@ -691,13 +691,14 @@ push
    // Resize if needed.
    if (stack->pos >= stack->lim) {
       int newlim = 2 * stack->lim;
-      stack->nodes = realloc(stack->nodes, newlim * sizeof(node_t *));
-      if (stack->nodes == NULL) {
+      node_t **ptr = realloc(stack->nodes, newlim * sizeof(node_t *));
+      if (ptr == NULL) {
          // Cannot add node to stack, increase error number.
          ERROR = 666;
          stack->err++;
          return;
       }
+      stack->nodes = ptr;
       stack->lim = newlim;
    }
 
@@ -732,15 +733,17 @@ pushhit
    // Resize if needed.
    if (stack->pos >= stack->lim) {
       int newlim = 2 * stack->lim;
-      stack->nodes = realloc(stack->nodes, newlim * sizeof(node_t *));
-      stack->dist  = realloc(stack->dist, newlim * sizeof(int));
-      if (stack->nodes == NULL || stack->dist == NULL) {
+      node_t **ptr_1 = realloc(stack->nodes, newlim * sizeof(node_t *));
+      int *ptr_2 = realloc(stack->dist, newlim * sizeof(int));
+      if (ptr_1 == NULL || ptr_2 == NULL) {
          //fprintf(stderr, "error: push realloc (%s).\n", strerror(errno));
          // Cannot add node to stack, increase error number.
-         ERROR = 721;
+         ERROR = 741;
          stack->err++;
          return;
       }
+      stack->nodes = ptr_1;
+      stack->dist = ptr_2;
       stack->lim = newlim;
    }
    stack->nodes[stack->pos] = node;

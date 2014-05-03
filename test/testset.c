@@ -6,13 +6,16 @@
 #include "trie.h"
 #include "starcode.h"
 
-#define NSTRINGS 22
+// -- Declaration of private functions from trie.c -- //
+node_t *new_trienode(char);
+void destroy_nodes_downstream_of(node_t*, void(*)(void*));
+// -- //
 
 typedef struct {
    node_t *trie;
 } fixture;
 
-
+#define NSTRINGS 22
 const char *string[NSTRINGS] = {
    "AAAAAAAAAAAAAAAAAAAA",
    "AAAAAAAAAANAAAAAAAAA",
@@ -40,7 +43,7 @@ const char *string[NSTRINGS] = {
 
 
 // Convenience function.
-void reset(narray_t *h) { h->pos = 0; h->err = 0; }
+void reset(hstack_t *h) { h->pos = 0; h->err = 0; }
 
 
 // Error message handling functions.
@@ -194,7 +197,7 @@ test_search(
 {
 
    int err = 0 ;
-   narray_t *hits = new_narray();
+   hstack_t *hits = new_hstack();
    g_assert(hits != NULL);
 
    search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 18);
@@ -286,7 +289,7 @@ test_search(
    reset(hits);
    redirect_stderr_to(error_buffer);
    err = search(f->trie, "AAAAAAAAAAAAAAAAAAAAA", 3, &hits, 1, 0);
-   g_assert_cmpint(err, ==, 91);
+   g_assert_cmpint(err, ==, 65);
    unredirect_sderr();
    g_assert_cmpstr(error_buffer, ==,
          "query longer than allowed max\n");
@@ -296,7 +299,7 @@ test_search(
    redirect_stderr_to(error_buffer);
    err = search(f->trie, " TGCTAGGGTACTCGATAAC", 4, &hits, 0, 0);
    unredirect_sderr();
-   g_assert_cmpint(err, ==, 85);
+   g_assert_cmpint(err, ==, 59);
    g_assert_cmpstr(error_buffer, ==,
          "requested tau greater than 'maxtau'\n");
    g_assert_cmpint(hits->pos, ==, 0);
@@ -311,27 +314,32 @@ test_search(
    search(f->trie, "AAAAAAAAAAAAAAAAAATA", 3, &hits, 18, 18);
    g_assert_cmpint(hits->pos, ==, 6);
 
-
-
-   free(hits);
+   destroy_hstack(hits);
+   return;
 
 }
 
 void
-test_mem(
+test_mem_1(
    fixture *f,
    gconstpointer ignore
 )
 // NOTE: It may be that the 'g_assert()' functions call 'malloc()'
 // in which case I am not sure what may sometimes happen.
 {
-
    // Test hits dynamic growth. Build a trie with 1000 sequences
    // and search with maxdist of 20 (should return all the sequences).
    char seq[9];
    seq[8] = '\0';
+
    node_t *trie = new_trie(8, 8);
    g_assert(trie != NULL);
+
+   hstack_t *hits = new_hstack();
+   g_assert(hits != NULL);
+ 
+   int err = 0;
+
    // Insert 2049 random sequences.
    for (int i = 0 ; i < 2049 ; i++) {
       for (int j = 0 ; j < 8 ; j++) {
@@ -342,28 +350,38 @@ test_mem(
       node->data = node;
    }
 
-   // The node array 'hits' is properly initialized.
-   narray_t *hits = new_narray();
+   // Search with failure in 'malloc()'.
+   set_alloc_failure_rate_to(1);
+   err = search(trie, "NNNNNNNN", 8, &hits, 0, 0);
+   reset_alloc();
+
+   g_assert_cmpint(err, >, 0);
+   g_assert_cmpint(hits->err, >, 0);
+
+   // Do it again without failure.
+   err = search(trie, "NNNNNNNN", 8, &hits, 0, 0);
+   g_assert_cmpint(err, ==, 0);
+   g_assert_cmpint(hits->pos, >, 0);
+
+   destroy_trie(trie, NULL);
+   destroy_hstack(hits);
+   return;
+}
+
+
+void
+test_mem_2(
+   fixture *f,
+   gconstpointer ignore
+)
+// NOTE: It may be that the 'g_assert()' functions call 'malloc()'
+// in which case I am not sure what may sometimes happen.
+{
+   // The hit stack 'hits' is properly initialized.
+   hstack_t *hits = new_hstack();
    g_assert(hits != NULL);
 
-   reset(hits);
-   search(trie, "NNNNNNNN", 8, &hits, 0, 0);
-   g_assert_cmpint(hits->pos, >, 0);
-   g_assert_cmpint(check_trie_error_and_reset(), ==, 0);
-
-   // Do it again with a memory failure.
-   free(hits);
-   hits = new_narray();
-
-   set_alloc_failure_rate_to(1);
-   search(trie, "NNNNNNNN", 8, &hits, 0, 0);
-   reset_alloc();
-   g_assert_cmpint(hits->err, ==, 1);
-
-   reset(hits);
-   destroy_trie(trie, NULL);
-
-   // Construct 1000 tries with a `malloc` failure rate of 1%.
+   // Construct 1000 tries with a 'malloc()' failure rate of 1%.
    // If a segmentation fault happens the test will fail.
    set_alloc_failure_rate_to(0.01);
 
@@ -388,24 +406,53 @@ test_mem(
       }
       destroy_trie(trie, free);
    }
+   reset_alloc();
+   destroy_hstack(hits);
+   return;
+}
 
-   // Test 'search()' 1000 times in a perfectly built trie.
+
+void
+test_mem_3(
+   fixture *f,
+   gconstpointer ignore
+)
+// NOTE: It may be that the 'g_assert()' functions call 'malloc()'
+// in which case I am not sure what may sometimes happen.
+{
+   // The variable 'trie' and 'hits' are initialized
+   // without 'malloc()' failure.
+   node_t *trie = new_trie(3, 20);
+   g_assert(trie != NULL);
+
+   hstack_t *hits = new_hstack();
+   g_assert(hits != NULL);
+
+   int err = 0;
+
+   // Test 'search()' 1000 times in a perfectly built trie
+   // with a 'malloc()' failure rate of 1%.
+   set_alloc_failure_rate_to(0.01);
+
    for (int i = 0 ; i < 1000 ; i++) {
+      // The following search should not make any call to
+      // 'malloc()' and so should have an error code of 0
+      // on every call.
       reset(hits);
-      search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 20);
-      if (hits->pos != 6) {
-         g_assert_cmpint(hits->err, == , 1);
-      }
+      err = search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 20);
+      g_assert_cmpint(err, == , 0);
+      g_assert_cmpint(hits->pos, ==, 6);
    }
 
-   check_trie_error_and_reset();
+   char seq[21];
+   seq[20] = '\0';
 
-   // Test 'search()' in an imperfectly built trie.
+   // Build an imperfect trie.
    for (int i = 0 ; i < 2048 ; i++) {
       for (int j = 0 ; j < 20 ; j++) {
          seq[j] = untranslate[(int)(5 * drand48())];
       }
-      node_t *node = insert_string(f->trie, seq);
+      node_t *node = insert_string(trie, seq);
       if (node == NULL) {
          g_assert_cmpint(check_trie_error_and_reset(), > , 0);
       }
@@ -414,20 +461,87 @@ test_mem(
       }
    }
 
+   // Test 'search()' in the imperfectly built trie.
    for (int i = 0 ; i < 1000 ; i++) {
       for (int j = 0 ; j < 20 ; j++) {
          seq[j] = untranslate[(int)(5 * drand48())];
       }
       reset(hits);
-      search(f->trie, seq, 3, &hits, 0, 20);
+      search(trie, seq, 3, &hits, 0, 20);
+   }
+   reset_alloc();
+   destroy_hstack(hits);
+   return;
+}
+
+
+void
+test_mem_4(
+   fixture *f,
+   gconstpointer ignore
+)
+// NOTE: It may be that the 'g_assert()' functions call 'malloc()'
+// in which case I am not sure what may sometimes happen.
+{
+   node_t *trie;
+   node_t *trienode;
+   narray_t *narray;
+   hstack_t *hits;
+
+   // Test constructors with a 'malloc()' failure rate of 1%.
+   set_alloc_failure_rate_to(0.01);
+
+   // Test 'new_trie()'.
+   for (int i = 0 ; i < 1000 ; i++) {
+      trie = new_trie(3, 20);
+      if (trie == NULL) {
+         g_assert_cmpint(check_trie_error_and_reset(), > , 0);
+      }
+      else {
+         destroy_trie(trie, NULL);
+         trie = NULL;
+      }
    }
 
-   // Calls to 'search()' do not create errors. 'realloc()' is called
-   // when 'hits' is full, which won't happen with a sparse trie.
-   g_assert_cmpint(check_trie_error_and_reset(), == , 0);
+   // Test 'new_trienode()' (private function from trie.c).
+   for (int i = 0 ; i < 1000 ; i++) {
+      trienode = new_trienode(3);
+      if (trienode == NULL) {
+         g_assert_cmpint(check_trie_error_and_reset(), > , 0);
+      }
+      else {
+         destroy_nodes_downstream_of(trienode, NULL);
+         trie = NULL;
+      }
+   }
+
+
+   // Test 'new_narray()'.
+   for (int i = 0 ; i < 1000 ; i++) {
+      narray = new_narray();
+      if (narray == NULL) {
+         g_assert_cmpint(check_trie_error_and_reset(), > , 0);
+      }
+      else {
+         free(narray);
+         trie = NULL;
+      }
+   }
+
+   // Test 'new_hstack()'.
+   for (int i = 0 ; i < 1000 ; i++) {
+      hits = new_hstack();
+      if (hits == NULL) {
+         g_assert_cmpint(check_trie_error_and_reset(), > , 0);
+      }
+      else {
+         destroy_hstack(hits);
+         hits = NULL;
+      }
+   }
 
    reset_alloc();
-   free(hits);
+   return;
 
 }
 
@@ -454,7 +568,7 @@ test_run
    g_assert(outputf != NULL);
    //g_test_timer_start();
    fprintf(stderr, "\n");
-   starcode(inputf, outputf, 3, 0, 1);
+   //starcode(inputf, outputf, 3, 0, 1);
    fclose(inputf);
    fclose(outputf);
    // The command line call to 'perf' shows the elapsed time.
@@ -473,7 +587,10 @@ main(
 
    g_test_init(&argc, &argv, NULL);
    g_test_add("/search", fixture, NULL, setup, test_search, teardown);
-   g_test_add("/mem", fixture, NULL, setup, test_mem, teardown);
+   g_test_add("/mem/1", fixture, NULL, setup, test_mem_1, teardown);
+   g_test_add("/mem/2", fixture, NULL, setup, test_mem_2, teardown);
+   g_test_add("/mem/3", fixture, NULL, setup, test_mem_3, teardown);
+   g_test_add("/mem/4", fixture, NULL, setup, test_mem_4, teardown);
    if (g_test_perf()) {
       g_test_add_func("/starcode/run", test_run);
    }

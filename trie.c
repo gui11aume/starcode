@@ -10,6 +10,20 @@ int ERROR = 0;
 int get_maxtau(node_t *root) { return ((info_t *)root->data)->maxtau; }
 int get_height(node_t *root) { return ((info_t *)root->data)->height; }
 
+// --  DECLARATION OF PRIVATE FUNCTIONS  -- //
+
+// Search.
+void _search(node_t*, int, struct arg_t);
+void dash(node_t*, const int*, struct arg_t);
+// Trie creation and destruction.
+node_t *insert(node_t*, int, unsigned char);
+node_t *new_trienode(unsigned char);
+void init_milestones(node_t*);
+void destroy_nodes_downstream_of(node_t*, void(*)(void*));
+// Utility.
+void push(node_t*, narray_t**);
+void pushhit(node_t*, hstack_t**, int);
+
 
 // ------  SEARCH FUNCTIONS ------ //
 
@@ -35,7 +49,7 @@ search
 //   trie: the trie to query                                              
 //   query: the query as an ascii string                                  
 //   tau: the maximum edit distance                                       
-//   hits: a hit stack to push the hits                                  
+//   hits: a hit stack to push the hits                                   
 //   start: the depth to start the search                                 
 //   trail: how deep to trail                                             
 //                                                                        
@@ -48,6 +62,8 @@ search
 //   passed as a parameter) and the trie is modified by the trailinng of  
 //   effect of the search.                                                
 {
+   ERROR = 0;
+
    char maxtau = get_maxtau(trie);
    char height = get_height(trie);
    if (tau > maxtau) {
@@ -56,13 +72,13 @@ search
       // If this is exceeded, the search will try to read from and
       // write to forbidden memory space.
       fprintf(stderr, "requested tau greater than 'maxtau'\n");
-      return 85;
+      return 59;
    }
 
    int length = strlen(query);
    if (length > height) {
       fprintf(stderr, "query longer than allowed max\n");
-      return 91;
+      return 65;
    }
 
    // Make sure the cache is allocated.
@@ -100,7 +116,9 @@ search
       _search(start_node, start + 1, arg);
    }
 
-   return 0;
+   // Return the error code of the process (the line of
+   // the last error) and 0 if everything went OK.
+   return check_trie_error_and_reset();
 
 }
 
@@ -338,11 +356,16 @@ new_trienode
    size_t cachesize = (2*maxtau + 3) * sizeof(char);
    node_t *node = malloc(sizeof(node_t));
    if (node == NULL) {
-      ERROR = 367;
+      ERROR = 341;
       return NULL;
    }
 
-   node->cache = (char *) malloc(cachesize);
+   node->cache = malloc(cachesize);
+   if (node->cache == NULL) {
+      free(node);
+      ERROR = 348;
+      return NULL;
+   }
 
    // Set all base values to 0.
    node->data = NULL;
@@ -352,8 +375,6 @@ new_trienode
    for (int i = 0 ; i < 2*maxtau + 3 ; i++) {
       node->cache[i] = (unsigned char) abs(i-1-maxtau);
    }
-
-
    return node;
 }
 
@@ -556,7 +577,10 @@ destroy_nodes_downstream_of
       for (int i = 0 ; i < 6 ; i++) {
          destroy_nodes_downstream_of(node->child[i], destruct);
       }
-      free(node->cache);
+      if (node->cache != NULL) {
+         free(node->cache);
+         node->cache = NULL;
+      }
       if (node->data != NULL && destruct != NULL) (*destruct)(node->data);
       free(node);
    }
@@ -579,12 +603,17 @@ new_narray
 // SIDE EFFECTS:                                                          
 //   Allocates the memory for the node array.                             
 {
-   // Allocate memory for a node array, with 32 initial slots.
+   // Allocate memory for a node array, with 'STACK_INIT_SIZE' slots.
    narray_t *new = malloc(sizeof(narray_t));
+   if (new == NULL) {
+      ERROR = 591;
+      return NULL;
+   }
    new->nodes = (node_t **) malloc(STACK_INIT_SIZE * sizeof(node_t *));
-   if (new == NULL || new->nodes == NULL) {
-      fprintf(stderr,"error: new_narray malloc\n");
-      ERROR = 603;
+   if (new->nodes == NULL) {
+      //fprintf(stderr,"error: new_narray malloc\n");
+      free(new);
+      ERROR = 597;
       return NULL;
    }
    new->err = 0;
@@ -592,25 +621,31 @@ new_narray
    new->lim = STACK_INIT_SIZE;
    return new;
 }
+
 
 hstack_t *
 new_hstack
 (void)
 // SYNOPSIS:                                                              
-//   Creates a new hit stack.                                    
+//   Creates a new hit stack.                                             
 //                                                                        
 // RETURN:                                                                
-//   A pointer to the new hit stack.                                     
+//   A pointer to the new hit stack.                                      
 //                                                                        
 // SIDE EFFECTS:                                                          
-//   Allocates the memory for the hit stack.                             
+//   Allocates the memory for the hit stack.                              
 {
    hstack_t *new = malloc(sizeof(hstack_t));
-   new->nodes = (node_t **) malloc(STACK_INIT_SIZE * sizeof(node_t *));
-   new->dist  = (int *)     malloc(STACK_INIT_SIZE * sizeof(int));
-   if (new == NULL || new->nodes == NULL || new->dist == NULL) {
-      fprintf(stderr,"error: new_hstack malloc\n");
-      ERROR = 603;
+   if (new == NULL) {
+      ERROR = 640;
+      return NULL;
+   }
+   new->nodes = malloc(STACK_INIT_SIZE * sizeof(node_t *));
+   new->dist  = malloc(STACK_INIT_SIZE * sizeof(int));
+   if (new->nodes == NULL || new->dist == NULL) {
+      //fprintf(stderr,"error: new_hstack malloc\n");
+      free(new);
+      ERROR = 629;
       return NULL;
    }
    new->err = 0;
@@ -619,6 +654,17 @@ new_hstack
    return new;
 }
 
+
+void
+destroy_hstack
+(
+   hstack_t *hstack
+)
+{
+   free(hstack->dist);
+   free(hstack->nodes);
+   free(hstack);
+}
 
 void
 push
@@ -644,17 +690,20 @@ push
 
    // Resize if needed.
    if (stack->pos >= stack->lim) {
-      stack->nodes = (node_t **) realloc(stack->nodes, 2 * stack->lim * sizeof(node_t *));
+      int newlim = 2 * stack->lim;
+      stack->nodes = realloc(stack->nodes, newlim * sizeof(node_t *));
       if (stack->nodes == NULL) {
-         fprintf(stderr, "error: push realloc (%s).\n", strerror(errno));
-         stack->err = 1;
+         // Cannot add node to stack, increase error number.
+         ERROR = 666;
+         stack->err++;
          return;
       }
-      stack->lim *= 2;
+      stack->lim = newlim;
    }
 
    stack->nodes[stack->pos++] = node;
 }
+
 
 void
 pushhit
@@ -664,34 +713,36 @@ pushhit
  int         dist
 )
 // SYNOPSIS:                                                              
-//   Push a node into a hit stack.
+//   Push a node into a hit stack.                                        
 //                                                                        
 // PARAMETERS:                                                            
 //   node: the node to push                                               
-//   stack_addr: the address of a hit stack pointer
-//   dist: the distance between seqs                      
+//   stack_addr: the address of a hit stack pointer                       
+//   dist: the edit distance between the hit and the query                
 //                                                                        
 // RETURN:                                                                
 //   'void'.                                                              
 //                                                                        
 // SIDE EFFECTS:                                                          
-//   Updates the hit stack and can possibly resize it, which is why the  
+//   Updates the hit stack and can possibly resize it, which is why the   
 //   address of the pointer is passed as argument.                        
 {
    hstack_t * stack = *stack_addr;
 
    // Resize if needed.
    if (stack->pos >= stack->lim) {
-      stack->nodes = (node_t **) realloc(stack->nodes, 2 * stack->lim * sizeof(node_t *));
-      stack->dist  = (int     *) realloc(stack->dist, 2 * stack->lim * sizeof(int));
+      int newlim = 2 * stack->lim;
+      stack->nodes = realloc(stack->nodes, newlim * sizeof(node_t *));
+      stack->dist  = realloc(stack->dist, newlim * sizeof(int));
       if (stack->nodes == NULL || stack->dist == NULL) {
-         fprintf(stderr, "error: push realloc (%s).\n", strerror(errno));
-         stack->err = 1;
+         //fprintf(stderr, "error: push realloc (%s).\n", strerror(errno));
+         // Cannot add node to stack, increase error number.
+         ERROR = 721;
+         stack->err++;
          return;
       }
-      stack->lim *= 2;
+      stack->lim = newlim;
    }
-
    stack->nodes[stack->pos] = node;
    stack->dist[stack->pos++] = dist;
 }

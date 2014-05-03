@@ -7,9 +7,11 @@
 #include "starcode.h"
 
 // -- DECLARATION OF PRIVATE FUNCTIONS FROM trie.c -- //
+void init_milestones(node_t*);
 node_t *new_trienode(char);
 void destroy_nodes_downstream_of(node_t*, void(*)(void*));
-void init_milestones(node_t*);
+int get_maxtau(node_t*);
+int get_height(node_t*);
 
 
 typedef struct {
@@ -201,6 +203,78 @@ teardown(
 
 
 // --  TEST FUNCTIONS -- //
+
+void
+test_base_1
+(void)
+{
+   // Test trie creation and destruction.
+   for (char maxtau = 0 ; maxtau < 9 ; maxtau++) {
+   for (int height = 0 ; height < M ; height++) {
+      node_t *trie = new_trie(maxtau, height);
+      g_assert(trie != NULL);
+      g_assert(trie->data != NULL);
+
+      g_assert_cmpint(get_maxtau(trie), ==, maxtau);
+      g_assert_cmpint(get_height(trie), ==, height);
+
+      // Make sure that 'info' is initialized properly.
+      info_t *info = (info_t *) trie->data;
+      g_assert(*info->milestones[0]->nodes == trie);
+      for (int i = 1 ; i <= height ; i++) {
+         g_assert(info->milestones[i]->nodes != NULL);
+      }
+      for (int i = height+1 ; i < M ; i++) {
+         g_assert(info->milestones[i] == NULL);
+      }
+      destroy_trie(trie, NULL);
+      trie = NULL;
+   }
+   }
+   return;
+}
+
+
+void
+test_base_2
+(void)
+{
+   const char init[19] = {9,8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8,9};
+   // Test node creation and destruction.
+   for (char maxtau = 0 ; maxtau < 9 ; maxtau++) {
+      node_t *node = new_trienode(maxtau);
+      g_assert(node != NULL);
+      g_assert(node->cache != NULL);
+      g_assert(node->data == NULL);
+      g_assert_cmpint(node->path, ==, 0);
+      for (int i = 0 ; i < 6 ; i++) {
+         g_assert(node->child[i] == NULL);
+      }
+      for (int i = 0 ; i < 2*maxtau + 3 ; i++) {
+         g_assert(node->cache[i] == init[i+(8-maxtau)]);
+      }
+      destroy_nodes_downstream_of(node, NULL);
+   }
+   return;
+}
+
+
+void
+test_base_4
+(void)
+{
+   node_t *trie = new_trie(3, 20);
+   g_assert(trie != NULL);
+
+   node_t *node = insert_string(trie, "AAAAAAAAAAAAAAAAAAAA");
+   g_assert(node != NULL);
+   g_assert_cmpint(21, ==, count_nodes(trie));
+
+   destroy_trie(trie, NULL);
+   return;
+
+}
+ 
 
 void
 test_search(
@@ -704,6 +778,9 @@ main(
    BACKUP_FILE_DESCRIPTOR = dup(STDERR_FILENO);
 
    g_test_init(&argc, &argv, NULL);
+   g_test_add_func("/base/1", test_base_1);
+   g_test_add_func("/base/2", test_base_2);
+   g_test_add_func("/base/4", test_base_4);
    g_test_add("/search", fixture, NULL, setup, test_search, teardown);
    g_test_add("/errmsg", fixture, NULL, setup, test_errmsg, teardown);
    g_test_add("/mem/1", fixture, NULL, setup, test_mem_1, teardown);

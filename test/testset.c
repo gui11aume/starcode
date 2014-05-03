@@ -6,49 +6,45 @@
 #include "trie.h"
 #include "starcode.h"
 
-// -- Declaration of private functions from trie.c -- //
+// -- DECLARATION OF PRIVATE FUNCTIONS FROM trie.c -- //
 node_t *new_trienode(char);
 void destroy_nodes_downstream_of(node_t*, void(*)(void*));
-// -- //
+
 
 typedef struct {
    node_t *trie;
 } fixture;
 
-#define NSTRINGS 22
-const char *string[NSTRINGS] = {
-   "AAAAAAAAAAAAAAAAAAAA",
-   "AAAAAAAAAANAAAAAAAAA",
-   "NAAAAAAAAAAAAAAAAAAN",
-   "NNAAAAAAAAAAAAAAAANN",
-   "AAAAAAAAAAAAAAAAAAAT",
-   "TAAAAAAAAAAAAAAAAAAA",
-   "GGATTAGATCACCGCTTTCG",
-   "TTGGTATATGTCATAGAAAT",
-   "TTCGGAGCGACTAATATAGG",
-   "CGAGGCGTATAGTGTTTCCA",
-   "ATGCTAGGGTACTCGATAAC",
-   "CATACAGTATTCGACTAAGG",
-   "TGGAGATGATGAAGAAGACC",
-   "GGGAGACTTTTCCAGGGTAT",
-   "TCATTGTGATAGCTCGTAAC",
-   " GGATATCAAGGGTTACTAG",
-   " AAAAAAAAAAAAAAAAAAA",
-   "            AAAAAAAA",
-   "            NNNNNNNN",
-   "                   A",
-   "                   N",
-   "                    ",
-};
 
-
-// Convenience function.
+// Convenience functions.
 void reset(hstack_t *h) { h->pos = 0; h->err = 0; }
+int visit(node_t*, char*, int);
+char *to_string (node_t *trie, char* s) { visit(trie, s, 0); return s; }
+
+int
+visit
+(
+   node_t *node,
+   char *buff,
+   int j
+)
+{
+   for (int i = 0 ; i < 6 ; i++) {
+      if (node->child[i] != NULL) {
+         buff[j++] = untranslate[i];
+         j = visit(node->child[i], buff, j);
+      }
+   }
+   buff[j++] = '*';
+   buff[j] = '\0';
+   return j;
+}
 
 
-// Error message handling functions.
+// --  ERROR MESSAGE HANDLING FUNCTIONS  -- //
+
 char ERROR_BUFFER[1024];
-int backup_file_descriptor;
+int BACKUP_FILE_DESCRIPTOR;
 
 void
 redirect_stderr_to
@@ -71,81 +67,12 @@ unredirect_sderr
 (void)
 {
    fflush(stderr);
-   dup2(backup_file_descriptor, STDERR_FILENO);
+   dup2(BACKUP_FILE_DESCRIPTOR, STDERR_FILENO);
    setvbuf(stderr, NULL, _IONBF, 0);
 }
 
 
-// String representation of the trie as a depth first search
-// traversal. The stars indicate the a series of with no further
-// children. I also use indentation to ease the reading.
-char repr[1024];
-char trierepr[] =
-"NNAAAAAAAAAAAAAAAANN"
- "*******************"
- "AAAAAAAAAAAAAAAAAAN"
-"********************"
-"AAAAAAAAAANAAAAAAAAA"
-          "**********"
-          "AAAAAAAAAA"
-                   "*"
-                   "T"
- "*******************"
- "TGCTAGGGTACTCGATAAC"
-"********************"
-"CATACAGTATTCGACTAAGG"
- "*******************"
- "GAGGCGTATAGTGTTTCCA"
-"********************"
-"GGATTAGATCACCGCTTTCG"
-  "******************"
-  "GAGACTTTTCCAGGGTAT"
-"********************"
-"TAAAAAAAAAAAAAAAAAAA"
- "*******************"
- "CATTGTGATAGCTCGTAAC"
- "*******************"
- "GGAGATGATGAAGAAGACC"
- "*******************"
- "TCGGAGCGACTAATATAGG"
-  "******************"
-  "GGTATATGTCATAGAAAT"
-"********************"
-" AAAAAAAAAAAAAAAAAAA"
- "*******************"
- "GGATATCAAGGGTTACTAG"
- "*******************"
- "           NNNNNNNN"
-            "********"
-            "AAAAAAAA"
-            "********"
-            "       N"
-                   "*"
-                   "A"
-                   "*"
-                   " "
-"********************"
-"*";
-
-void
-strie(
-   node_t *node,
-   int restart
-)
-// String representation of the trie.
-{
-   static int j;
-   if (restart) j = 0;
-   for (int i = 0 ; i < 6 ; i++) {
-      if (node->child[i] != NULL) {
-         repr[j++] = untranslate[i];
-         strie(node->child[i], 0);
-      }
-   }
-   repr[j++] = '*';
-   repr[j] = '\0';
-}
-
+// --  SET UP AND TEAR DOWN TEST CASES  -- //
 
 void
 setup(
@@ -155,29 +82,109 @@ setup(
 // SYNOPSIS:                                                             
 //   Construct a very simple trie for testing purposes.                  
 {
+
+   const char *string[22] = {
+      "AAAAAAAAAAAAAAAAAAAA",
+      "AAAAAAAAAANAAAAAAAAA",
+      "NAAAAAAAAAAAAAAAAAAN",
+      "NNAAAAAAAAAAAAAAAANN",
+      "AAAAAAAAAAAAAAAAAAAT",
+      "TAAAAAAAAAAAAAAAAAAA",
+      "GGATTAGATCACCGCTTTCG",
+      "TTGGTATATGTCATAGAAAT",
+      "TTCGGAGCGACTAATATAGG",
+      "CGAGGCGTATAGTGTTTCCA",
+      "ATGCTAGGGTACTCGATAAC",
+      "CATACAGTATTCGACTAAGG",
+      "TGGAGATGATGAAGAAGACC",
+      "GGGAGACTTTTCCAGGGTAT",
+      "TCATTGTGATAGCTCGTAAC",
+      " GGATATCAAGGGTTACTAG",
+      " AAAAAAAAAAAAAAAAAAA",
+      "            AAAAAAAA",
+      "            NNNNNNNN",
+      "                   A",
+      "                   N",
+      "                    ",
+   };
+
+
    f->trie = new_trie(3, 20);
    if (f->trie == NULL || f->trie->data == NULL) {
       g_error("failed to initialize fixture\n");
    }
-   for (int i = 0 ; i < NSTRINGS ; i++) {
+   for (int i = 0 ; i < 22 ; i++) {
       node_t *node = insert_string(f->trie, string[i]);
       // Set node data to non 'NULL'.
       if (node != NULL) {
-         node->data = (char *) string[i];
+         // Set the 'data' pointer to self.
+         node->data = node;
       }
       else {
          g_warning("error during fixture initialization\n");
       }
    }
 
+
+   // String representation of the trie as a depth first search
+   // traversal. The stars indicate the a series of with no further
+   // children. I also use indentation to ease the reading.
+   char trie_string_representation[] =
+   "NNAAAAAAAAAAAAAAAANN"
+    "*******************"
+    "AAAAAAAAAAAAAAAAAAN"
+   "********************"
+   "AAAAAAAAAANAAAAAAAAA"
+             "**********"
+             "AAAAAAAAAA"
+                      "*"
+                      "T"
+    "*******************"
+    "TGCTAGGGTACTCGATAAC"
+   "********************"
+   "CATACAGTATTCGACTAAGG"
+    "*******************"
+    "GAGGCGTATAGTGTTTCCA"
+   "********************"
+   "GGATTAGATCACCGCTTTCG"
+     "******************"
+     "GAGACTTTTCCAGGGTAT"
+   "********************"
+   "TAAAAAAAAAAAAAAAAAAA"
+    "*******************"
+    "CATTGTGATAGCTCGTAAC"
+    "*******************"
+    "GGAGATGATGAAGAAGACC"
+    "*******************"
+    "TCGGAGCGACTAATATAGG"
+     "******************"
+     "GGTATATGTCATAGAAAT"
+   "********************"
+   " AAAAAAAAAAAAAAAAAAA"
+    "*******************"
+    "GGATATCAAGGGTTACTAG"
+    "*******************"
+    "           NNNNNNNN"
+               "********"
+               "AAAAAAAA"
+               "********"
+               "       N"
+                      "*"
+                      "A"
+                      "*"
+                      " "
+   "********************"
+   "*";
+
    // Assert that the trie has the correct structure.
-   strie(f->trie, 1);
-   g_assert_cmpstr(trierepr, ==, repr);
+   char buff[1024];
+   to_string(f->trie, buff);
+   g_assert_cmpstr(trie_string_representation, ==, buff);
+   g_assert_cmpint(count_nodes(f->trie), ==, 338);
 
    return;
 
 }
-
 
 void
 teardown(
@@ -188,6 +195,9 @@ teardown(
    destroy_trie(f->trie, NULL);
 }
 
+
+
+// --  TEST FUNCTIONS -- //
 
 void
 test_search(
@@ -417,6 +427,9 @@ test_mem_2(
    hstack_t *hits = new_hstack();
    g_assert(hits != NULL);
 
+   char seq[21];
+   seq[20] = '\0';
+
    // Construct 1000 tries with a 'malloc()' failure rate of 1%.
    // If a segmentation fault happens the test will fail.
    set_alloc_failure_rate_to(0.01);
@@ -428,8 +441,11 @@ test_mem_2(
          g_assert_cmpint(check_trie_error_and_reset(), >, 0);
          continue;
       }
-      for (int j = 0 ; j < NSTRINGS ; j++) {
-         node_t *node = insert_string(trie, string[j]);
+      for (int j = 0 ; j < 50 ; j++) {
+         for (int k = 0 ; k < 20 ; k++) {
+            seq[k] = untranslate[(int)(5 * drand48())];
+         }
+         node_t *node = insert_string(trie, seq);
          if (node == NULL) {
             // Make sure errors are reported.
             g_assert_cmpint(check_trie_error_and_reset(), >, 0);
@@ -619,7 +635,7 @@ main(
 )
 {
    // Save the stderr file descriptor upon start.
-   backup_file_descriptor = dup(STDERR_FILENO);
+   BACKUP_FILE_DESCRIPTOR = dup(STDERR_FILENO);
 
    g_test_init(&argc, &argv, NULL);
    g_test_add("/search", fixture, NULL, setup, test_search, teardown);

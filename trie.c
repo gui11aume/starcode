@@ -296,7 +296,7 @@ new_trie
 
    if (maxtau > 8) {
       fprintf(stderr, "'maxtau' cannot be greater than 8\n");
-      ERROR = 307;
+      ERROR = 299;
       // DETAIL:                                                         
       // There is an absolute limit at 'tau' = 8 because the struct      
       // member 'path' is encoded as a 32 bit 'int', ie an 8 x 4-bit     
@@ -306,13 +306,13 @@ new_trie
 
    node_t *root = new_trienode(maxtau);
    if (root == NULL) {
-      ERROR = 317;
+      ERROR = 309;
       return NULL;
    }
 
    info_t *info = malloc(sizeof(info_t));
    if (info == NULL) {
-      ERROR = 323;
+      ERROR = 315;
       free(root);
       return NULL;
    }
@@ -326,7 +326,7 @@ new_trie
    init_milestones(root);
 
    if (*(info->milestones) == NULL) {
-      ERROR = 336;
+      ERROR = 329;
       free(info);
       free(root);
       return NULL;
@@ -356,14 +356,14 @@ new_trienode
    size_t cachesize = (2*maxtau + 3) * sizeof(char);
    node_t *node = malloc(sizeof(node_t));
    if (node == NULL) {
-      ERROR = 341;
+      ERROR = 359;
       return NULL;
    }
 
    node->cache = malloc(cachesize);
    if (node->cache == NULL) {
       free(node);
-      ERROR = 348;
+      ERROR = 366;
       return NULL;
    }
 
@@ -606,14 +606,14 @@ new_narray
    // Allocate memory for a node array, with 'STACK_INIT_SIZE' slots.
    narray_t *new = malloc(sizeof(narray_t));
    if (new == NULL) {
-      ERROR = 591;
+      ERROR = 609;
       return NULL;
    }
    new->nodes = (node_t **) malloc(STACK_INIT_SIZE * sizeof(node_t *));
    if (new->nodes == NULL) {
       //fprintf(stderr,"error: new_narray malloc\n");
       free(new);
-      ERROR = 597;
+      ERROR = 616;
       return NULL;
    }
    new->err = 0;
@@ -645,7 +645,7 @@ new_hstack
    if (new->nodes == NULL || new->dist == NULL) {
       //fprintf(stderr,"error: new_hstack malloc\n");
       free(new);
-      ERROR = 629;
+      ERROR = 648;
       return NULL;
    }
    new->err = 0;
@@ -694,7 +694,7 @@ push
       node_t **ptr = realloc(stack->nodes, newlim * sizeof(node_t *));
       if (ptr == NULL) {
          // Cannot add node to stack, increase error number.
-         ERROR = 666;
+         ERROR = 697;
          stack->err++;
          return;
       }

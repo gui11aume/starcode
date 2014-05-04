@@ -33,35 +33,37 @@
    ssize_t getline(char **lineptr, size_t *n, FILE *stream);
 #endif
 
-struct u_t;
+struct useq_t;
 struct c_t;
-struct m_t;
+struct match_t;
 
-typedef struct u_t useq_t;
+typedef struct useq_t useq_t;
 typedef struct c_t ustack_t;
-typedef struct m_t match_t;
+typedef struct match_t match_t;
 typedef struct mtplan_t mtplan_t;
 typedef struct mttrie_t mttrie_t;
 typedef struct mtjob_t mtjob_t;
 
 typedef struct sortargs_t sortargs_t;
 
-struct u_t {
-          int    count;
-          char * seq;
-   struct c_t  * matches;
+struct useq_t {
+  int         count;
+  char     *  seq;
+  gstack_t ** matches;
 };
 
+/*
 struct c_t {
           int    lim;
           int    pos;
           int    propidx;
    struct m_t  * u[];
 };
+*/
 
-struct m_t {
-   struct u_t  * seq;
-          int    dist;
+struct match_t {
+   struct useq_t  * useq;
+          int       dist;
 };
 
 struct sortargs_t {

@@ -16,11 +16,13 @@ for i in range(numbrcd):
     canon = [random.choice(bases) for j in range(brcdlen)]
     canon_seq = ''.join(canon)
     seq.extend([canon_seq] * ncanon)
+#    sys.stdout.write(('%s\n' % canon_seq) * ncanon)
     for j in range(nmut):
-        mut = canon
+        mut = canon[:]
         for k in random.sample(range(brcdlen), tau):
             mut[k] = random.choice(bases)
         seq.append(''.join(mut))
+        #sys.stdout.write('%s\n' % ''.join(mut))
 
 random.shuffle(seq)
 

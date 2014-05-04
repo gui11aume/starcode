@@ -3,10 +3,10 @@ CFLAGS= -std=c99 -Wall -g -Wall -O3
 LDLIBS= -lm -lpthread
 CC= gcc
 
-all: starcode tquery
+all: starcode
 
-tquery: $(OBJECTS) main-tquery.c
-	$(CC) $(CFLAGS) $(OBJECTS) main-tquery.c $(LDLIBS) -o tquery
+#tquery: $(OBJECTS) main-tquery.c
+#	$(CC) $(CFLAGS) $(OBJECTS) main-tquery.c $(LDLIBS) -o tquery
 
 starcode: $(OBJECTS) main-starcode.c
 

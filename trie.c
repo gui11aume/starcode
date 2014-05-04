@@ -4,7 +4,7 @@
 #define max(a,b) (((a) > (b)) ? (a) : (b))
 
 
-// Global error handling.
+// Globals.
 int ERROR = 0;
 
 // Here functions.
@@ -19,11 +19,8 @@ void dash(node_t*, const int*, struct arg_t);
 // Trie creation and destruction.
 node_t *insert(node_t*, int, unsigned char);
 node_t *new_trienode(unsigned char);
-void init_milestones(node_t*);
+//void init_milestones(node_t*);
 void destroy_nodes_downstream_of(node_t*, void(*)(void*));
-// Utility.
-void push(node_t*, nstack_t**);
-void pushhit(node_t*, hstack_t**, int);
 
 
 // ------  SEARCH FUNCTIONS ------ //
@@ -34,7 +31,8 @@ search
          node_t   *  trie,
    const char     *  query,
    const int         tau,
-         hstack_t ** hits,
+//         hstack_t ** hits,
+         gstack_t ** hits,
    const int         start,
    const int         trail
 )
@@ -87,7 +85,7 @@ search
 
    // Reset the milestones that will be overwritten.
    for (int i = start+1 ; i <= min(trail, height) ; i++) {
-      info->milestones[i]->pos = 0;
+      info->milestones[i]->nitems = 0;
    }
 
    // Translate the query string. The first 'char' is kept to store
@@ -111,9 +109,9 @@ search
    };
 
    // Run recursive search from cached nodes.
-   nstack_t *milestones = info->milestones[start];
-   for (int i = 0 ; i < milestones->pos ; i++) {
-      node_t *start_node = milestones->nodes[i];
+   gstack_t *milestones = info->milestones[start];
+   for (int i = 0 ; i < milestones->nitems ; i++) {
+      node_t *start_node = (node_t *) milestones->items[i];
       _search(start_node, start + 1, arg);
    }
 
@@ -219,7 +217,7 @@ _search
 
       // Reached height of the trie: it's a hit!
       if (depth == arg.height) {
-         pushhit(child, arg.hits, ccache[0]);
+         push(child, arg.hits + ccache[0]);
          continue;
       }
 
@@ -268,7 +266,7 @@ dash
    }
 
    // End of query, check whether node is a tail.
-   if (node->data != NULL) pushhit(node, arg.hits, arg.tau);
+   if (node->data != NULL) push(node, arg.hits + arg.tau);
 
    return;
 
@@ -323,12 +321,13 @@ new_trie
    // Set the values of the meta information.
    info->maxtau = maxtau;
    info->height = height;
-   memset(info->milestones, 0, M * sizeof(nstack_t *));
+//   memset(info->milestones, 0, M * sizeof(gstack_t *));
 
    root->data = info;
-   init_milestones(root);
+   info->milestones = new_tower(M);
+//   init_milestones(root);
 
-   if (*(info->milestones) == NULL) {
+   if (info->milestones == NULL) {
       fprintf(stderr, "error: could not create trie\n");
       ERROR = 333;
       free(info);
@@ -336,6 +335,7 @@ new_trie
       return NULL;
    }
 
+   push(root, info->milestones);
    return root;
 
 }
@@ -506,7 +506,7 @@ init_milestones
 {
    info_t *info = trie->data;
    for (int i = 0 ; i < get_height(trie) + 1 ; i++) {
-      info->milestones[i] = new_nstack();
+      info->milestones[i] = new_gstack();
       if (info->milestones[i] == NULL) {
          fprintf(stderr, "error: could not initialize trie info\n");
          ERROR = 512;
@@ -550,13 +550,13 @@ destroy_trie
 {
    // Free the milesones.
    info_t *info = trie->data;
-   for (int i = 0 ; i < M ; i++) {
-      if (info->milestones[i] != NULL) free(info->milestones[i]);
-   }
+   destroy_tower(info->milestones);
+//   for (int i = 0 ; i < M ; i++) {
+//      if (info->milestones[i] != NULL) free(info->milestones[i]);
+//   }
    // Set info to 'NULL' before recursive destruction.
    // This will prevent 'destroy_nodes_downstream_of()' to
-   // do double free it.
-
+   // double free it.
    free(trie->data);
    trie->data = NULL;
 
@@ -597,147 +597,100 @@ destroy_nodes_downstream_of
 // ------  UTILITY FUNCTIONS ------ //
 
 
-nstack_t *
-new_nstack
+gstack_t *
+new_gstack
 (void)
-// SYNOPSIS:                                                              
-//   Creates a new node array / stack.                                    
-//                                                                        
-// RETURN:                                                                
-//   A pointer to the new node array.                                     
-//                                                                        
-// SIDE EFFECTS:                                                          
-//   Allocates the memory for the node array.                             
 {
    // Allocate memory for a node array, with 'STACK_INIT_SIZE' slots.
-   size_t base_size = sizeof(nstack_t);
-   size_t extra_size = STACK_INIT_SIZE * sizeof(node_t *);
-   nstack_t *new = malloc(base_size + extra_size);
+   size_t base_size = sizeof(gstack_t);
+   size_t extra_size = STACK_INIT_SIZE * sizeof(void *);
+   gstack_t *new = malloc(base_size + extra_size);
    if (new == NULL) {
-      fprintf(stderr, "error: could not create node array\n");
-      ERROR = 620;
+      fprintf(stderr, "error: could not create gstack\n");
+      ERROR = 638;
       return NULL;
    }
-   new->err = 0;
-   new->pos = 0;
-   new->lim = STACK_INIT_SIZE;
+   new->nitems = 0;
+   new->nslots = STACK_INIT_SIZE;
+   return new;
+}
+
+gstack_t **
+new_tower
+(
+   int height
+)
+{
+   gstack_t **new = malloc((height+1) * sizeof(gstack_t *));
+   if (new == NULL) {
+      fprintf(stderr, "error: could not create tower\n");
+      ERROR = 630;
+      return NULL;
+   }
+   for (int i = 0 ; i < height ; i++) {
+      new[i] = new_gstack();
+      if (new[i] == NULL) {
+         ERROR = 655;
+         fprintf(stderr, "error: could not initialize tower\n");
+         while (--i >= 0) {
+            free(new[i]);
+            new[i] = NULL;
+         }
+         free(new);
+         return NULL;
+      }
+   }
+   new[height] = TOWER_TOP;
    return new;
 }
 
 
-hstack_t *
-new_hstack
-(void)
-// SYNOPSIS:                                                              
-//   Creates a new hit stack.                                             
-//                                                                        
-// RETURN:                                                                
-//   A pointer to the new hit stack.                                      
-//                                                                        
-// SIDE EFFECTS:                                                          
-//   Allocates the memory for the hit stack.                              
+void
+destroy_tower
+(
+   gstack_t **tower
+)
 {
-   size_t base_size = sizeof(hstack_t);
-   size_t extra_size = STACK_INIT_SIZE * sizeof(hit_t);
-   hstack_t *new = malloc(base_size + extra_size);
-   if (new == NULL) {
-      fprintf(stderr, "error: could not create hit stack\n");
-      ERROR = 653;
-      return NULL;
-   }
-   new->err = 0;
-   new->pos = 0;
-   new->lim = STACK_INIT_SIZE;
-   return new;
+   for (int i = 0 ; tower[i] != TOWER_TOP ; i++) free(tower[i]);
+   free(tower);
 }
 
 
 void
 push
 (
-   node_t *node,
-   nstack_t **stack_addr
+   void *item,
+   gstack_t **stack_addr
 )
-// SYNOPSIS:                                                              
-//   Push a node into a node array.                                       
-//                                                                        
-// PARAMETERS:                                                            
-//   node: the node to push                                               
-//   stack_addr: the address of a node array pointer                      
-//                                                                        
-// RETURN:                                                                
-//   'void'.                                                              
-//                                                                        
-// SIDE EFFECTS:                                                          
-//   Updates the node array and can possibly resize it, which is why the  
-//   address of the pointer is passed as argument.                        
 {
-   nstack_t *stack = *stack_addr;
+   // Convenience variable for readability.
+   gstack_t *stack = *stack_addr;
 
-   // Resize if needed.
-   if (stack->pos >= stack->lim) {
-      int newlim = 2 * stack->lim;
-      size_t base_size = sizeof(nstack_t);
-      size_t extra_size = newlim * sizeof(node_t *);
-      nstack_t *ptr = realloc(stack, base_size + extra_size);
+   // Resize stack if needed.
+   if (stack->nitems >= stack->nslots) {
+      // If the stack has more items than slots, it is in a
+      // locked state and will not receive more items.
+      if (stack->nitems > stack->nslots) return;
+
+      // The stack is not locked, allocate more memory.
+      int new_nslots = 2 * stack->nslots;
+      size_t base_size = sizeof(gstack_t);
+      size_t extra_size = new_nslots * sizeof(void *);
+      gstack_t *ptr = realloc(stack, base_size + extra_size);
       if (ptr == NULL) {
-         // Cannot add node to stack, increase error number.
-         fprintf(stderr, "error: could not push to node array\n");
-         ERROR = 712;
-         stack->err++;
+         // Failed to add item to the stack. Warn and increase
+         // 'nitems' beyond 'nslots' to lock the stack.
+         fprintf(stderr, "error: could not push to gstack\n");
+         stack->nitems++;
+         ERROR = 746;
          return;
       }
       *stack_addr = stack = ptr;
-      stack->lim = newlim;
+      stack->nslots = new_nslots;
    }
-
-   stack->nodes[stack->pos++] = node;
-}
-
-
-void
-pushhit
-(
- node_t    * node,
- hstack_t ** stack_addr,
- int         dist
-)
-// SYNOPSIS:                                                              
-//   Push a node into a hit stack.                                        
-//                                                                        
-// PARAMETERS:                                                            
-//   node: the node to push                                               
-//   stack_addr: the address of a hit stack pointer                       
-//   dist: the edit distance between the hit and the query                
-//                                                                        
-// RETURN:                                                                
-//   'void'.                                                              
-//                                                                        
-// SIDE EFFECTS:                                                          
-//   Updates the hit stack and can possibly resize it, which is why the   
-//   address of the pointer is passed as argument.                        
-{
-   hstack_t * stack = *stack_addr;
-
-   // Resize if needed.
-   if (stack->pos >= stack->lim) {
-      int newlim = 2 * stack->lim;
-      size_t base_size = sizeof(hstack_t);
-      size_t extra_size = newlim * sizeof(hit_t);
-      hstack_t *ptr = realloc(stack, base_size + extra_size);
-      if (ptr == NULL) {
-         // Cannot add node to stack, increase error number.
-         fprintf(stderr, "error: could not push to hit stack\n");
-         ERROR = 757;
-         stack->err++;
-         return;
-      }
-      stack = *stack_addr = ptr;
-      stack->lim = newlim;
-   }
-   hit_t *hit = stack->hits + stack->pos++;
-   hit->node = node;
-   hit->dist = dist;
+   // Push item and increate 'nitems'.
+   stack->items[stack->nitems++] = item;
+   return;
 }
 
 

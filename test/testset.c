@@ -10,8 +10,6 @@
 node_t *insert (node_t *, int, unsigned char);
 void init_milestones(node_t*);
 node_t *new_trienode(char);
-void push(node_t*, nstack_t**);
-void pushhit(node_t*, hstack_t**, int);
 int get_maxtau(node_t*);
 int get_height(node_t*);
 
@@ -22,9 +20,11 @@ typedef struct {
 
 
 // Convenience functions.
-void reset(hstack_t *h) { h->pos = 0; h->err = 0; }
 int visit(node_t*, char*, int);
 char *to_string (node_t *trie, char* s) { visit(trie, s, 0); return s; }
+void reset(gstack_t **g) {
+   for (int i = 0 ; g[i] != TOWER_TOP ; i++) g[i]->nitems = 0;
+}
 
 int
 visit
@@ -222,12 +222,9 @@ test_base_1
 
       // Make sure that 'info' is initialized properly.
       info_t *info = (info_t *) trie->data;
-      g_assert(*info->milestones[0]->nodes == trie);
-      for (int i = 1 ; i <= height ; i++) {
-         g_assert(info->milestones[i]->nodes != NULL);
-      }
-      for (int i = height+1 ; i < M ; i++) {
-         g_assert(info->milestones[i] == NULL);
+      g_assert(((node_t*) *info->milestones[0]->items) == trie);
+      for (int i = 1 ; i < M ; i++) {
+         g_assert(info->milestones[i]->items != NULL);
       }
       destroy_trie(trie, NULL);
       trie = NULL;
@@ -300,22 +297,20 @@ void
 test_base_5
 (void)
 {
-   nstack_t *nstack = new_nstack();
-   g_assert(nstack != NULL);
-   g_assert(nstack->nodes != NULL);
-   g_assert_cmpint(nstack->lim, ==, STACK_INIT_SIZE);
-   g_assert_cmpint(nstack->pos, ==, 0);
-   g_assert_cmpint(nstack->err, ==, 0);
+   gstack_t *gstack = new_gstack();
+   g_assert(gstack != NULL);
+   g_assert(gstack->items != NULL);
+   g_assert_cmpint(gstack->nslots, ==, STACK_INIT_SIZE);
+   g_assert_cmpint(gstack->nitems, ==, 0);
 
    node_t *node = new_trienode(3);
-   push(node, &nstack);
-   g_assert(node == nstack->nodes[0]);
-   g_assert_cmpint(nstack->lim, ==, STACK_INIT_SIZE);
-   g_assert_cmpint(nstack->pos, ==, 1);
-   g_assert_cmpint(nstack->err, ==, 0);
+   push(node, &gstack);
+   g_assert(node == (node_t *) gstack->items[0]);
+   g_assert_cmpint(gstack->nslots, ==, STACK_INIT_SIZE);
+   g_assert_cmpint(gstack->nitems, ==, 1);
 
    free(node);
-   free(nstack);
+   free(gstack);
    return;
 }
 
@@ -324,23 +319,10 @@ void
 test_base_6
 (void)
 {
-   hstack_t *hstack = new_hstack();
-   g_assert(hstack != NULL);
-   g_assert(hstack->hits != NULL);
-   g_assert_cmpint(hstack->lim, ==, STACK_INIT_SIZE);
-   g_assert_cmpint(hstack->pos, ==, 0);
-   g_assert_cmpint(hstack->err, ==, 0);
-
-   node_t *node = new_trienode(3);
-   pushhit(node, &hstack, 3);
-   g_assert(node == hstack->hits[0].node);
-   g_assert_cmpint(hstack->hits[0].dist, ==, 3);
-   g_assert_cmpint(hstack->lim, ==, STACK_INIT_SIZE);
-   g_assert_cmpint(hstack->pos, ==, 1);
-   g_assert_cmpint(hstack->err, ==, 0);
-
-   free(node);
-   free(hstack);
+   gstack_t **tower = new_tower(1);
+   g_assert(tower != NULL);
+   g_assert_cmpint(tower[0]->nslots, ==, STACK_INIT_SIZE);
+   g_assert_cmpint(tower[0]->nitems, ==, 0);
    return;
 }
 
@@ -351,14 +333,19 @@ test_search(
    gconstpointer ignore
 )
 {
+//   hstack_t *hstack = new_hstack();
+//   g_assert(hstack != NULL);
+   gstack_t **hits = new_tower(4);
 
-   hstack_t *hstack = new_hstack();
-   g_assert(hstack != NULL);
+   search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, hits, 0, 18);
+//   g_assert_cmpint(hstack->pos, ==, 6);
+   g_assert_cmpint(hits[0]->nitems, ==, 1);
+   g_assert_cmpint(hits[1]->nitems, ==, 4);
+   g_assert_cmpint(hits[2]->nitems, ==, 1);
+   g_assert_cmpint(hits[3]->nitems, ==, 0);
 
-   search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, &hstack, 0, 18);
-   g_assert_cmpint(hstack->pos, ==, 6);
-
-   reset(hstack);
+   reset(hits);
+   /*
    search(f->trie, "AAAAAAAAAAAAAAAAAATA", 3, &hstack, 18, 3);
    g_assert_cmpint(hstack->pos, ==, 6);
 
@@ -448,8 +435,10 @@ test_search(
    reset(hstack);
    search(f->trie, "AAAAAAAAAAAAAAAAAATA", 3, &hstack, 18, 18);
    g_assert_cmpint(hstack->pos, ==, 6);
+   */
 
-   free(hstack);
+//   free(hstack);
+   destroy_tower(hits);
    return;
 
 }
@@ -463,7 +452,7 @@ test_errmsg
 {
 
    char string[1024];
-   hstack_t *hstack = new_hstack();
+   gstack_t **hits = new_tower(4);
    int err = 0;
 
    // Check error messages in 'new_trie()'.
@@ -489,21 +478,27 @@ test_errmsg
   
    // Check error messages in 'search()'.
    redirect_stderr_to(ERROR_BUFFER);
-   err = search(f->trie, "AAAAAAAAAAAAAAAAAAAAA", 3, &hstack, 1, 0);
+   err = search(f->trie, "AAAAAAAAAAAAAAAAAAAAA", 3, hits, 0, 0);
    g_assert_cmpint(err, ==, 65);
    unredirect_sderr();
    g_assert_cmpstr(ERROR_BUFFER, ==,
          "error: query longer than allowed max\n");
-   g_assert_cmpint(hstack->pos, ==, 0);
+   g_assert_cmpint(hits[0]->nitems, ==, 0);
+   g_assert_cmpint(hits[1]->nitems, ==, 0);
+   g_assert_cmpint(hits[2]->nitems, ==, 0);
+   g_assert_cmpint(hits[3]->nitems, ==, 0);
 
-   reset(hstack);
+   reset(hits);
    redirect_stderr_to(ERROR_BUFFER);
-   err = search(f->trie, " TGCTAGGGTACTCGATAAC", 4, &hstack, 0, 0);
+   err = search(f->trie, " TGCTAGGGTACTCGATAAC", 4, hits, 0, 0);
    unredirect_sderr();
    g_assert_cmpint(err, ==, 59);
    g_assert_cmpstr(ERROR_BUFFER, ==,
          "error: requested tau greater than 'maxtau'\n");
-   g_assert_cmpint(hstack->pos, ==, 0);
+   g_assert_cmpint(hits[0]->nitems, ==, 0);
+   g_assert_cmpint(hits[1]->nitems, ==, 0);
+   g_assert_cmpint(hits[2]->nitems, ==, 0);
+   g_assert_cmpint(hits[3]->nitems, ==, 0);
 
    // Force 'malloc()' to fail and check error messages of constructors.
    redirect_stderr_to(ERROR_BUFFER);
@@ -529,37 +524,25 @@ test_errmsg
 
    redirect_stderr_to(ERROR_BUFFER);
    set_alloc_failure_rate_to(1);
-   nstack_t *nstack_fail = new_nstack();
+   gstack_t *gstack_fail = new_gstack();
    reset_alloc();
    unredirect_sderr();
-   g_assert(nstack_fail == NULL);
+   g_assert(gstack_fail == NULL);
    g_assert_cmpint(check_trie_error_and_reset(), > , 0);
    g_assert_cmpstr(ERROR_BUFFER, ==,
-      "error: could not create node array\n");
+      "error: could not create gstack\n");
 
    redirect_stderr_to(ERROR_BUFFER);
    set_alloc_failure_rate_to(1);
-   hstack_t *hstack_fail = new_hstack();
+   gstack_t **tower_fail = new_tower(1);
    reset_alloc();
    unredirect_sderr();
-   g_assert(hstack_fail == NULL);
+   g_assert(tower_fail == NULL);
    g_assert_cmpint(check_trie_error_and_reset(), > , 0);
    g_assert_cmpstr(ERROR_BUFFER, ==,
-         "error: could not create hit stack\n");
+      "error: could not create tower\n");
 
-   node_t *dummy_trie = new_trie(3, 20);
-   redirect_stderr_to(ERROR_BUFFER);
-   set_alloc_failure_rate_to(1);
-   init_milestones(dummy_trie);
-   reset_alloc();
-   unredirect_sderr();
-   g_assert_cmpint(check_trie_error_and_reset(), > , 0);
-   g_assert_cmpstr(ERROR_BUFFER, ==,
-      "error: could not create node array\n"
-      "error: could not initialize trie info\n");
-   destroy_trie(dummy_trie, NULL);
-
-   free(hstack);
+   destroy_tower(hits);
    return;
 
 }
@@ -580,8 +563,8 @@ test_mem_1(
    node_t *trie = new_trie(8, 8);
    g_assert(trie != NULL);
 
-   hstack_t *hstack = new_hstack();
-   g_assert(hstack != NULL);
+   gstack_t **hits = new_tower(9);
+   g_assert(hits != NULL);
  
    int err = 0;
 
@@ -598,22 +581,21 @@ test_mem_1(
    // Search with failure in 'malloc()'.
    set_alloc_failure_rate_to(1);
    redirect_stderr_to(ERROR_BUFFER);
-   err = search(trie, "NNNNNNNN", 8, &hstack, 0, 8);
+   err = search(trie, "NNNNNNNN", 8, hits, 0, 8);
    unredirect_sderr();
    reset_alloc();
 
    g_assert_cmpint(err, >, 0);
-   g_assert_cmpint(hstack->err, >, 0);
+   g_assert_cmpint(hits[8]->nitems, >, hits[8]->nslots);
 
-   reset(hstack);
+   reset(hits);
 
    // Do it again without failure.
-   err = search(trie, "NNNNNNNN", 8, &hstack, 0, 8);
+   err = search(trie, "NNNNNNNN", 8, hits, 0, 8);
    g_assert_cmpint(err, ==, 0);
-   g_assert_cmpint(hstack->pos, >, 0);
 
    destroy_trie(trie, NULL);
-   free(hstack);
+   destroy_tower(hits);
    return;
 }
 
@@ -626,10 +608,6 @@ test_mem_2(
 // NOTE: It may be that the 'g_assert()' functions call 'malloc()'
 // in which case I am not sure what may sometimes happen.
 {
-   // The hit stack 'hstack' is properly initialized.
-   hstack_t *hstack = new_hstack();
-   g_assert(hstack != NULL);
-
    char seq[21];
    seq[20] = '\0';
 
@@ -664,7 +642,6 @@ test_mem_2(
    }
    unredirect_sderr();
    reset_alloc();
-   free(hstack);
    return;
 }
 
@@ -682,8 +659,8 @@ test_mem_3(
    node_t *trie = new_trie(3, 20);
    g_assert(trie != NULL);
 
-   hstack_t *hstack = new_hstack();
-   g_assert(hstack != NULL);
+   gstack_t **hits = new_tower(4);
+   g_assert(hits != NULL);
 
    int err = 0;
 
@@ -696,10 +673,13 @@ test_mem_3(
       // The following search should not make any call to
       // 'malloc()' and so should have an error code of 0
       // on every call.
-      reset(hstack);
-      err = search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, &hstack, 0, 20);
+      reset(hits);
+      err = search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, hits, 0, 20);
       g_assert_cmpint(err, == , 0);
-      g_assert_cmpint(hstack->pos, ==, 6);
+      g_assert_cmpint(hits[0]->nitems, ==, 1);
+      g_assert_cmpint(hits[1]->nitems, ==, 4);
+      g_assert_cmpint(hits[2]->nitems, ==, 1);
+      g_assert_cmpint(hits[3]->nitems, ==, 0);
    }
 
    char seq[21];
@@ -724,12 +704,12 @@ test_mem_3(
       for (int j = 0 ; j < 20 ; j++) {
          seq[j] = untranslate[(int)(5 * drand48())];
       }
-      reset(hstack);
-      search(trie, seq, 3, &hstack, 0, 20);
+      reset(hits);
+      search(trie, seq, 3, hits, 0, 20);
    }
    unredirect_sderr();
    reset_alloc();
-   free(hstack);
+   destroy_tower(hits);
    return;
 }
 
@@ -744,8 +724,8 @@ test_mem_4(
 {
    node_t *trie;
    node_t *trienode;
-   nstack_t *nstack;
-   hstack_t *hstack;
+   gstack_t *gstack;
+   gstack_t **tower;
 
    // Test constructors with a 'malloc()' failure rate of 1%.
    set_alloc_failure_rate_to(0.01);
@@ -776,27 +756,27 @@ test_mem_4(
    }
 
 
-   // Test 'new_nstack()'.
+   // Test 'new_gstack()'.
    for (int i = 0 ; i < 1000 ; i++) {
-      nstack = new_nstack();
-      if (nstack == NULL) {
+      gstack = new_gstack();
+      if (gstack == NULL) {
          g_assert_cmpint(check_trie_error_and_reset(), > , 0);
       }
       else {
-         free(nstack);
-         trie = NULL;
+         free(gstack);
+         gstack = NULL;
       }
    }
 
-   // Test 'new_hstack()'.
+   // Test 'new_tower()'.
    for (int i = 0 ; i < 1000 ; i++) {
-      hstack = new_hstack();
-      if (hstack == NULL) {
+      tower = new_tower(3);
+      if (tower == NULL) {
          g_assert_cmpint(check_trie_error_and_reset(), > , 0);
       }
       else {
-         free(hstack);
-         hstack = NULL;
+         destroy_tower(tower);
+         tower = NULL;
       }
    }
 

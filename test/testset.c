@@ -10,8 +10,7 @@
 node_t *insert (node_t *, int, unsigned char);
 void init_milestones(node_t*);
 node_t *new_trienode(char);
-void destroy_nodes_downstream_of(node_t*, void(*)(void*));
-void push(node_t*, narray_t**);
+void push(node_t*, nstack_t**);
 void pushhit(node_t*, hstack_t**, int);
 int get_maxtau(node_t*);
 int get_height(node_t*);
@@ -256,7 +255,7 @@ test_base_2
       for (int i = 0 ; i < 2*maxtau + 3 ; i++) {
          g_assert(node->cache[i] == init[i+(8-maxtau)]);
       }
-      destroy_nodes_downstream_of(node, NULL);
+      free(node);
    }
    return;
 }
@@ -301,23 +300,22 @@ void
 test_base_5
 (void)
 {
-   narray_t *narray = new_narray();
-   g_assert(narray != NULL);
-   g_assert(narray->nodes != NULL);
-   g_assert_cmpint(narray->lim, ==, STACK_INIT_SIZE);
-   g_assert_cmpint(narray->pos, ==, 0);
-   g_assert_cmpint(narray->err, ==, 0);
+   nstack_t *nstack = new_nstack();
+   g_assert(nstack != NULL);
+   g_assert(nstack->nodes != NULL);
+   g_assert_cmpint(nstack->lim, ==, STACK_INIT_SIZE);
+   g_assert_cmpint(nstack->pos, ==, 0);
+   g_assert_cmpint(nstack->err, ==, 0);
 
    node_t *node = new_trienode(3);
-   push(node, &narray);
-   g_assert(node == narray->nodes[0]);
-   g_assert_cmpint(narray->lim, ==, STACK_INIT_SIZE);
-   g_assert_cmpint(narray->pos, ==, 1);
-   g_assert_cmpint(narray->err, ==, 0);
+   push(node, &nstack);
+   g_assert(node == nstack->nodes[0]);
+   g_assert_cmpint(nstack->lim, ==, STACK_INIT_SIZE);
+   g_assert_cmpint(nstack->pos, ==, 1);
+   g_assert_cmpint(nstack->err, ==, 0);
 
    free(node);
-   free(narray->nodes);
-   free(narray);
+   free(nstack);
    return;
 }
 
@@ -326,24 +324,23 @@ void
 test_base_6
 (void)
 {
-   hstack_t *hits = new_hstack();
-   g_assert(hits != NULL);
-   g_assert(hits->nodes != NULL);
-   g_assert(hits->dist != NULL);
-   g_assert_cmpint(hits->lim, ==, STACK_INIT_SIZE);
-   g_assert_cmpint(hits->pos, ==, 0);
-   g_assert_cmpint(hits->err, ==, 0);
+   hstack_t *hstack = new_hstack();
+   g_assert(hstack != NULL);
+   g_assert(hstack->hits != NULL);
+   g_assert_cmpint(hstack->lim, ==, STACK_INIT_SIZE);
+   g_assert_cmpint(hstack->pos, ==, 0);
+   g_assert_cmpint(hstack->err, ==, 0);
 
    node_t *node = new_trienode(3);
-   pushhit(node, &hits, 3);
-   g_assert(node == hits->nodes[0]);
-   g_assert_cmpint(hits->dist[0], ==, 3);
-   g_assert_cmpint(hits->lim, ==, STACK_INIT_SIZE);
-   g_assert_cmpint(hits->pos, ==, 1);
-   g_assert_cmpint(hits->err, ==, 0);
+   pushhit(node, &hstack, 3);
+   g_assert(node == hstack->hits[0].node);
+   g_assert_cmpint(hstack->hits[0].dist, ==, 3);
+   g_assert_cmpint(hstack->lim, ==, STACK_INIT_SIZE);
+   g_assert_cmpint(hstack->pos, ==, 1);
+   g_assert_cmpint(hstack->err, ==, 0);
 
    free(node);
-   destroy_hstack(hits);
+   free(hstack);
    return;
 }
 
@@ -355,104 +352,104 @@ test_search(
 )
 {
 
-   hstack_t *hits = new_hstack();
-   g_assert(hits != NULL);
+   hstack_t *hstack = new_hstack();
+   g_assert(hstack != NULL);
 
-   search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 18);
-   g_assert_cmpint(hits->pos, ==, 6);
+   search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, &hstack, 0, 18);
+   g_assert_cmpint(hstack->pos, ==, 6);
 
-   reset(hits);
-   search(f->trie, "AAAAAAAAAAAAAAAAAATA", 3, &hits, 18, 3);
-   g_assert_cmpint(hits->pos, ==, 6);
+   reset(hstack);
+   search(f->trie, "AAAAAAAAAAAAAAAAAATA", 3, &hstack, 18, 3);
+   g_assert_cmpint(hstack->pos, ==, 6);
 
-   reset(hits);
-   search(f->trie, "AAAGAAAAAAAAAAAAAATA", 3, &hits, 3, 15);
-   g_assert_cmpint(hits->pos, ==, 5);
+   reset(hstack);
+   search(f->trie, "AAAGAAAAAAAAAAAAAATA", 3, &hstack, 3, 15);
+   g_assert_cmpint(hstack->pos, ==, 5);
 
-   reset(hits);
-   search(f->trie, "AAAGAAAAAAAAAAAGACTG", 3, &hits, 15, 15);
-   g_assert_cmpint(hits->pos, ==, 0);
+   reset(hstack);
+   search(f->trie, "AAAGAAAAAAAAAAAGACTG", 3, &hstack, 15, 15);
+   g_assert_cmpint(hstack->pos, ==, 0);
 
-   reset(hits);
-   search(f->trie, "AAAGAAAAAAAAAAAAAAAA", 3, &hits, 15, 0);
-   g_assert_cmpint(hits->pos, ==, 6);
+   reset(hstack);
+   search(f->trie, "AAAGAAAAAAAAAAAAAAAA", 3, &hstack, 15, 0);
+   g_assert_cmpint(hstack->pos, ==, 6);
 
-   reset(hits);
-   search(f->trie, "TAAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 19);
-   g_assert_cmpint(hits->pos, ==, 6);
+   reset(hstack);
+   search(f->trie, "TAAAAAAAAAAAAAAAAAAA", 3, &hstack, 0, 19);
+   g_assert_cmpint(hstack->pos, ==, 6);
 
-   reset(hits);
-   search(f->trie, "TAAAAAAAAAAAAAAAAAAG", 3, &hits, 19, 0);
-   g_assert_cmpint(hits->pos, ==, 6);
+   reset(hstack);
+   search(f->trie, "TAAAAAAAAAAAAAAAAAAG", 3, &hstack, 19, 0);
+   g_assert_cmpint(hstack->pos, ==, 6);
 
-   reset(hits);
-   search(f->trie, " AAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 19);
-   g_assert_cmpint(hits->pos, ==, 6);
+   reset(hstack);
+   search(f->trie, " AAAAAAAAAAAAAAAAAAA", 3, &hstack, 0, 19);
+   g_assert_cmpint(hstack->pos, ==, 6);
 
-   reset(hits);
-   search(f->trie, " AAAAAAAAAAAAAAAAAAT", 3, &hits, 19, 0);
-   g_assert_cmpint(hits->pos, ==, 6);
+   reset(hstack);
+   search(f->trie, " AAAAAAAAAAAAAAAAAAT", 3, &hstack, 19, 0);
+   g_assert_cmpint(hstack->pos, ==, 6);
 
-   reset(hits);
-   search(f->trie, "ATGCTAGGGTACTCGATAAC", 0, &hits, 0, 0);
-   g_assert_cmpint(hits->pos, ==, 1);
+   reset(hstack);
+   search(f->trie, "ATGCTAGGGTACTCGATAAC", 0, &hstack, 0, 0);
+   g_assert_cmpint(hstack->pos, ==, 1);
 
-   reset(hits);
-   search(f->trie, " TGCTAGGGTACTCGATAAC", 1, &hits, 0, 20);
-   g_assert_cmpint(hits->pos, ==, 1);
+   reset(hstack);
+   search(f->trie, " TGCTAGGGTACTCGATAAC", 1, &hstack, 0, 20);
+   g_assert_cmpint(hstack->pos, ==, 1);
 
-   reset(hits);
-   search(f->trie, "NAAAAAAAAAAAAAAAAAAN", 2, &hits, 0, 1);
-   g_assert_cmpint(hits->pos, ==, 5);
+   reset(hstack);
+   search(f->trie, "NAAAAAAAAAAAAAAAAAAN", 2, &hstack, 0, 1);
+   g_assert_cmpint(hstack->pos, ==, 5);
 
-   reset(hits);
-   search(f->trie, "NNAAAAAAAAAAAAAAAANN", 3, &hits, 1, 0);
-   g_assert_cmpint(hits->pos, ==, 0);
+   reset(hstack);
+   search(f->trie, "NNAAAAAAAAAAAAAAAANN", 3, &hstack, 1, 0);
+   g_assert_cmpint(hstack->pos, ==, 0);
 
-   reset(hits);
-   search(f->trie, "AAAAAAAAAANAAAAAAAAA", 0, &hits, 0, 0);
-   g_assert_cmpint(hits->pos, ==, 0);
+   reset(hstack);
+   search(f->trie, "AAAAAAAAAANAAAAAAAAA", 0, &hstack, 0, 0);
+   g_assert_cmpint(hstack->pos, ==, 0);
 
-   reset(hits);
-   search(f->trie, "NNNAGACTTTTCCAGGGTAT", 3, &hits, 0, 0);
-   g_assert_cmpint(hits->pos, ==, 1);
+   reset(hstack);
+   search(f->trie, "NNNAGACTTTTCCAGGGTAT", 3, &hstack, 0, 0);
+   g_assert_cmpint(hstack->pos, ==, 1);
 
-   reset(hits);
-   search(f->trie, "GGGAGACTTTTCCAGGGNNN", 3, &hits, 0, 17);
-   g_assert_cmpint(hits->pos, ==, 1);
+   reset(hstack);
+   search(f->trie, "GGGAGACTTTTCCAGGGNNN", 3, &hstack, 0, 17);
+   g_assert_cmpint(hstack->pos, ==, 1);
 
-   reset(hits);
-   search(f->trie, "GGGAGACTTTTCCAGGG   ", 3, &hits, 17, 0);
-   g_assert_cmpint(hits->pos, ==, 1);
+   reset(hstack);
+   search(f->trie, "GGGAGACTTTTCCAGGG   ", 3, &hstack, 17, 0);
+   g_assert_cmpint(hstack->pos, ==, 1);
 
-   reset(hits);
-   search(f->trie, "   AGACTTTTCCAGGGTAT", 3, &hits, 0, 3);
-   g_assert_cmpint(hits->pos, ==, 1);
+   reset(hstack);
+   search(f->trie, "   AGACTTTTCCAGGGTAT", 3, &hstack, 0, 3);
+   g_assert_cmpint(hstack->pos, ==, 1);
 
-   reset(hits);
-   search(f->trie, "                   N", 1, &hits, 3, 19);
-   g_assert_cmpint(hits->pos, ==, 3);
+   reset(hstack);
+   search(f->trie, "                   N", 1, &hstack, 3, 19);
+   g_assert_cmpint(hstack->pos, ==, 3);
 
-   reset(hits);
-   search(f->trie, "                    ", 1, &hits, 19, 0);
-   g_assert_cmpint(hits->pos, ==, 3);
+   reset(hstack);
+   search(f->trie, "                    ", 1, &hstack, 19, 0);
+   g_assert_cmpint(hstack->pos, ==, 3);
 
    // Caution here: the hit is present but the initial
    // search conditions are wrong.
-   reset(hits);
-   search(f->trie, "ATGCTAGGGTACTCGATAAC", 0, &hits, 20, 1);
-   g_assert_cmpint(hits->pos, ==, 0);
+   reset(hstack);
+   search(f->trie, "ATGCTAGGGTACTCGATAAC", 0, &hstack, 20, 1);
+   g_assert_cmpint(hstack->pos, ==, 0);
 
    // Repeat first test cases.
-   reset(hits);
-   search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 18);
-   g_assert_cmpint(hits->pos, ==, 6);
+   reset(hstack);
+   search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, &hstack, 0, 18);
+   g_assert_cmpint(hstack->pos, ==, 6);
 
-   reset(hits);
-   search(f->trie, "AAAAAAAAAAAAAAAAAATA", 3, &hits, 18, 18);
-   g_assert_cmpint(hits->pos, ==, 6);
+   reset(hstack);
+   search(f->trie, "AAAAAAAAAAAAAAAAAATA", 3, &hstack, 18, 18);
+   g_assert_cmpint(hstack->pos, ==, 6);
 
-   destroy_hstack(hits);
+   free(hstack);
    return;
 
 }
@@ -466,7 +463,7 @@ test_errmsg
 {
 
    char string[1024];
-   hstack_t *hits = new_hstack();
+   hstack_t *hstack = new_hstack();
    int err = 0;
 
    // Check error messages in 'new_trie()'.
@@ -492,21 +489,21 @@ test_errmsg
   
    // Check error messages in 'search()'.
    redirect_stderr_to(ERROR_BUFFER);
-   err = search(f->trie, "AAAAAAAAAAAAAAAAAAAAA", 3, &hits, 1, 0);
+   err = search(f->trie, "AAAAAAAAAAAAAAAAAAAAA", 3, &hstack, 1, 0);
    g_assert_cmpint(err, ==, 65);
    unredirect_sderr();
    g_assert_cmpstr(ERROR_BUFFER, ==,
          "error: query longer than allowed max\n");
-   g_assert_cmpint(hits->pos, ==, 0);
+   g_assert_cmpint(hstack->pos, ==, 0);
 
-   reset(hits);
+   reset(hstack);
    redirect_stderr_to(ERROR_BUFFER);
-   err = search(f->trie, " TGCTAGGGTACTCGATAAC", 4, &hits, 0, 0);
+   err = search(f->trie, " TGCTAGGGTACTCGATAAC", 4, &hstack, 0, 0);
    unredirect_sderr();
    g_assert_cmpint(err, ==, 59);
    g_assert_cmpstr(ERROR_BUFFER, ==,
          "error: requested tau greater than 'maxtau'\n");
-   g_assert_cmpint(hits->pos, ==, 0);
+   g_assert_cmpint(hstack->pos, ==, 0);
 
    // Force 'malloc()' to fail and check error messages of constructors.
    redirect_stderr_to(ERROR_BUFFER);
@@ -532,20 +529,20 @@ test_errmsg
 
    redirect_stderr_to(ERROR_BUFFER);
    set_alloc_failure_rate_to(1);
-   narray_t *narray_fail = new_narray();
+   nstack_t *nstack_fail = new_nstack();
    reset_alloc();
    unredirect_sderr();
-   g_assert(narray_fail == NULL);
+   g_assert(nstack_fail == NULL);
    g_assert_cmpint(check_trie_error_and_reset(), > , 0);
    g_assert_cmpstr(ERROR_BUFFER, ==,
       "error: could not create node array\n");
 
    redirect_stderr_to(ERROR_BUFFER);
    set_alloc_failure_rate_to(1);
-   hstack_t *hits_fail = new_hstack();
+   hstack_t *hstack_fail = new_hstack();
    reset_alloc();
    unredirect_sderr();
-   g_assert(hits_fail == NULL);
+   g_assert(hstack_fail == NULL);
    g_assert_cmpint(check_trie_error_and_reset(), > , 0);
    g_assert_cmpstr(ERROR_BUFFER, ==,
          "error: could not create hit stack\n");
@@ -562,7 +559,7 @@ test_errmsg
       "error: could not initialize trie info\n");
    destroy_trie(dummy_trie, NULL);
 
-   destroy_hstack(hits);
+   free(hstack);
    return;
 
 }
@@ -575,7 +572,7 @@ test_mem_1(
 // NOTE: It may be that the 'g_assert()' functions call 'malloc()'
 // in which case I am not sure what may sometimes happen.
 {
-   // Test hits dynamic growth. Build a trie with 1000 sequences
+   // Test hstack dynamic growth. Build a trie with 1000 sequences
    // and search with maxdist of 20 (should return all the sequences).
    char seq[9];
    seq[8] = '\0';
@@ -583,8 +580,8 @@ test_mem_1(
    node_t *trie = new_trie(8, 8);
    g_assert(trie != NULL);
 
-   hstack_t *hits = new_hstack();
-   g_assert(hits != NULL);
+   hstack_t *hstack = new_hstack();
+   g_assert(hstack != NULL);
  
    int err = 0;
 
@@ -601,22 +598,22 @@ test_mem_1(
    // Search with failure in 'malloc()'.
    set_alloc_failure_rate_to(1);
    redirect_stderr_to(ERROR_BUFFER);
-   err = search(trie, "NNNNNNNN", 8, &hits, 0, 8);
+   err = search(trie, "NNNNNNNN", 8, &hstack, 0, 8);
    unredirect_sderr();
    reset_alloc();
 
    g_assert_cmpint(err, >, 0);
-   g_assert_cmpint(hits->err, >, 0);
+   g_assert_cmpint(hstack->err, >, 0);
 
-   reset(hits);
+   reset(hstack);
 
    // Do it again without failure.
-   err = search(trie, "NNNNNNNN", 8, &hits, 0, 8);
+   err = search(trie, "NNNNNNNN", 8, &hstack, 0, 8);
    g_assert_cmpint(err, ==, 0);
-   g_assert_cmpint(hits->pos, >, 0);
+   g_assert_cmpint(hstack->pos, >, 0);
 
    destroy_trie(trie, NULL);
-   destroy_hstack(hits);
+   free(hstack);
    return;
 }
 
@@ -629,9 +626,9 @@ test_mem_2(
 // NOTE: It may be that the 'g_assert()' functions call 'malloc()'
 // in which case I am not sure what may sometimes happen.
 {
-   // The hit stack 'hits' is properly initialized.
-   hstack_t *hits = new_hstack();
-   g_assert(hits != NULL);
+   // The hit stack 'hstack' is properly initialized.
+   hstack_t *hstack = new_hstack();
+   g_assert(hstack != NULL);
 
    char seq[21];
    seq[20] = '\0';
@@ -667,7 +664,7 @@ test_mem_2(
    }
    unredirect_sderr();
    reset_alloc();
-   destroy_hstack(hits);
+   free(hstack);
    return;
 }
 
@@ -680,13 +677,13 @@ test_mem_3(
 // NOTE: It may be that the 'g_assert()' functions call 'malloc()'
 // in which case I am not sure what may sometimes happen.
 {
-   // The variable 'trie' and 'hits' are initialized
+   // The variable 'trie' and 'hstack' are initialized
    // without 'malloc()' failure.
    node_t *trie = new_trie(3, 20);
    g_assert(trie != NULL);
 
-   hstack_t *hits = new_hstack();
-   g_assert(hits != NULL);
+   hstack_t *hstack = new_hstack();
+   g_assert(hstack != NULL);
 
    int err = 0;
 
@@ -699,10 +696,10 @@ test_mem_3(
       // The following search should not make any call to
       // 'malloc()' and so should have an error code of 0
       // on every call.
-      reset(hits);
-      err = search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, &hits, 0, 20);
+      reset(hstack);
+      err = search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, &hstack, 0, 20);
       g_assert_cmpint(err, == , 0);
-      g_assert_cmpint(hits->pos, ==, 6);
+      g_assert_cmpint(hstack->pos, ==, 6);
    }
 
    char seq[21];
@@ -727,12 +724,12 @@ test_mem_3(
       for (int j = 0 ; j < 20 ; j++) {
          seq[j] = untranslate[(int)(5 * drand48())];
       }
-      reset(hits);
-      search(trie, seq, 3, &hits, 0, 20);
+      reset(hstack);
+      search(trie, seq, 3, &hstack, 0, 20);
    }
    unredirect_sderr();
    reset_alloc();
-   destroy_hstack(hits);
+   free(hstack);
    return;
 }
 
@@ -747,8 +744,8 @@ test_mem_4(
 {
    node_t *trie;
    node_t *trienode;
-   narray_t *narray;
-   hstack_t *hits;
+   nstack_t *nstack;
+   hstack_t *hstack;
 
    // Test constructors with a 'malloc()' failure rate of 1%.
    set_alloc_failure_rate_to(0.01);
@@ -773,33 +770,33 @@ test_mem_4(
          g_assert_cmpint(check_trie_error_and_reset(), > , 0);
       }
       else {
-         destroy_nodes_downstream_of(trienode, NULL);
+         free(trienode);
          trie = NULL;
       }
    }
 
 
-   // Test 'new_narray()'.
+   // Test 'new_nstack()'.
    for (int i = 0 ; i < 1000 ; i++) {
-      narray = new_narray();
-      if (narray == NULL) {
+      nstack = new_nstack();
+      if (nstack == NULL) {
          g_assert_cmpint(check_trie_error_and_reset(), > , 0);
       }
       else {
-         free(narray);
+         free(nstack);
          trie = NULL;
       }
    }
 
    // Test 'new_hstack()'.
    for (int i = 0 ; i < 1000 ; i++) {
-      hits = new_hstack();
-      if (hits == NULL) {
+      hstack = new_hstack();
+      if (hstack == NULL) {
          g_assert_cmpint(check_trie_error_and_reset(), > , 0);
       }
       else {
-         destroy_hstack(hits);
-         hits = NULL;
+         free(hstack);
+         hstack = NULL;
       }
    }
 

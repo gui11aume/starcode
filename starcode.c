@@ -462,13 +462,13 @@ tquery_thread
             continue;
          }
       } else {
-         hits->dist[0] = 0;
+         hits->hits[0].dist = 0;
       }
       
       for (int j = 0; j < hits->pos; j++) {
-         useq_t *match = (useq_t *)hits->nodes[j]->data;
+         useq_t *match = (useq_t *)hits->hits[j].node->data;
          pthread_mutex_lock(job->mutex);
-         addmatch(match, query, hits->dist[j]);
+         addmatch(match, query, hits->hits[j].dist);
          pthread_mutex_unlock(job->mutex);
       }
       
@@ -563,8 +563,8 @@ starcode_thread
       // Link matching pairs.
       for (int j = 0 ; j < hits->pos ; j++) {
          // Do not mess up with root node.
-         if (hits->nodes[j] == trie) continue;
-         useq_t *match = (useq_t *)hits->nodes[j]->data;
+         if (hits->hits[j].node == trie) continue;
+         useq_t *match = (useq_t *)hits->hits[j].node->data;
          // No relationship if counts are on the same order of magnitude.
          int mincount = min(query->count, match->count);
          int maxcount = max(query->count, match->count);
@@ -581,7 +581,7 @@ starcode_thread
             u1 = match;
          }
          pthread_mutex_lock(job->mutex);
-         addmatch(u1, u2, hits->dist[j]);
+         addmatch(u1, u2, hits->hits[j].dist);
          pthread_mutex_unlock(job->mutex);
       }
 

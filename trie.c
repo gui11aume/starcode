@@ -22,7 +22,7 @@ node_t *new_trienode(unsigned char);
 void init_milestones(node_t*);
 void destroy_nodes_downstream_of(node_t*, void(*)(void*));
 // Utility.
-void push(node_t*, narray_t**);
+void push(node_t*, nstack_t**);
 void pushhit(node_t*, hstack_t**, int);
 
 
@@ -111,7 +111,7 @@ search
    };
 
    // Run recursive search from cached nodes.
-   narray_t *milestones = info->milestones[start];
+   nstack_t *milestones = info->milestones[start];
    for (int i = 0 ; i < milestones->pos ; i++) {
       node_t *start_node = milestones->nodes[i];
       _search(start_node, start + 1, arg);
@@ -323,7 +323,7 @@ new_trie
    // Set the values of the meta information.
    info->maxtau = maxtau;
    info->height = height;
-   memset(info->milestones, 0, M * sizeof(narray_t *));
+   memset(info->milestones, 0, M * sizeof(nstack_t *));
 
    root->data = info;
    init_milestones(root);
@@ -358,20 +358,20 @@ new_trienode
 //   A pointer to trie node with no data and no children.                 
 {
    size_t cachesize = (2*maxtau + 3) * sizeof(char);
-   node_t *node = malloc(sizeof(node_t));
+   node_t *node = malloc(sizeof(node_t) + cachesize);
    if (node == NULL) {
       fprintf(stderr, "error: could not create trie node\n");
       ERROR = 364;
       return NULL;
    }
 
-   node->cache = malloc(cachesize);
-   if (node->cache == NULL) {
-      fprintf(stderr, "error: could not create trie node\n");
-      free(node);
-      ERROR = 372;
-      return NULL;
-   }
+   //node->cache = malloc(cachesize);
+   //if (node->cache == NULL) {
+   //   fprintf(stderr, "error: could not create trie node\n");
+   //   free(node);
+   //   ERROR = 372;
+   //   return NULL;
+   //}
 
    // Set all base values to 0.
    node->data = NULL;
@@ -506,7 +506,7 @@ init_milestones
 {
    info_t *info = trie->data;
    for (int i = 0 ; i < get_height(trie) + 1 ; i++) {
-      info->milestones[i] = new_narray();
+      info->milestones[i] = new_nstack();
       if (info->milestones[i] == NULL) {
          fprintf(stderr, "error: could not initialize trie info\n");
          ERROR = 512;
@@ -587,10 +587,6 @@ destroy_nodes_downstream_of
       for (int i = 0 ; i < 6 ; i++) {
          destroy_nodes_downstream_of(node->child[i], destruct);
       }
-      if (node->cache != NULL) {
-         free(node->cache);
-         node->cache = NULL;
-      }
       if (node->data != NULL && destruct != NULL) (*destruct)(node->data);
       free(node);
    }
@@ -601,8 +597,8 @@ destroy_nodes_downstream_of
 // ------  UTILITY FUNCTIONS ------ //
 
 
-narray_t *
-new_narray
+nstack_t *
+new_nstack
 (void)
 // SYNOPSIS:                                                              
 //   Creates a new node array / stack.                                    
@@ -614,18 +610,12 @@ new_narray
 //   Allocates the memory for the node array.                             
 {
    // Allocate memory for a node array, with 'STACK_INIT_SIZE' slots.
-   narray_t *new = malloc(sizeof(narray_t));
+   size_t base_size = sizeof(nstack_t);
+   size_t extra_size = STACK_INIT_SIZE * sizeof(node_t *);
+   nstack_t *new = malloc(base_size + extra_size);
    if (new == NULL) {
       fprintf(stderr, "error: could not create node array\n");
       ERROR = 620;
-      return NULL;
-   }
-   new->nodes = (node_t **) malloc(STACK_INIT_SIZE * sizeof(node_t *));
-   if (new->nodes == NULL) {
-      //fprintf(stderr,"error: new_narray malloc\n");
-      free(new);
-      fprintf(stderr, "error: could not create node array\n");
-      ERROR = 628;
       return NULL;
    }
    new->err = 0;
@@ -647,19 +637,12 @@ new_hstack
 // SIDE EFFECTS:                                                          
 //   Allocates the memory for the hit stack.                              
 {
-   hstack_t *new = malloc(sizeof(hstack_t));
+   size_t base_size = sizeof(hstack_t);
+   size_t extra_size = STACK_INIT_SIZE * sizeof(hit_t);
+   hstack_t *new = malloc(base_size + extra_size);
    if (new == NULL) {
       fprintf(stderr, "error: could not create hit stack\n");
       ERROR = 653;
-      return NULL;
-   }
-   new->nodes = malloc(STACK_INIT_SIZE * sizeof(node_t *));
-   new->dist  = malloc(STACK_INIT_SIZE * sizeof(int));
-   if (new->nodes == NULL || new->dist == NULL) {
-      //fprintf(stderr,"error: new_hstack malloc\n");
-      free(new);
-      fprintf(stderr, "error: could not create hit stack\n");
-      ERROR = 662;
       return NULL;
    }
    new->err = 0;
@@ -670,21 +653,10 @@ new_hstack
 
 
 void
-destroy_hstack
-(
-   hstack_t *hstack
-)
-{
-   free(hstack->dist);
-   free(hstack->nodes);
-   free(hstack);
-}
-
-void
 push
 (
    node_t *node,
-   narray_t **stack_addr
+   nstack_t **stack_addr
 )
 // SYNOPSIS:                                                              
 //   Push a node into a node array.                                       
@@ -700,12 +672,14 @@ push
 //   Updates the node array and can possibly resize it, which is why the  
 //   address of the pointer is passed as argument.                        
 {
-   narray_t *stack = *stack_addr;
+   nstack_t *stack = *stack_addr;
 
    // Resize if needed.
    if (stack->pos >= stack->lim) {
       int newlim = 2 * stack->lim;
-      node_t **ptr = realloc(stack->nodes, newlim * sizeof(node_t *));
+      size_t base_size = sizeof(nstack_t);
+      size_t extra_size = newlim * sizeof(node_t *);
+      nstack_t *ptr = realloc(stack, base_size + extra_size);
       if (ptr == NULL) {
          // Cannot add node to stack, increase error number.
          fprintf(stderr, "error: could not push to node array\n");
@@ -713,7 +687,7 @@ push
          stack->err++;
          return;
       }
-      stack->nodes = ptr;
+      *stack_addr = stack = ptr;
       stack->lim = newlim;
    }
 
@@ -748,22 +722,22 @@ pushhit
    // Resize if needed.
    if (stack->pos >= stack->lim) {
       int newlim = 2 * stack->lim;
-      node_t **ptr_1 = realloc(stack->nodes, newlim * sizeof(node_t *));
-      int *ptr_2 = realloc(stack->dist, newlim * sizeof(int));
-      if (ptr_1 == NULL || ptr_2 == NULL) {
-         //fprintf(stderr, "error: push realloc (%s).\n", strerror(errno));
+      size_t base_size = sizeof(hstack_t);
+      size_t extra_size = newlim * sizeof(hit_t);
+      hstack_t *ptr = realloc(stack, base_size + extra_size);
+      if (ptr == NULL) {
          // Cannot add node to stack, increase error number.
          fprintf(stderr, "error: could not push to hit stack\n");
          ERROR = 757;
          stack->err++;
          return;
       }
-      stack->nodes = ptr_1;
-      stack->dist = ptr_2;
+      stack = *stack_addr = ptr;
       stack->lim = newlim;
    }
-   stack->nodes[stack->pos] = node;
-   stack->dist[stack->pos++] = dist;
+   hit_t *hit = stack->hits + stack->pos++;
+   hit->node = node;
+   hit->dist = dist;
 }
 
 

@@ -1,22 +1,29 @@
+#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+
 import random
+import sys
 
-bases = "ACTGN"
+bases = "ACTG"
+numbrcd = 10000
 brcdlen = 20
-meantau = 3
-numbrcd = 100000
-maxmatch = 5000
-nummatch = 1000
-perror = meantau/float(brcdlen)
+tau = 3
+ncanon = 47
+nmut = 3
 
+seq = []
+for i in range(numbrcd):
+    canon = [random.choice(bases) for j in range(brcdlen)]
+    canon_seq = ''.join(canon)
+    seq.extend([canon_seq] * ncanon)
+    for j in range(nmut):
+        mut = canon
+        for k in random.sample(range(brcdlen), tau):
+            mut[k] = random.choice(bases)
+        seq.append(''.join(mut))
 
-# Generate random barcodes
-brcdlist = [(''.join([random.choice(bases) for b in range(brcdlen)])) for i in range(numbrcd)]
+random.shuffle(seq)
 
-# Introduce some matches
-for i in range(nummatch):
-    j = random.randrange(numbrcd)
-    # Mean tau is a Bernoulli distribution, where E[nerr] = brcdlen * Pr(err), hence Pr(err) = E[nerr] / brcdlen = meantau / brcdlen
-    brcdlist.extend([(''.join( [ (brcdlist[j][b],random.choice(bases))[random.random() < perror] for b in range(brcdlen) ] ) ) for match in range(random.randrange(maxmatch)) ] )
+for brcd in seq:
+    sys.stdout.write('%s\n' % brcd)
 
-for barcode in brcdlist:
-    print barcode

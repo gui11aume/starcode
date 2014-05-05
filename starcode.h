@@ -23,11 +23,8 @@
 #define TRIE_BUSY 1
 #define TRIE_DONE 2
 
-#define STRATEGY_PREFIX 0
 #define STRATEGY_EQUAL  1
-
-#define min(a,b) (b < a ? b : a)
-#define max(a,b) (a > b ? a : b)
+#define STRATEGY_PREFIX  99
 
 #if !defined( __GNUC__) || defined(__APPLE__)
    ssize_t getline(char **lineptr, size_t *n, FILE *stream);
@@ -78,7 +75,7 @@ struct sortargs_t {
 
 struct mtplan_t {
    char              threadcount;
-   int               numtries;
+   int               ntries;
    struct mttrie_t * tries;
    pthread_mutex_t * mutex;
    pthread_cond_t  * monitor;
@@ -87,7 +84,7 @@ struct mtplan_t {
 struct mttrie_t {
    char              flag;
    int               currentjob;
-   int               numjobs;
+   int               njobs;
    struct mtjob_t  * jobs;
 };
 
@@ -96,7 +93,7 @@ struct mtjob_t {
    int                end;
    int                tau;
    int                build;
-   useq_t          ** all_useq;
+   gstack_t         * useqS;
    node_t           * trie;
    pthread_mutex_t  * mutex;
    pthread_cond_t   * monitor;
@@ -108,8 +105,8 @@ int starcode(FILE*, FILE*, const int, const int, const int, const int, const int
 int tquery(FILE*, FILE*, FILE*, const int, const int, const int, const int);
 void * starcode_thread(void*);
 void * tquery_thread(void*);
-mtplan_t * starcode_mtplan(int, int, int, int, useq_t**, int);
-mtplan_t * tquery_mtplan(int, int, int, int, useq_t**, node_t**);
+//mtplan_t * tquery_mtplan(int, int, int, int, useq_t**, node_t**);
+mtplan_t * plan_mt(int, int, int, gstack_t *);
 int bisection(int,int,char*,useq_t**,int,int);
 void * _mergesort(void *);
 int mergesort(void **, int, int (*)(const void*, const void*), int);

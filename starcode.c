@@ -2,19 +2,18 @@
 #include "trie.h"
 
 #define str(a) (char *)(a)
+#define min(a,b) (((a) < (b)) ? (a) : (b))
+#define max(a,b) (((a) > (b)) ? (a) : (b))
 
 useq_t *new_useq(int, char*);
-useq_t **get_useq(char**, int, int*, int);
-char **read_file(FILE*, int*);
-node_t **read_index(FILE *,int,int,int);
+gstack_t *seq2useq(gstack_t*, int);
+gstack_t *read_file(FILE*);
 void destroy_useq (useq_t*);
 void addmatch(useq_t*, useq_t*, int, int);
 void transfer_counts(useq_t*);
-void unpad_useq (useq_t**, int);
-int pad_useq(useq_t**, int);
-int abcd(const void *a, const void *b) { return strcmp(str(a), str(b)); }
-int ucmp(const useq_t*, const useq_t*);
-int ualpha(const void*, const void*);
+void unpad_useq (gstack_t*);
+int pad_useq(gstack_t*);
+int AtoZ(const void *a, const void *b) { return strcmp(str(a), str(b)); }
 int maxtomin(const void*, const void*);
 int mintomax(const void*, const void*);
 
@@ -29,49 +28,43 @@ starcode
    const int fmt,
    const int verbose,
    const int maxthreads,
-   const int subtrie_level,
+         int ntries,
    const int mtstrategy
 )
 {
+   // XXX Scheduling is much better balanced if there are
+   // an odd number of tries. Make this clean.
+   if (ntries % 2 == 0) ntries++;
    OUTPUT = outputf;
    
-   if (verbose) fprintf(stderr, "reading input file...");
-   int total;
-   char **all_seq = read_file(inputf, &total);
-   if (verbose) fprintf(stderr, " done\n");
+   if (verbose) fprintf(stderr, "reading input files\n");
+   gstack_t *seqS = read_file(inputf);
 
-   if (verbose) fprintf(stderr, "preprocessing...");
-   int utotal;
-   useq_t **all_useq = get_useq(all_seq, total, &utotal, maxthreads);
-   free(all_seq);
+   if (verbose) fprintf(stderr, "preprocessing\n");
+   // Count unique sequences.
+   gstack_t *useqS = seq2useq(seqS, maxthreads);
+   free(seqS);
+   int height = pad_useq(useqS);
 
-   int height = pad_useq(all_useq, utotal);
-   mergesort((void **) all_useq, utotal, &ualpha, maxthreads);
-   if (verbose) fprintf(stderr, " done\n");
+   // Make multithreading plan.
+   mtplan_t *mtplan = plan_mt(tau, height, ntries, useqS);
 
-   // Compute multithreading plan
-   if (verbose) fprintf(stderr,"Computing multithreading plan...");
-   mtplan_t *mtplan = starcode_mtplan(tau, height, utotal, subtrie_level, all_useq, mtstrategy);
-   if (verbose) fprintf(stderr," done\n");
-
-   // Count total no. of jobs (verbose)
+   // Count total number of jobs.
    int njobs = 0;
-   if (verbose) {
-      for (int t = 0; t < mtplan->numtries; t++)
-         njobs +=  mtplan->tries[t].numjobs;
-   }
+   for (int t = 0; t < mtplan->ntries; t++)
+      njobs +=  mtplan->tries[t].njobs;
 
    // Thread Scheduler
    int done = 0;
-   int jobsdone = (-mtplan->numtries > -maxthreads ? -mtplan->numtries : -maxthreads);
+   int jobsdone = (-mtplan->ntries > -maxthreads ? -mtplan->ntries : -maxthreads);
    int t = 0;
    mttrie_t *mttrie;
 
 
-   while (done < mtplan->numtries) { 
+   while (done < mtplan->ntries) { 
 
       // Let's make a fair scheduler.
-      t = (t + 1) % mtplan->numtries;
+      t = (t + 1) % mtplan->ntries;
 
       mttrie = mtplan->tries + t;
 
@@ -80,7 +73,7 @@ starcode
       if (mttrie->flag == TRIE_FREE && mtplan->threadcount < maxthreads) {
 
          // When trie is done, count and flag.
-         if (mttrie->currentjob == mttrie->numjobs) {
+         if (mttrie->currentjob == mttrie->njobs) {
             mttrie->flag = TRIE_DONE;
             done++;
          }
@@ -92,8 +85,10 @@ starcode
             mtplan->threadcount++;
             pthread_t thread;
             // Start job.
-            if (pthread_create(&thread, NULL, starcode_thread, (void *) job) != 0) {
-               fprintf(stderr, "error: pthread_create (trie no. %d, job no. %d).\n",t,mttrie->currentjob);
+            if (pthread_create(&thread, NULL, starcode_thread, job) != 0) {
+               fprintf(stderr,
+                     "error: pthread_create (trie no. %d, job no. %d).\n",
+                     t, mttrie->currentjob);
                exit(EXIT_FAILURE);
             }
             // Detach thread.
@@ -101,12 +96,13 @@ starcode
 
             if (verbose) {
                jobsdone++;
-               fprintf(stderr, "Starcode progress: %.2f%% \r", 100*(float)(jobsdone)/njobs);
+               fprintf(stderr, "Starcode progress: %.2f%% \r",
+                     100*(float)(jobsdone)/njobs);
             }
          }
       }
 
-      while (mtplan->threadcount == min(maxthreads, mtplan->numtries)) {
+      while (mtplan->threadcount == min(maxthreads, mtplan->ntries)) {
          pthread_cond_wait(mtplan->monitor, mtplan->mutex);
       }
       pthread_mutex_unlock(mtplan->mutex);
@@ -117,22 +113,22 @@ starcode
       fprintf(stderr, "Starcode progress: 100.00%%\n");
    }
 
-   unpad_useq(all_useq, utotal);
+   unpad_useq(useqS);
 
    // Sort from min to max.
-   mergesort((void **)all_useq, utotal, mintomax, maxthreads);
+   mergesort(useqS->items, useqS->nitems, mintomax, maxthreads);
 
    if (fmt == 0) {
-      // Propagate uniformly.
-      for (int i = 0 ; i < utotal ; i++) {
-         useq_t *useq = all_useq[i];
-         transfer_counts(useq);
+      // Transfer counts to parents recursively.
+      for (int i = 0 ; i < useqS->nitems ; i++) {
+         useq_t *u = (useq_t *) useqS->items[i];
+         transfer_counts(u);
       }
 
       // Sort from max to min.
-      mergesort((void **)all_useq, utotal, maxtomin, maxthreads);
-      for (int i = 0 ; i < utotal ; i++) {
-         useq_t *u = all_useq[i];
+      mergesort(useqS->items, useqS->nitems, maxtomin, maxthreads);
+      for (int i = 0 ; i < useqS->nitems ; i++) {
+         useq_t *u = (useq_t *) useqS->items[i];
          // Do not show sequences with 0 count.
          if (u->count == 0) break;
          fprintf(OUTPUT, "%s\t%d\n", u->seq, u->count);
@@ -147,7 +143,7 @@ starcode
    //free(all_useq);
 
    // Destroy tries malloc'ed at context 0 (build trie) 
-   //   for (int t = 0; t < mtplan->numtries; t++)
+   //   for (int t = 0; t < mtplan->ntries; t++)
    // destroy_trie(mtplan->tries[t].jobs[0].trie, destroy_useq);
 
    OUTPUT = NULL;
@@ -164,10 +160,10 @@ starcode_thread
 )  
 {
    // Unpack arguments.
-   mtjob_t  * job      = (mtjob_t*) args;
-   useq_t  ** all_useq = job->all_useq;
-   node_t   * trie     = job->trie;
-   int        tau      = job->tau;
+   mtjob_t  * job   = (mtjob_t*) args;
+   gstack_t * useqS = job->useqS;
+   node_t   * trie  = job->trie;
+   int        tau   = job->tau;
 
    // Create local hit stack.
    gstack_t **hits = new_tower(tau+1);
@@ -180,12 +176,12 @@ starcode_thread
    int start = 0;
    for (int i = job->start ; i <= job->end ; i++) {
       char prefix[MAXBRCDLEN];
-      useq_t *query = all_useq[i];
+      useq_t *query = (useq_t *) useqS->items[i];
 
       prefix[0] = '\0';
       int trail = 0;
       if (i < job->end) {
-         useq_t *next_query = all_useq[i+1];
+         useq_t *next_query = (useq_t *) useqS->items[i+1];
          // The 'while' condition is guaranteed to be false
          // before the end of the 'char' arrays because all
          // the queries have the same length and are different.
@@ -228,7 +224,7 @@ starcode_thread
          // NB: 'node' cannot be the root of the trie because
          // the empty string is never inserted (see the warning
          // in the code of 'insert_string()'.
-         node->data = all_useq[i];
+         node->data = query;
       }
 
       for (int j = 0 ; hits[j] != TOWER_TOP ; j++) {
@@ -241,7 +237,6 @@ starcode_thread
 
       // Link matching pairs.
       for (int dist = 0 ; dist < tau+1 ; dist++) {
-         if (hits[dist]->nitems == 0) continue;
          for (int j = 0 ; j < hits[dist]->nitems ; j++) {
             node_t *match_node = (node_t *) hits[dist]->items[j];
             useq_t *match = (useq_t *) match_node->data;
@@ -283,172 +278,80 @@ starcode_thread
 
 
 mtplan_t *
-starcode_mtplan
- (
-    int      tau,
-    int      height,
-    int      utotal,
-    int      subtrie_level,
-    useq_t** useq,
-    int      strategy
- )
-    // subtrie_level: height at which the subtries start.
- {
-    // Initialize plan.
-    mtplan_t *plan = (mtplan_t*) malloc(sizeof(mtplan_t));
-    plan->threadcount = 0;
-
-    // Initialize mutex
-    pthread_mutex_t *mutex = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-    pthread_mutex_init(mutex,NULL);
-    pthread_cond_t *monitor = (pthread_cond_t *) malloc(sizeof(pthread_cond_t));
-    pthread_cond_init(monitor,NULL);
-
-    plan->mutex = mutex;
-    plan->monitor = monitor;
-
-
-    int ntries = 0;
-    mtjob_t *bjobs;
-
-    // Compute the first context (build subtries).
-    if (strategy == STRATEGY_PREFIX) {
-       int nbases = strlen(BASES);
-       int maxtries = 1;
-       for (int i = 0; i < subtrie_level; i++) maxtries *= nbases;
-       bjobs = (mtjob_t *) malloc(maxtries * sizeof(mtjob_t));
-
-       char *prefix = (char *) malloc((subtrie_level+1)*sizeof(char));
-       prefix[subtrie_level] = 0;
-
-       for (int i = 0; i < maxtries; i++) {
-          int period = 1;
-          for (int b = 0; b < subtrie_level; b++) {
-             prefix[b] = BASES[(i/period) % nbases];
-             period *= nbases;
-          }
-
-          // Find prefixes using bisection.
-          int start = bisection(0, utotal-1, prefix, useq, subtrie_level, BISECTION_START);
-          if (strncmp(prefix, useq[start]->seq, subtrie_level) != 0) continue;
-          int end = bisection(0, utotal-1, prefix, useq, subtrie_level, BISECTION_END);
-
-          // Fill mtjob.
-          bjobs[i].start       = start;
-          bjobs[i].end         = end;
-          bjobs[i].tau         = tau;
-          bjobs[i].build       = 1;
-          bjobs[i].all_useq    = useq;
-          bjobs[i].trie        = new_trie(tau,height);
-          bjobs[i].mutex       = mutex;
-          bjobs[i].monitor     = monitor;
-          bjobs[i].threadcount = &(plan->threadcount);
-
-          ntries++;
-       }
-
-    }
-    else {
-       ntries = subtrie_level;
-       bjobs = (mtjob_t *) malloc(ntries * sizeof(mtjob_t));
-       int start = 0, end, offset;
-       offset = utotal/ntries;
-       end = offset - 1;
-
-       for (int i=0; i < ntries; i++) {
-
-          if (i == ntries - 1) end = utotal - 1;
-
-          bjobs[i].start       = start;
-          bjobs[i].end         = end;
-          bjobs[i].tau         = tau;
-          bjobs[i].build       = 1;
-          bjobs[i].all_useq    = useq;
-          bjobs[i].trie        = new_trie(tau,height);
-          bjobs[i].mutex       = mutex;
-          bjobs[i].monitor     = monitor;
-          bjobs[i].threadcount = &(plan->threadcount);
-
-          start += offset;
-          end   += offset;
-       }
-    }
-
-
-    // Compute number of jobs and query contexts.
-    int totaljobs = 0;
-    for (int i = ntries; i > 0; i--) totaljobs += i;
-    int ncont = totaljobs/ntries + (totaljobs%ntries > 0);
-
-    // Initialize mttries.
-    plan->tries = (mttrie_t *) malloc(ntries * sizeof(mttrie_t));
-    plan->numtries = ntries;
-    for (int t=0; t < ntries; t++) {
-       // Initialize mttrie.
-       plan->tries[t].flag       = TRIE_FREE;
-       plan->tries[t].currentjob = 0;
-       plan->tries[t].numjobs    = 1;
-       plan->tries[t].jobs       = (mtjob_t *) malloc(ncont * sizeof(mtjob_t));
-       // Add build job to the 1st position.
-       memcpy(plan->tries[t].jobs, bjobs + t, sizeof(mtjob_t));
-       // Assign trie flag pointer
-       plan->tries[t].jobs[0].trieflag = &(plan->tries[t].flag);
-    }
-
-    // Compute query contexts.
-    int njobs = ntries;
-    for (int c = 1; c < ncont; c++) {
-       if (c == ncont - 1) {
-          // Fill the remaining query combinations.
-          njobs = totaljobs % ntries;
-          if (njobs == 0) njobs = ntries;
-       }
-       // Assign query jobs to each trie.
-       // njobs contains the number of jobs (i.e. tries that will be queried) in the current context.
-       for (int j = 0; j < njobs; j++) {
-          plan->tries[j].numjobs++;
-          mtjob_t * job = plan->tries[j].jobs + c;
-
-          // Fill mtjob.
-          job->tau         = tau;
-          job->mutex       = mutex;
-          job->monitor     = monitor;
-          job->trieflag    = &(plan->tries[j].flag);
-          job->threadcount = &(plan->threadcount);
-          // Query seq. shifted 'c' positions.
-          job->all_useq    = useq;
-          job->start       = bjobs[(j+c)%ntries].start;
-          job->end         = bjobs[(j+c)%ntries].end;
-          // Trie to query.
-          job->trie        = bjobs[j].trie;
-          // Do not build, just query.
-          job->build       = 0;
-       }
-    }
-
-    free(bjobs);
-
-    return plan;
-}
-
-int
-bisection
+plan_mt
 (
-   int       start,
-   int       end,
-   char    * query,
-   useq_t ** useq,
-   int       dist,
-   int       direction
+    int       tau,
+    int       height,
+    int       ntries,
+    gstack_t *useqS
 )
+// Jobs are either "build" or "query" type. A "query" job
+// can only be done after a "build" job has built the trie.
 {
-   int pos = (start + end)/2;
-   int grad = strncmp(query, useq[pos]->seq,dist);
-   if (end - start == 1) return (grad == 0 ? start : end);
-   if (grad == 0) grad = direction;
-   if (grad > 0) return bisection(start, pos, query, useq, dist, direction);
-   else return bisection(pos , end, query, useq, dist, direction);
+   // Initialize plan.
+   mtplan_t *mtplan = malloc(sizeof(mtplan_t));
+   if (mtplan == NULL) exit(EXIT_FAILURE);
+
+   // Initialize mutex.
+   pthread_mutex_t *mutex = malloc(sizeof(pthread_mutex_t));
+   pthread_cond_t *monitor = malloc(sizeof(pthread_cond_t));
+   if (mutex == NULL || monitor == NULL) exit(EXIT_FAILURE);
+   pthread_mutex_init(mutex,NULL);
+   pthread_cond_init(monitor,NULL);
+
+   // Initialize 'mttries'.
+   mttrie_t *mttries = malloc(ntries * sizeof(mttrie_t));
+   if (mttries == NULL) exit(EXIT_FAILURE);
+
+   // Boundaries of the query blocks.
+   int Q = useqS->nitems / ntries;
+   int R = useqS->nitems % ntries;
+   int *bounds = malloc((ntries+1) * sizeof(int));
+   for (int i = 0 ; i < ntries+1 ; i++) bounds[i] = Q*i + min(i, R);
+
+   // Create jobs for the tries.
+   for (int i = 0 ; i < ntries; i++) {
+      // Remember that 'ntries' is odd.
+      int njobs = (ntries+1)/2;
+      node_t *local_trie = new_trie(tau, height);
+      mtjob_t *jobs = malloc(njobs * sizeof(mtjob_t));
+      if (local_trie == NULL || jobs == NULL) exit(EXIT_FAILURE);
+
+      mttries[i].flag       = TRIE_FREE;
+      mttries[i].currentjob = 0;
+      mttries[i].njobs      = njobs;
+      mttries[i].jobs       = jobs;
+
+      for (int j = 0 ; j < njobs ; j++) {
+         // Shift boundaries in a way that every trie is built
+         // exactly once and that no redundant jobs are allocated.
+         int idx = (i+j) % ntries;
+         int only_if_first_job = j == 0;
+         // Specifications of j-th job of the local trie.
+         jobs[j].start       = bounds[idx];
+         jobs[j].end         = bounds[idx+1]-1;
+         jobs[j].tau         = tau;
+         jobs[j].build       = only_if_first_job;
+         jobs[j].useqS       = useqS;
+         jobs[j].trie        = local_trie;
+         jobs[j].mutex       = mutex;
+         jobs[j].monitor     = monitor;
+         jobs[j].trieflag    = &(mttries[i].flag);
+         jobs[j].threadcount = &(mtplan->threadcount);
+      }
+   }
+
+   free(bounds);
+
+   mtplan->threadcount = 0;
+   mtplan->ntries = ntries;
+   mtplan->mutex = mutex;
+   mtplan->monitor = monitor;
+   mtplan->tries = mttries;
+
+   return mtplan;
 }
+
 
 void *
 _mergesort
@@ -552,14 +455,14 @@ _mergesort
 int
 mergesort
 (
- void ** data,
+ void **data,
  int numels,
  int (*compar)(const void*, const void*),
  int maxthreads
 )
 {
    // Copy to buffer.
-   void ** buffer = (void **)malloc(numels * sizeof(void *));
+   void **buffer = malloc(numels * sizeof(void *));
    memcpy(buffer, data, numels * sizeof(void *));
 
    // Prepare args struct.
@@ -573,7 +476,7 @@ mergesort
    args.compar = compar;
    while ((maxthreads >> (args.thread + 1)) > 0) args.thread++;
 
-   _mergesort((void *) &args);
+   _mergesort(&args);
 
    free(buffer);
    
@@ -581,142 +484,68 @@ mergesort
 }
 
 
-
-char **
+gstack_t *
 read_file
 (
-   FILE *inputf,
-   int *nlines
+   FILE *inputf
 )
 {
-   size_t size = 1024;
-   char **all_seq = malloc(size * sizeof(char *));
-   if (all_seq == NULL) exit(EXIT_FAILURE);
-
-   *nlines = 0;
+   gstack_t *seqS = new_gstack();
    ssize_t nread;
    size_t nchar = MAXBRCDLEN;
    char *seq = malloc(MAXBRCDLEN * sizeof(char));
    // Read sequences from input file and store in an array. Assume
    // that it contains one sequence per line and nothing else. 
    while ((nread = getline(&seq, &nchar, inputf)) != -1) {
-      // Strip end of line character and copy.
+      // Strip end of line character.
       if (seq[nread-1] == '\n') seq[nread-1] = '\0';
-      char *new = malloc(nread);
+      // Copy and push to stack.
+      char *new = malloc(nread * sizeof(char));
       if (new == NULL) exit(EXIT_FAILURE);
       strncpy(new, seq, nread);
-      // Grow 'all_seq' if needed.
-      if (*nlines >= size) {
-         size *= 2;
-         char **ptr = realloc(all_seq, size * sizeof(char *));
-         if (ptr == NULL) exit(EXIT_FAILURE);
-         all_seq = ptr;
-      }
-      all_seq[(*nlines)++] = new;
+      push(new, &seqS);
    }
-   all_seq = realloc(all_seq, *nlines * sizeof(char *));
-
    free(seq);
-   return all_seq;
+   return seqS;
 }
 
 
 
-node_t **
-read_index
+gstack_t *
+seq2useq
 (
-   FILE *input,
-   int ntries,
-   int tau,
-   int height
-)
-{
-   node_t ** tries = (node_t **) malloc(ntries*sizeof(node_t *));
-
-   ssize_t nread;
-   size_t nchar = MAXBRCDLEN;
-   char *seq = malloc(MAXBRCDLEN * sizeof(char));
-   // First read the number of unique sequences.
-   nread = getline(&seq, &nchar, input);
-   if (seq[nread-1] == '\n') seq[nread-1] = '\0';
-
-   int nseq = atoi(seq);
-   if (nseq < 1) {
-      fprintf(stderr,"Error reading index file: bad format.\n");
-      exit(EXIT_FAILURE);
-   }
-   int period = nseq / ntries;
-
-   // Read sequences from input file and store in an array. Assume
-   // that it contains one sequence per line and nothing else. 
-   int i = 0;
-   while ((nread = getline(&seq, &nchar, input)) != -1) {
-      // Read sequence.
-      if (seq[nread-1] == '\n') seq[nread-1] = '\0';
-      char *new = malloc(nread);
-      if (new == NULL) exit(EXIT_FAILURE);
-      strncpy(new, seq, nread);
-
-      // Build new trie if necessary.
-      if (i % period == 0) tries[i/period] = new_trie(tau, height);
-
-      // Insert sequence.
-      node_t * trie = tries[i/period];
-      node_t * node = insert_string(trie, new);
-      if (node == NULL) {
-         fprintf(stderr,"Error building index trie.\n");
-         exit(EXIT_FAILURE);
-      }
-      if (node != trie) node->data = new_useq(0, new);
-      i++;
-   }
-
-   free(seq);
-   return tries;
-}
-
-
-
-
-useq_t **
-get_useq
-(
-   char ** all_seq,
-   int     total,
-   int  *  utotal,
+   gstack_t *seqS,
    int     maxthreads
 )
 {
-   // Sort sequences, count and compact them. Sorting
-   // alphabetically is important for speed.
-   *utotal = mergesort((void **)all_seq, total, abcd, maxthreads);
-   useq_t **all_useq = malloc((*utotal) * sizeof(useq_t *));
+   // Sort sequences, count and compact them.
+   mergesort(seqS->items, seqS->nitems, AtoZ, maxthreads);
+   gstack_t *useqS = new_gstack();
    
    int ucount = 0;
-   int k = 0;
-   for (int i = 0 ; i < total; i++) {
+   for (int i = 0 ; i < seqS->nitems; i++) {
       ucount++;
-      if (all_seq[i] != NULL) {
-         all_useq[k++] = new_useq(ucount, all_seq[i]);
+      // Repeats have been set to 'NULL' during sort.
+      if (seqS->items[i] != NULL) {
+         push(new_useq(ucount, (char *) seqS->items[i]), &useqS);
          ucount = 0;
       }
    }
-
-   return all_useq;
+   return useqS;
 }
 
 
 int
 pad_useq
 (
-   useq_t ** all_useq,
-   int       utotal
+   gstack_t *useqS
 )
 {
    // Compute maximum length.
    int maxlen = 0;
-   for (int i = 0 ; i < utotal ; i++) {
-      int len = strlen(all_useq[i]->seq);
+   for (int i = 0 ; i < useqS->nitems ; i++) {
+      useq_t *u = useqS->items[i];
+      int len = strlen(u->seq);
       if (len > maxlen) maxlen = len;
    }
 
@@ -725,39 +554,43 @@ pad_useq
    spaces[maxlen] = '\0';
 
    // Pad all sequences with spaces.
-   for (int i = 0 ; i < utotal ; i++) {
-      int len = strlen(all_useq[i]->seq);
+   for (int i = 0 ; i < useqS->nitems ; i++) {
+      useq_t *u = useqS->items[i];
+      int len = strlen(u->seq);
       if (len == maxlen) continue;
+      // Create a new sequence with padding characters.
       char *padded = malloc((maxlen + 1) * sizeof(char));
       memcpy(padded, spaces, maxlen + 1);
-      memcpy(padded+maxlen-len, all_useq[i]->seq, len);
-      free(all_useq[i]->seq);
-      all_useq[i]->seq = padded;
+      memcpy(padded+maxlen-len, u->seq, len);
+      free(u->seq);
+      u->seq = padded;
    }
-
    free(spaces);
-
    return maxlen;
-
 }
 
 
 void
 unpad_useq
 (
-   useq_t ** all_useq,
-   int       utotal
+   gstack_t *useqS
 )
 {
-   int len = strlen(all_useq[0]->seq);
-   for (int i = 0 ; i < utotal ; i++) {
-      int pad = 0; 
-      while (all_useq[i]->seq[pad] == ' ') pad++;
+   // Take the length of the first sequence (assume all
+   // sequences have the same length).
+   int len = strlen(((useq_t *) useqS->items[0])->seq);
+   for (int i = 0 ; i < useqS->nitems ; i++) {
+      useq_t *u = (useq_t *) useqS->items[i];
+      int pad = 0;
+      while (u->seq[pad] == ' ') pad++;
+      // Create a new sequence without paddings characters.
       char *unpadded = malloc((len - pad + 1) * sizeof(char));
-      memcpy(unpadded, all_useq[i]->seq + pad, len - pad + 1);
-      free(all_useq[i]->seq);
-      all_useq[i]->seq = unpadded;
+      if (unpadded == NULL) exit(EXIT_FAILURE);
+      memcpy(unpadded, u->seq + pad, len - pad + 1);
+      free(u->seq);
+      u->seq = unpadded;
    }
+   return;
 }
 
 
@@ -779,10 +612,16 @@ transfer_counts
    // Distribute counts evenly among parents.
    int Q = useq->count / matches->nitems;
    int R = useq->count % matches->nitems;
+   // Depending on the order in which matches were made
+   // (which is more or less random), the transferred
+   // counts can differ by 1. For this reason, the output
+   // can be slightly different for different tries numbers.
    for (int i = 0; i < matches->nitems; i++) {
       match_t *match = (match_t *) matches->items[i];
       match->useq->count += Q + (i < R);
    }
+   // Transfer done.
+   useq->count = 0;
 
    // Continue propagation.
    for (int i = 0 ; i < matches->nitems ; i++) {
@@ -804,22 +643,26 @@ addmatch
 {
    // Create stack if not done before.
    if (child->matches == NULL) child->matches = new_tower(tau+1);
-   push(new_match(parent, distance), child->matches);
-}
-
-
-match_t *
-new_match
-(
-   useq_t * parent,
-   int      distance
-)
-{
-   match_t * match = malloc(sizeof(match_t));
+   // Create match.
+   match_t *match = malloc(sizeof(match_t));
    if (match == NULL) exit(EXIT_FAILURE);
    match->dist = distance;
    match->useq  = parent;
-   return match;
+   // Push match to child stack.
+   push(match, child->matches);
+}
+
+
+int
+mintomax
+(
+   const void *a,
+   const void *b
+)
+{
+   useq_t *u1 = (useq_t *) a;
+   useq_t *u2 = (useq_t *) b;
+   return (u1->count > u2->count) ? 1 : -1;
 }
 
 
@@ -830,48 +673,9 @@ maxtomin
    const void *b
 )
 {
-   useq_t *u1 = (useq_t *)a;
-   useq_t *u2 = (useq_t *)b;
-   return ucmp(u2, u1);
-}
+   return mintomax(b, a);
+} 
 
-int
-mintomax
-(
-   const void *a,
-   const void *b
-)
-{
-   useq_t *u1 = (useq_t *)a;
-   useq_t *u2 = (useq_t *)b;
-   if (u1->count > u2->count) return 1;
-   else return -1;
-}
-
-int
-ucmp
-(
-   const useq_t *u1,
-   const useq_t *u2
-)
-{
-   if (u1->count > u2->count) return 1;
-   if (u1->count == u2->count) return strcmp(u2->seq, u1->seq);
-   return -1;
-}
-
-
-int
-ualpha
-(
-   const void *a,
-   const void *b
-) 
-{
-   useq_t *u1 = (useq_t *)a;
-   useq_t *u2 = (useq_t *)b;
-   return strcmp(u2->seq, u1->seq);
-}
 
 useq_t *
 new_useq

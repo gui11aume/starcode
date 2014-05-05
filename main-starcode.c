@@ -5,8 +5,6 @@ char *USAGE = "Usage:\n"
 "    -v --verbose: verbose\n"
 "    -d --dist: maximum Levenshtein distance (default 3)\n"
 "    -t --threads: number of concurrent threads (default 2)\n"
-"    -s --strategy: multithreading strategy [equal(def)/prefix]\n"
-"    -l --level: number of subtries / prefix length (default 2)\n"
 "    -f --format: output format (default compact)\n"
 "    -i --input: input file (default stdin)\n"
 "    -o --output: output file (default stdout)";
@@ -14,16 +12,16 @@ char *USAGE = "Usage:\n"
 void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
 
 void SIGSEGV_handler(int sig) {
-  void *array[10];
-  size_t size;
+   void *array[10];
+   size_t size;
 
-  // get void*'s for all entries on the stack
-  size = backtrace(array, 10);
+   // get void*'s for all entries on the stack
+   size = backtrace(array, 10);
 
-  // print out all the frames to stderr
-  fprintf(stderr, "Error: signal %d:\n", sig);
-  backtrace_symbols_fd(array, size, STDERR_FILENO);
-  exit(1);
+   // print out all the frames to stderr
+   fprintf(stderr, "Error: signal %d:\n", sig);
+   backtrace_symbols_fd(array, size, STDERR_FILENO);
+   exit(1);
 }
 
 int
@@ -40,10 +38,9 @@ main(
    int format_flag = -1;
    int dist_flag = -1;
    int threads_flag = -1;
-   int level_flag = -1;
-   int mtstrategy = -1;
    // Unset options (value 'UNSET').
-   char _u; char *UNSET = &_u;
+   char * const UNSET;
+//   char _u; char *UNSET = &_u;
    char *format_option = UNSET;
    char *input = UNSET;
    char *output = UNSET;
@@ -59,12 +56,10 @@ main(
          {"input",   required_argument, 0, 'i'},
          {"output",  required_argument, 0, 'o'},
          {"threads", required_argument, 0, 't'},
-         {"level",   required_argument, 0, 'l'},
-         {"strategy",required_argument, 0, 's'},
          {0, 0, 0, 0}
       };
 
-      c = getopt_long(argc, argv, "d:i:f:l:t:ho:v",
+      c = getopt_long(argc, argv, "d:i:f:t:ho:v",
             long_options, &option_index);
  
       /* Detect the end of the options. */
@@ -93,42 +88,12 @@ main(
          }
          break;            
 
-      case 'l':
-         if (level_flag < 0) {
-            level_flag = atoi(optarg);
-         }
-         else {
-            fprintf(stderr, "subtrie level option set more than once\n");
-            say_usage();
-            return 1;
-         }
-         break;            
-
       case 'i':
          if (input == UNSET) {
             input = optarg;
          }
          else {
             fprintf(stderr, "input option set more than once\n");
-            say_usage();
-            return 1;
-         }
-         break;
-
-      case 's':
-         if (mtstrategy < 0) {
-            if (strcmp(optarg,"equal") == 0)
-               mtstrategy = STRATEGY_EQUAL;
-            else if (strcmp(optarg,"prefix") == 0)
-               mtstrategy = STRATEGY_PREFIX;
-            else {
-               fprintf(stderr, "unknown mt strategy: %s\n", optarg);
-               say_usage();
-               return 1;
-            }
-         }
-         else {
-            fprintf(stderr, "MT strategy set more than once\n");
             say_usage();
             return 1;
          }
@@ -232,12 +197,7 @@ main(
    if (verbose_flag < 0) verbose_flag = 0;
    if (format_flag < 0) format_flag = 0;
    if (dist_flag < 0) dist_flag = 3;
-   if (threads_flag < 0) threads_flag = 2;
-   if (mtstrategy < 0) mtstrategy = STRATEGY_EQUAL;
-   if (level_flag < 0) {
-      if(mtstrategy == STRATEGY_EQUAL) level_flag = 3*threads_flag;
-      else level_flag = 2;
-   }
+   if (threads_flag < 0) threads_flag = 1;
 
    int exitcode = starcode(
                       inputf,
@@ -245,9 +205,7 @@ main(
                       dist_flag,
                       format_flag,
                       verbose_flag,
-                      threads_flag,
-                      level_flag,
-                      mtstrategy
+                      threads_flag
                   );
 
    if (inputf != stdin) fclose(inputf);

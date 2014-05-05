@@ -16,6 +16,10 @@ int pad_useq(gstack_t*);
 int AtoZ(const void *a, const void *b) { return strcmp(str(a), str(b)); }
 int maxtomin(const void*, const void*);
 int mintomax(const void*, const void*);
+void *do_query(void*);
+void run_plan(mtplan_t*, int, int);
+mtplan_t *plan_mt(int, int, int, gstack_t*);
+void print_counts(gstack_t*, int);
 
 FILE *OUTPUT = NULL;
 
@@ -27,15 +31,16 @@ starcode
    const int tau,
    const int fmt,
    const int verbose,
-   const int maxthreads,
-         int ntries,
-   const int mtstrategy
+   const int maxthreads
 )
 {
-   // XXX Scheduling is much better balanced if there are
-   // an odd number of tries. Make this clean.
-   if (ntries % 2 == 0) ntries++;
    OUTPUT = outputf;
+
+   // Get number of tries.
+   const int ntries = 3 * maxthreads + (maxthreads % 2 == 0);
+   // The number of tries must be odd otherwise the
+   // scheduler will make mistakes. So, just in case...
+   if (ntries % 2 == 0) abort();
    
    if (verbose) fprintf(stderr, "reading input files\n");
    gstack_t *seqS = read_file(inputf);
@@ -44,117 +49,90 @@ starcode
    // Count unique sequences.
    gstack_t *useqS = seq2useq(seqS, maxthreads);
    free(seqS);
+   // Pad sequences.
    int height = pad_useq(useqS);
-
    // Make multithreading plan.
    mtplan_t *mtplan = plan_mt(tau, height, ntries, useqS);
-
-   // Count total number of jobs.
-   int njobs = 0;
-   for (int t = 0; t < mtplan->ntries; t++)
-      njobs +=  mtplan->tries[t].njobs;
-
-   // Thread Scheduler
-   int done = 0;
-   int jobsdone = (-mtplan->ntries > -maxthreads ? -mtplan->ntries : -maxthreads);
-   int t = 0;
-   mttrie_t *mttrie;
-
-
-   while (done < mtplan->ntries) { 
-
-      // Let's make a fair scheduler.
-      t = (t + 1) % mtplan->ntries;
-
-      mttrie = mtplan->tries + t;
-
-      // Check whether the trie is free and there are available threads
-      pthread_mutex_lock(mtplan->mutex);     
-      if (mttrie->flag == TRIE_FREE && mtplan->threadcount < maxthreads) {
-
-         // When trie is done, count and flag.
-         if (mttrie->currentjob == mttrie->njobs) {
-            mttrie->flag = TRIE_DONE;
-            done++;
-         }
-
-         // If not yet done but free, assign next job.
-         else {
-            mtjob_t * job = mttrie->jobs + mttrie->currentjob++;
-            mttrie->flag = TRIE_BUSY;
-            mtplan->threadcount++;
-            pthread_t thread;
-            // Start job.
-            if (pthread_create(&thread, NULL, starcode_thread, job) != 0) {
-               fprintf(stderr,
-                     "error: pthread_create (trie no. %d, job no. %d).\n",
-                     t, mttrie->currentjob);
-               exit(EXIT_FAILURE);
-            }
-            // Detach thread.
-            pthread_detach(thread);
-
-            if (verbose) {
-               jobsdone++;
-               fprintf(stderr, "Starcode progress: %.2f%% \r",
-                     100*(float)(jobsdone)/njobs);
-            }
-         }
-      }
-
-      while (mtplan->threadcount == min(maxthreads, mtplan->ntries)) {
-         pthread_cond_wait(mtplan->monitor, mtplan->mutex);
-      }
-      pthread_mutex_unlock(mtplan->mutex);
-   }
-
-
-   if (verbose) {
-      fprintf(stderr, "Starcode progress: 100.00%%\n");
-   }
-
+   // Run the query.
+   run_plan(mtplan, verbose, maxthreads);
+   if (verbose) fprintf(stderr, "starcode progress: 100.00%%\n");
+   // Remove padding characters.
    unpad_useq(useqS);
 
-   // Sort from min to max.
-   mergesort(useqS->items, useqS->nitems, mintomax, maxthreads);
-
-   if (fmt == 0) {
-      // Transfer counts to parents recursively.
-      for (int i = 0 ; i < useqS->nitems ; i++) {
-         useq_t *u = (useq_t *) useqS->items[i];
-         transfer_counts(u);
-      }
-
-      // Sort from max to min.
-      mergesort(useqS->items, useqS->nitems, maxtomin, maxthreads);
-      for (int i = 0 ; i < useqS->nitems ; i++) {
-         useq_t *u = (useq_t *) useqS->items[i];
-         // Do not show sequences with 0 count.
-         if (u->count == 0) break;
-         fprintf(OUTPUT, "%s\t%d\n", u->seq, u->count);
-      }
+   switch (fmt) {
+      case 0 :
+         print_counts(useqS, maxthreads);
+         break;
+      default:
+         fprintf(OUTPUT, "not implemented\n");
    }
 
-   else if (fmt == 1) {
-      fprintf(OUTPUT, "not implemented\n");
-   }
-
-   // WHY free? Will be freed in a usec.
-   //free(all_useq);
-
-   // Destroy tries malloc'ed at context 0 (build trie) 
-   //   for (int t = 0; t < mtplan->ntries; t++)
-   // destroy_trie(mtplan->tries[t].jobs[0].trie, destroy_useq);
-
+   // Do not free anything.
    OUTPUT = NULL;
-
    return 0;
+}
 
+void
+run_plan
+(
+   mtplan_t *mtplan,
+   const int verbose,
+   const int maxthreads
+)
+{
+   // Count total number of jobs.
+   int njobs = mtplan->ntries * (mtplan->ntries+1) / 2;
+
+   // Thread Scheduler
+   int triedone = 0;
+   int idx = -1;
+
+   while (triedone < mtplan->ntries) { 
+      // Cycle through the tries in turn.
+      idx = (idx+1) % mtplan->ntries;
+      mttrie_t *mttrie = mtplan->tries + idx;
+
+      // Check whether trie is idle and there are available threads.
+      if (mttrie->flag == TRIE_FREE && mtplan->active < maxthreads) {
+
+         pthread_mutex_lock(mtplan->mutex);     
+
+         // No more jobs on this trie.
+         if (mttrie->currentjob == mttrie->njobs) {
+            mttrie->flag = TRIE_DONE;
+            triedone++;
+         }
+
+         // Some more jobs to do.
+         else {
+            mttrie->flag = TRIE_BUSY;
+            mtplan->active++;
+            mtjob_t *job = mttrie->jobs + mttrie->currentjob++;
+            pthread_t thread;
+            // Start job and detach thread.
+            if (pthread_create(&thread, NULL, do_query, job)) abort();
+            pthread_detach(thread);
+            if (verbose) {
+               fprintf(stderr, "starcode progress: %.2f%% \r",
+                     100*(float)(mtplan->jobsdone)/njobs);
+            }
+         }
+      }
+
+      // If max thread number is reached, wait for a thread.
+      while (mtplan->active == maxthreads) {
+         pthread_cond_wait(mtplan->monitor, mtplan->mutex);
+      }
+
+      pthread_mutex_unlock(mtplan->mutex);
+
+   }
+   return;
 }
 
 
 void *
-starcode_thread
+do_query
 (
    void * args
 )  
@@ -170,7 +148,7 @@ starcode_thread
    if (hits == NULL) {
       fprintf(stderr, "error: cannot create hit stack (%d)\n",
             check_trie_error_and_reset());
-      exit(EXIT_FAILURE);
+      abort();
    }
 
    int start = 0;
@@ -200,7 +178,7 @@ starcode_thread
          if (node == NULL) {
             fprintf(stderr, "error: cannot build trie (%d)\n",
                   check_trie_error_and_reset());
-            exit(EXIT_FAILURE);
+            abort();
          }
       }
 
@@ -209,7 +187,7 @@ starcode_thread
       int err = search(trie, query->seq, tau, hits, start, trail);
       if (err) {
          fprintf(stderr, "error: cannot complete query (%d)\n", err);
-         exit(EXIT_FAILURE);
+         abort();
       }
 
       // Insert the rest of the new sequence in the trie.
@@ -218,7 +196,7 @@ starcode_thread
          if (node == NULL) {
             fprintf(stderr, "error: cannot build trie (%d)\n",
                   check_trie_error_and_reset());
-            exit(EXIT_FAILURE);
+            abort();
          }
          // Set the 'data' pointer of the inserted tail node.
          // NB: 'node' cannot be the root of the trie because
@@ -244,18 +222,9 @@ starcode_thread
             int mincount = min(query->count, match->count);
             int maxcount = max(query->count, match->count);
             if ((maxcount < PARENT_TO_CHILD_FACTOR * mincount)) continue;
-
-            // Add match to the sequence with least count.
-            if (query->count > match->count) {
-               pthread_mutex_lock(job->mutex);
-               addmatch(query, match, dist, tau);
-               pthread_mutex_unlock(job->mutex);
-            }
-            else {
-               pthread_mutex_lock(job->mutex);
-               addmatch(match, query, dist, tau);
-               pthread_mutex_unlock(job->mutex);
-            }
+            pthread_mutex_lock(job->mutex);
+            addmatch(query, match, dist, tau);
+            pthread_mutex_unlock(job->mutex);
          }
       }
       start = trail;
@@ -263,13 +232,12 @@ starcode_thread
    
    destroy_tower(hits);
 
-   // Flag trie, update thread count.
+   // Flag trie, update thread count and signal scheduler.
    pthread_mutex_lock(job->mutex);
-   *(job->threadcount) -= 1;
+   *(job->active) -= 1;
+   *(job->jobsdone) += 1;
    *(job->trieflag) = TRIE_FREE;
    pthread_mutex_unlock(job->mutex);
-
-   // Signal scheduler
    pthread_cond_signal(job->monitor);
 
    return NULL;
@@ -290,18 +258,18 @@ plan_mt
 {
    // Initialize plan.
    mtplan_t *mtplan = malloc(sizeof(mtplan_t));
-   if (mtplan == NULL) exit(EXIT_FAILURE);
+   if (mtplan == NULL) abort();
 
    // Initialize mutex.
    pthread_mutex_t *mutex = malloc(sizeof(pthread_mutex_t));
    pthread_cond_t *monitor = malloc(sizeof(pthread_cond_t));
-   if (mutex == NULL || monitor == NULL) exit(EXIT_FAILURE);
+   if (mutex == NULL || monitor == NULL) abort();
    pthread_mutex_init(mutex,NULL);
    pthread_cond_init(monitor,NULL);
 
    // Initialize 'mttries'.
    mttrie_t *mttries = malloc(ntries * sizeof(mttrie_t));
-   if (mttries == NULL) exit(EXIT_FAILURE);
+   if (mttries == NULL) abort();
 
    // Boundaries of the query blocks.
    int Q = useqS->nitems / ntries;
@@ -315,7 +283,7 @@ plan_mt
       int njobs = (ntries+1)/2;
       node_t *local_trie = new_trie(tau, height);
       mtjob_t *jobs = malloc(njobs * sizeof(mtjob_t));
-      if (local_trie == NULL || jobs == NULL) exit(EXIT_FAILURE);
+      if (local_trie == NULL || jobs == NULL) abort();
 
       mttries[i].flag       = TRIE_FREE;
       mttries[i].currentjob = 0;
@@ -328,28 +296,57 @@ plan_mt
          int idx = (i+j) % ntries;
          int only_if_first_job = j == 0;
          // Specifications of j-th job of the local trie.
-         jobs[j].start       = bounds[idx];
-         jobs[j].end         = bounds[idx+1]-1;
-         jobs[j].tau         = tau;
-         jobs[j].build       = only_if_first_job;
-         jobs[j].useqS       = useqS;
-         jobs[j].trie        = local_trie;
-         jobs[j].mutex       = mutex;
-         jobs[j].monitor     = monitor;
-         jobs[j].trieflag    = &(mttries[i].flag);
-         jobs[j].threadcount = &(mtplan->threadcount);
+         jobs[j].start    = bounds[idx];
+         jobs[j].end      = bounds[idx+1]-1;
+         jobs[j].tau      = tau;
+         jobs[j].build    = only_if_first_job;
+         jobs[j].useqS    = useqS;
+         jobs[j].trie     = local_trie;
+         jobs[j].mutex    = mutex;
+         jobs[j].monitor  = monitor;
+         jobs[j].jobsdone = &(mtplan->jobsdone);
+         jobs[j].trieflag = &(mttries[i].flag);
+         jobs[j].active   = &(mtplan->active);
       }
    }
 
    free(bounds);
 
-   mtplan->threadcount = 0;
+   mtplan->active = 0;
    mtplan->ntries = ntries;
+   mtplan->jobsdone = 0;
    mtplan->mutex = mutex;
    mtplan->monitor = monitor;
    mtplan->tries = mttries;
 
    return mtplan;
+}
+
+void
+print_counts
+(
+   gstack_t *useqS,
+   const int maxthreads
+)
+{
+   // Sort from min to max.
+   mergesort(useqS->items, useqS->nitems, mintomax, maxthreads);
+
+   // Transfer counts to parents recursively.
+   for (int i = 0 ; i < useqS->nitems ; i++) {
+      useq_t *u = (useq_t *) useqS->items[i];
+      transfer_counts(u);
+   }
+
+   // Sort from max to min.
+   mergesort(useqS->items, useqS->nitems, maxtomin, maxthreads);
+   for (int i = 0 ; i < useqS->nitems ; i++) {
+      useq_t *u = (useq_t *) useqS->items[i];
+      // Do not show sequences with 0 count.
+      if (u->count == 0) break;
+      fprintf(OUTPUT, "%s\t%d\n", u->seq, u->count);
+   }
+   return;
 }
 
 
@@ -501,7 +498,7 @@ read_file
       if (seq[nread-1] == '\n') seq[nread-1] = '\0';
       // Copy and push to stack.
       char *new = malloc(nread * sizeof(char));
-      if (new == NULL) exit(EXIT_FAILURE);
+      if (new == NULL) abort();
       strncpy(new, seq, nread);
       push(new, &seqS);
    }
@@ -585,7 +582,7 @@ unpad_useq
       while (u->seq[pad] == ' ') pad++;
       // Create a new sequence without paddings characters.
       char *unpadded = malloc((len - pad + 1) * sizeof(char));
-      if (unpadded == NULL) exit(EXIT_FAILURE);
+      if (unpadded == NULL) abort();
       memcpy(unpadded, u->seq + pad, len - pad + 1);
       free(u->seq);
       u->seq = unpadded;
@@ -635,18 +632,21 @@ transfer_counts
 void
 addmatch
 (
-   useq_t * parent,
-   useq_t * child,
-   int      distance,
+   useq_t * u1,
+   useq_t * u2,
+   int      dist,
    int      tau
 )
 {
+   // Add match to the sequence with least count.
+   useq_t *parent = u1->count > u2->count ? u1 : u2;
+   useq_t *child = u1->count > u2->count ? u2 : u1;
    // Create stack if not done before.
    if (child->matches == NULL) child->matches = new_tower(tau+1);
    // Create match.
    match_t *match = malloc(sizeof(match_t));
-   if (match == NULL) exit(EXIT_FAILURE);
-   match->dist = distance;
+   if (match == NULL) abort();
+   match->dist = dist;
    match->useq  = parent;
    // Push match to child stack.
    push(match, child->matches);
@@ -685,7 +685,7 @@ new_useq
 )
 {
    useq_t *new = malloc(sizeof(useq_t));
-   if (new == NULL) exit(EXIT_FAILURE);
+   if (new == NULL) abort();
    new->count = count;
    new->seq = seq;
    new->matches = NULL;

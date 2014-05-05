@@ -49,15 +49,6 @@ struct useq_t {
   gstack_t ** matches;
 };
 
-/*
-struct c_t {
-          int    lim;
-          int    pos;
-          int    propidx;
-   struct m_t  * u[];
-};
-*/
-
 struct match_t {
    struct useq_t  * useq;
           int       dist;
@@ -74,8 +65,9 @@ struct sortargs_t {
 };
 
 struct mtplan_t {
-   char              threadcount;
+   char              active;
    int               ntries;
+   int		     jobsdone;
    struct mttrie_t * tries;
    pthread_mutex_t * mutex;
    pthread_cond_t  * monitor;
@@ -97,16 +89,14 @@ struct mtjob_t {
    node_t           * trie;
    pthread_mutex_t  * mutex;
    pthread_cond_t   * monitor;
+   int	    	    * jobsdone;
    char             * trieflag;
-   char             * threadcount;
+   char             * active;
 };
 
-int starcode(FILE*, FILE*, const int, const int, const int, const int, const int, const int);
+int starcode(FILE*, FILE*, const int, const int, const int, const int);
 int tquery(FILE*, FILE*, FILE*, const int, const int, const int, const int);
-void * starcode_thread(void*);
 void * tquery_thread(void*);
-//mtplan_t * tquery_mtplan(int, int, int, int, useq_t**, node_t**);
-mtplan_t * plan_mt(int, int, int, gstack_t *);
 int bisection(int,int,char*,useq_t**,int,int);
 void * _mergesort(void *);
 int mergesort(void **, int, int (*)(const void*, const void*), int);

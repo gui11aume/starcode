@@ -3,7 +3,6 @@
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #define max(a,b) (((a) > (b)) ? (a) : (b))
 
-
 // Globals.
 int ERROR = 0;
 
@@ -163,7 +162,6 @@ _search
 //   array 'arg.hits' where hits are pushed.                              
 {
 
-   // Point to the middle of parent cache, ie the angle of the L.
    // This makes it easier to distinguish the part that goes upward,
    // with positive index and requiring the path, from the part that
    // goes horizontally, with negative index and requiring previous
@@ -177,16 +175,24 @@ _search
    unsigned char shift;
 
    // Part of the cache that is shared between all the children.
-   char common[9] = {0,1,2,3,4,5,6,7,8};
+   char common[8] = {1,2,3,4,5,6,7,8};
 
    // The branch of the L that is identical among all children
    // is computed separately. It will be copied later.
    uint32_t path = node->path;
-   for (int a = maxa ; a > 0 ; a--) {
-      // Upper arm of the L (need the path).
-      mmatch = pcache[a] + ((path >> 4*(a-1) & 15) != arg.query[depth]);
-      shift = min(pcache[a-1], common[a+1]) + 1;
-      common[a] = min(mmatch, shift);
+   // Upper arm of the L (need the path).
+   if (maxa > 0) {
+      // Special initialization for first character. If the previous
+      // character was a PAD, there is no cost to start the alignment.
+      mmatch = (arg.query[depth-1] == PAD ? 0 : pcache[maxa]) +
+                  ((path >> 4*(maxa-1) & 15) != arg.query[depth]);
+      shift = min(pcache[maxa-1], common[maxa]) + 1;
+      common[maxa-1] = min(mmatch, shift);
+      for (int a = maxa-1 ; a > 0 ; a--) {
+         mmatch = pcache[a] + ((path >> 4*(a-1) & 15) != arg.query[depth]);
+         shift = min(pcache[a-1], common[a]) + 1;
+         common[a-1] = min(mmatch, shift);
+      }
    }
 
    node_t *child;
@@ -196,13 +202,20 @@ _search
 
       // Same remark as for parent cache.
       char *ccache = child->cache + arg.maxtau + 1;
-      memcpy(ccache, common, arg.maxtau * sizeof(char));
+      memcpy(ccache+1, common, arg.maxtau * sizeof(char));
 
-      for (int a = maxa ; a > 0 ; a--) {
-         // Horizontal arm of the L (need previous characters).
-         mmatch = pcache[-a] + (i != arg.query[depth-a]);
-         shift = min(pcache[1-a], ccache[-a-1]) + 1;
-         ccache[-a] = min(mmatch, shift);
+      // Horizontal arm of the L (need previous characters).
+      if (maxa > 0) {
+         // See comment above for initialization.
+         mmatch = ((path & 15) == PAD ? 0 : pcache[-maxa]) +
+                     (i != arg.query[depth-maxa]);
+         shift = min(pcache[1-maxa], ccache[-maxa-1]) + 1;
+         ccache[-maxa] = min(mmatch, shift);
+         for (int a = maxa-1 ; a > 0 ; a--) {
+            mmatch = pcache[-a] + (i != arg.query[depth-a]);
+            shift = min(pcache[1-a], ccache[-a-1]) + 1;
+            ccache[-a] = min(mmatch, shift);
+         }
       }
       // Center cell (need both arms to be computed).
       mmatch = pcache[0] + (i != arg.query[depth]);
@@ -221,10 +234,19 @@ _search
          continue;
       }
 
-      // Use 'dash()' if no more mismatches allowed.
-      if ((ccache[0] == arg.tau) && (depth > arg.trail)) {
-         dash(child, arg.query+depth+1, arg);
-         continue;
+      if (depth > arg.trail) {
+         // Use 'dash()' if no more mismatches allowed.
+         int can_dash = 1;
+         for (int a = -maxa ; a < maxa+1 ; a++) {
+            if (ccache[a] < arg.tau) {
+               can_dash = 0;
+               break;
+            }
+         }
+         if (can_dash) {
+            dash(child, arg.query+depth+1, arg);
+            continue;
+         }
       }
 
       _search(child, depth+1, arg);
@@ -295,7 +317,7 @@ new_trie
 
    if (maxtau > 8) {
       fprintf(stderr, "error: 'maxtau' cannot be greater than 8\n");
-      ERROR = 300;
+      ERROR = 320;
       // DETAIL:                                                         
       // There is an absolute limit at 'tau' = 8 because the struct      
       // member 'path' is encoded as a 32 bit 'int', ie an 8 x 4-bit     
@@ -306,14 +328,14 @@ new_trie
    node_t *root = new_trienode(maxtau);
    if (root == NULL) {
       fprintf(stderr, "error: could not create trie\n");
-      ERROR = 311;
+      ERROR = 331;
       return NULL;
    }
 
    info_t *info = malloc(sizeof(info_t));
    if (info == NULL) {
       fprintf(stderr, "error: could not create trie\n");
-      ERROR = 318;
+      ERROR = 338;
       free(root);
       return NULL;
    }
@@ -321,15 +343,13 @@ new_trie
    // Set the values of the meta information.
    info->maxtau = maxtau;
    info->height = height;
-//   memset(info->milestones, 0, M * sizeof(gstack_t *));
 
    root->data = info;
    info->milestones = new_tower(M);
-//   init_milestones(root);
 
    if (info->milestones == NULL) {
       fprintf(stderr, "error: could not create trie\n");
-      ERROR = 333;
+      ERROR = 352;
       free(info);
       free(root);
       return NULL;
@@ -361,17 +381,9 @@ new_trienode
    node_t *node = malloc(sizeof(node_t) + cachesize);
    if (node == NULL) {
       fprintf(stderr, "error: could not create trie node\n");
-      ERROR = 364;
+      ERROR = 384;
       return NULL;
    }
-
-   //node->cache = malloc(cachesize);
-   //if (node->cache == NULL) {
-   //   fprintf(stderr, "error: could not create trie node\n");
-   //   free(node);
-   //   ERROR = 372;
-   //   return NULL;
-   //}
 
    // Set all base values to 0.
    node->data = NULL;
@@ -409,7 +421,7 @@ insert_string
    if (nchar > MAXBRCDLEN) {
       fprintf(stderr, "error: cannot insert string longer than %d\n",
             MAXBRCDLEN);
-      ERROR = 412;
+      ERROR = 424;
       return NULL;
    }
    
@@ -431,7 +443,7 @@ insert_string
    for (i++ ; i < nchar ; i++) {
       if (node == NULL) {
          fprintf(stderr, "error: could not insert string\n");
-         ERROR = 434;
+         ERROR = 446;
          return NULL;
       }
       int c = translate[(int) string[i]];
@@ -472,7 +484,7 @@ insert
    node_t *child = new_trienode(maxtau);
    if (child == NULL) {
       fprintf(stderr, "error: could not insert node\n");
-      ERROR = 475;
+      ERROR = 487;
       return NULL;
    }
    // Update child path and parent pointer.
@@ -509,7 +521,7 @@ init_milestones
       info->milestones[i] = new_gstack();
       if (info->milestones[i] == NULL) {
          fprintf(stderr, "error: could not initialize trie info\n");
-         ERROR = 512;
+         ERROR = 524;
          while (--i >= 0) {
             free(info->milestones[i]);
             info->milestones[i] = NULL;
@@ -607,7 +619,7 @@ new_gstack
    gstack_t *new = malloc(base_size + extra_size);
    if (new == NULL) {
       fprintf(stderr, "error: could not create gstack\n");
-      ERROR = 638;
+      ERROR = 622;
       return NULL;
    }
    new->nitems = 0;
@@ -624,13 +636,13 @@ new_tower
    gstack_t **new = malloc((height+1) * sizeof(gstack_t *));
    if (new == NULL) {
       fprintf(stderr, "error: could not create tower\n");
-      ERROR = 630;
+      ERROR = 639;
       return NULL;
    }
    for (int i = 0 ; i < height ; i++) {
       new[i] = new_gstack();
       if (new[i] == NULL) {
-         ERROR = 655;
+         ERROR = 645;
          fprintf(stderr, "error: could not initialize tower\n");
          while (--i >= 0) {
             free(new[i]);
@@ -682,7 +694,7 @@ push
          // 'nitems' beyond 'nslots' to lock the stack.
          fprintf(stderr, "error: could not push to gstack\n");
          stack->nitems++;
-         ERROR = 746;
+         ERROR = 697;
          return;
       }
       *stack_addr = stack = ptr;

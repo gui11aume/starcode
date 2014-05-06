@@ -19,6 +19,7 @@ typedef struct info_t info_t;
 typedef struct node_t node_t;
 
 // Global constants.
+#define PAD 5		   // Position of padding nodes.
 #define EOS -1             // End Of String, for 'dash()'.
 #define MAXBRCDLEN 127     // Maximum barcode length.
 #define M 128              // MAXBRCDLEN + 1, for short.
@@ -41,7 +42,7 @@ void 	    push(void*, gstack_t**);
 // Translation tables between letters and numbers.
 static const char untranslate[7] = "NACGT N";
 static const int translate[256] = {
-   [' '] = 5, // The padding child is in position 5.
+   [' '] = PAD, // The padding child is in position 5.
    ['a'] = 1, ['c'] = 2, ['g'] = 3, ['t'] = 4,
    ['A'] = 1, ['C'] = 2, ['G'] = 3, ['T'] = 4,
 };
@@ -50,7 +51,7 @@ static const int translate[256] = {
 // sequences translated from the table above.
 static const int altranslate[256] = {
    [0 ... 255] = 6,
-   [' '] = 5, // The padding child is in position 5.
+   [' '] = PAD, // The padding child is in position 5.
    ['a'] = 1, ['c'] = 2, ['g'] = 3, ['t'] = 4,
    ['A'] = 1, ['C'] = 2, ['G'] = 3, ['T'] = 4,
 };

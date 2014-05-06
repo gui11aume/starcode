@@ -333,111 +333,178 @@ test_search(
    gconstpointer ignore
 )
 {
-//   hstack_t *hstack = new_hstack();
-//   g_assert(hstack != NULL);
    gstack_t **hits = new_tower(4);
 
    search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, hits, 0, 18);
-//   g_assert_cmpint(hstack->pos, ==, 6);
    g_assert_cmpint(hits[0]->nitems, ==, 1);
    g_assert_cmpint(hits[1]->nitems, ==, 4);
    g_assert_cmpint(hits[2]->nitems, ==, 1);
    g_assert_cmpint(hits[3]->nitems, ==, 0);
 
    reset(hits);
-   /*
-   search(f->trie, "AAAAAAAAAAAAAAAAAATA", 3, &hstack, 18, 3);
-   g_assert_cmpint(hstack->pos, ==, 6);
+   search(f->trie, "AAAAAAAAAAAAAAAAAATA", 3, hits, 18, 3);
+   g_assert_cmpint(hits[0]->nitems, ==, 0);
+   g_assert_cmpint(hits[1]->nitems, ==, 2);
+   g_assert_cmpint(hits[2]->nitems, ==, 3);
+   g_assert_cmpint(hits[3]->nitems, ==, 1);
 
-   reset(hstack);
-   search(f->trie, "AAAGAAAAAAAAAAAAAATA", 3, &hstack, 3, 15);
-   g_assert_cmpint(hstack->pos, ==, 5);
+   reset(hits);
+   search(f->trie, "AAAGAAAAAAAAAAAAAATA", 3, hits, 3, 15);
+   g_assert_cmpint(hits[0]->nitems, ==, 0);
+   g_assert_cmpint(hits[1]->nitems, ==, 0);
+   g_assert_cmpint(hits[2]->nitems, ==, 2);
+   g_assert_cmpint(hits[3]->nitems, ==, 3);
 
-   reset(hstack);
-   search(f->trie, "AAAGAAAAAAAAAAAGACTG", 3, &hstack, 15, 15);
-   g_assert_cmpint(hstack->pos, ==, 0);
+   reset(hits);
+   search(f->trie, "AAAGAAAAAAAAAAAGACTG", 3, hits, 15, 15);
+   g_assert_cmpint(hits[0]->nitems, ==, 0);
+   g_assert_cmpint(hits[1]->nitems, ==, 0);
+   g_assert_cmpint(hits[2]->nitems, ==, 0);
+   g_assert_cmpint(hits[3]->nitems, ==, 0);
 
-   reset(hstack);
-   search(f->trie, "AAAGAAAAAAAAAAAAAAAA", 3, &hstack, 15, 0);
-   g_assert_cmpint(hstack->pos, ==, 6);
+   reset(hits);
+   search(f->trie, "AAAGAAAAAAAAAAAAAAAA", 3, hits, 15, 0);
+   g_assert_cmpint(hits[0]->nitems, ==, 0);
+   g_assert_cmpint(hits[1]->nitems, ==, 2);
+   g_assert_cmpint(hits[2]->nitems, ==, 3);
+   g_assert_cmpint(hits[3]->nitems, ==, 1);
 
-   reset(hstack);
-   search(f->trie, "TAAAAAAAAAAAAAAAAAAA", 3, &hstack, 0, 19);
-   g_assert_cmpint(hstack->pos, ==, 6);
+   reset(hits);
+   search(f->trie, "TAAAAAAAAAAAAAAAAAAA", 3, hits, 0, 19);
+   g_assert_cmpint(hits[0]->nitems, ==, 1);
+   g_assert_cmpint(hits[1]->nitems, ==, 2);
+   g_assert_cmpint(hits[2]->nitems, ==, 3);
+   g_assert_cmpint(hits[3]->nitems, ==, 0);
 
-   reset(hstack);
-   search(f->trie, "TAAAAAAAAAAAAAAAAAAG", 3, &hstack, 19, 0);
-   g_assert_cmpint(hstack->pos, ==, 6);
+   reset(hits);
+   search(f->trie, "TAAAAAAAAAAAAAAAAAAG", 3, hits, 19, 0);
+   g_assert_cmpint(hits[0]->nitems, ==, 0);
+   g_assert_cmpint(hits[1]->nitems, ==, 1);
+   g_assert_cmpint(hits[2]->nitems, ==, 4);
+   g_assert_cmpint(hits[3]->nitems, ==, 1);
 
-   reset(hstack);
-   search(f->trie, " AAAAAAAAAAAAAAAAAAA", 3, &hstack, 0, 19);
-   g_assert_cmpint(hstack->pos, ==, 6);
+   reset(hits);
+   search(f->trie, " AAAAAAAAAAAAAAAAAAA", 3, hits, 0, 1);
+   g_assert_cmpint(hits[0]->nitems, ==, 1);
+   g_assert_cmpint(hits[1]->nitems, ==, 4);
+   g_assert_cmpint(hits[2]->nitems, ==, 1);
+   g_assert_cmpint(hits[3]->nitems, ==, 0);
 
-   reset(hstack);
-   search(f->trie, " AAAAAAAAAAAAAAAAAAT", 3, &hstack, 19, 0);
-   g_assert_cmpint(hstack->pos, ==, 6);
+   reset(hits);
+   search(f->trie, "   ATGCTAGGGTACTCGAT", 3, hits, 0, 1);
+   g_assert_cmpint(hits[0]->nitems, ==, 0);
+   g_assert_cmpint(hits[1]->nitems, ==, 0);
+   g_assert_cmpint(hits[2]->nitems, ==, 0);
+   g_assert_cmpint(hits[3]->nitems, ==, 1);
 
-   reset(hstack);
-   search(f->trie, "ATGCTAGGGTACTCGATAAC", 0, &hstack, 0, 0);
-   g_assert_cmpint(hstack->pos, ==, 1);
+   reset(hits);
+   search(f->trie, " AAAAAAAAAAAAAAAAAAT", 3, hits, 1, 0);
+   g_assert_cmpint(hits[0]->nitems, ==, 0);
+   g_assert_cmpint(hits[1]->nitems, ==, 2);
+   g_assert_cmpint(hits[2]->nitems, ==, 4);
+   g_assert_cmpint(hits[3]->nitems, ==, 0);
 
-   reset(hstack);
-   search(f->trie, " TGCTAGGGTACTCGATAAC", 1, &hstack, 0, 20);
-   g_assert_cmpint(hstack->pos, ==, 1);
+   reset(hits);
+   search(f->trie, "ATGCTAGGGTACTCGATAAC", 0, hits, 0, 0);
+   g_assert_cmpint(hits[0]->nitems, ==, 1);
+   g_assert_cmpint(hits[1]->nitems, ==, 0);
+   g_assert_cmpint(hits[2]->nitems, ==, 0);
+   g_assert_cmpint(hits[3]->nitems, ==, 0);
 
-   reset(hstack);
-   search(f->trie, "NAAAAAAAAAAAAAAAAAAN", 2, &hstack, 0, 1);
-   g_assert_cmpint(hstack->pos, ==, 5);
+   reset(hits);
+   search(f->trie, " TGCTAGGGTACTCGATAAC", 1, hits, 0, 0);
+   g_assert_cmpint(hits[0]->nitems, ==, 0);
+   g_assert_cmpint(hits[1]->nitems, ==, 1);
+   g_assert_cmpint(hits[2]->nitems, ==, 0);
+   g_assert_cmpint(hits[3]->nitems, ==, 0);
 
-   reset(hstack);
-   search(f->trie, "NNAAAAAAAAAAAAAAAANN", 3, &hstack, 1, 0);
-   g_assert_cmpint(hstack->pos, ==, 0);
+   reset(hits);
+   search(f->trie, "NAAAAAAAAAAAAAAAAAAN", 2, hits, 0, 1);
+   g_assert_cmpint(hits[0]->nitems, ==, 0);
+   g_assert_cmpint(hits[1]->nitems, ==, 0);
+   g_assert_cmpint(hits[2]->nitems, ==, 5);
+   g_assert_cmpint(hits[3]->nitems, ==, 0);
 
-   reset(hstack);
-   search(f->trie, "AAAAAAAAAANAAAAAAAAA", 0, &hstack, 0, 0);
-   g_assert_cmpint(hstack->pos, ==, 0);
+   reset(hits);
+   search(f->trie, "NNAAAAAAAAAAAAAAAANN", 3, hits, 1, 0);
+   g_assert_cmpint(hits[0]->nitems, ==, 0);
+   g_assert_cmpint(hits[1]->nitems, ==, 0);
+   g_assert_cmpint(hits[2]->nitems, ==, 0);
+   g_assert_cmpint(hits[3]->nitems, ==, 0);
 
-   reset(hstack);
-   search(f->trie, "NNNAGACTTTTCCAGGGTAT", 3, &hstack, 0, 0);
-   g_assert_cmpint(hstack->pos, ==, 1);
+   reset(hits);
+   search(f->trie, "AAAAAAAAAANAAAAAAAAA", 0, hits, 0, 0);
+   g_assert_cmpint(hits[0]->nitems, ==, 0);
+   g_assert_cmpint(hits[1]->nitems, ==, 0);
+   g_assert_cmpint(hits[2]->nitems, ==, 0);
+   g_assert_cmpint(hits[3]->nitems, ==, 0);
 
-   reset(hstack);
-   search(f->trie, "GGGAGACTTTTCCAGGGNNN", 3, &hstack, 0, 17);
-   g_assert_cmpint(hstack->pos, ==, 1);
+   reset(hits);
+   search(f->trie, "NNNAGACTTTTCCAGGGTAT", 3, hits, 0, 0);
+   g_assert_cmpint(hits[0]->nitems, ==, 0);
+   g_assert_cmpint(hits[1]->nitems, ==, 0);
+   g_assert_cmpint(hits[2]->nitems, ==, 0);
+   g_assert_cmpint(hits[3]->nitems, ==, 1);
 
-   reset(hstack);
-   search(f->trie, "GGGAGACTTTTCCAGGG   ", 3, &hstack, 17, 0);
-   g_assert_cmpint(hstack->pos, ==, 1);
+   reset(hits);
+   search(f->trie, "GGGAGACTTTTCCAGGGNNN", 3, hits, 0, 0);
+   g_assert_cmpint(hits[0]->nitems, ==, 0);
+   g_assert_cmpint(hits[1]->nitems, ==, 0);
+   g_assert_cmpint(hits[2]->nitems, ==, 0);
+   g_assert_cmpint(hits[3]->nitems, ==, 1);
 
-   reset(hstack);
-   search(f->trie, "   AGACTTTTCCAGGGTAT", 3, &hstack, 0, 3);
-   g_assert_cmpint(hstack->pos, ==, 1);
+   reset(hits);
+   search(f->trie, "   GGGAGACTTTTCCAGGG", 3, hits, 0, 3);
+   g_assert_cmpint(hits[0]->nitems, ==, 0);
+   g_assert_cmpint(hits[1]->nitems, ==, 0);
+   g_assert_cmpint(hits[2]->nitems, ==, 0);
+   g_assert_cmpint(hits[3]->nitems, ==, 1);
 
-   reset(hstack);
-   search(f->trie, "                   N", 1, &hstack, 3, 19);
-   g_assert_cmpint(hstack->pos, ==, 3);
+   reset(hits);
+   search(f->trie, "   AGACTTTTCCAGGGTAT", 3, hits, 3, 3);
+   g_assert_cmpint(hits[0]->nitems, ==, 0);
+   g_assert_cmpint(hits[1]->nitems, ==, 0);
+   g_assert_cmpint(hits[2]->nitems, ==, 0);
+   g_assert_cmpint(hits[3]->nitems, ==, 1);
 
-   reset(hstack);
-   search(f->trie, "                    ", 1, &hstack, 19, 0);
-   g_assert_cmpint(hstack->pos, ==, 3);
+   reset(hits);
+   search(f->trie, "                   N", 1, hits, 3, 19);
+   g_assert_cmpint(hits[0]->nitems, ==, 0);
+   g_assert_cmpint(hits[1]->nitems, ==, 3);
+   g_assert_cmpint(hits[2]->nitems, ==, 0);
+   g_assert_cmpint(hits[3]->nitems, ==, 0);
+
+   reset(hits);
+   search(f->trie, "                    ", 1, hits, 19, 0);
+   g_assert_cmpint(hits[0]->nitems, ==, 1);
+   g_assert_cmpint(hits[1]->nitems, ==, 2);
+   g_assert_cmpint(hits[2]->nitems, ==, 0);
+   g_assert_cmpint(hits[3]->nitems, ==, 0);
 
    // Caution here: the hit is present but the initial
    // search conditions are wrong.
-   reset(hstack);
-   search(f->trie, "ATGCTAGGGTACTCGATAAC", 0, &hstack, 20, 1);
-   g_assert_cmpint(hstack->pos, ==, 0);
+   reset(hits);
+   search(f->trie, "ATGCTAGGGTACTCGATAAC", 0, hits, 20, 1);
+   g_assert_cmpint(hits[0]->nitems, ==, 0);
+   g_assert_cmpint(hits[1]->nitems, ==, 0);
+   g_assert_cmpint(hits[2]->nitems, ==, 0);
+   g_assert_cmpint(hits[3]->nitems, ==, 0);
 
    // Repeat first test cases.
-   reset(hstack);
-   search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, &hstack, 0, 18);
-   g_assert_cmpint(hstack->pos, ==, 6);
+   reset(hits);
+   search(f->trie, "AAAAAAAAAAAAAAAAAAAA", 3, hits, 0, 18);
+   g_assert_cmpint(hits[0]->nitems, ==, 1);
+   g_assert_cmpint(hits[1]->nitems, ==, 4);
+   g_assert_cmpint(hits[2]->nitems, ==, 1);
+   g_assert_cmpint(hits[3]->nitems, ==, 0);
 
-   reset(hstack);
-   search(f->trie, "AAAAAAAAAAAAAAAAAATA", 3, &hstack, 18, 18);
-   g_assert_cmpint(hstack->pos, ==, 6);
-   */
+   reset(hits);
+   search(f->trie, "AAAAAAAAAAAAAAAAAATA", 3, hits, 18, 18);
+   g_assert_cmpint(hits[0]->nitems, ==, 0);
+   g_assert_cmpint(hits[1]->nitems, ==, 2);
+   g_assert_cmpint(hits[2]->nitems, ==, 3);
+   g_assert_cmpint(hits[3]->nitems, ==, 1);
 
-//   free(hstack);
    destroy_tower(hits);
    return;
 

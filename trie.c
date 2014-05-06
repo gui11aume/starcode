@@ -18,7 +18,6 @@ void dash(node_t*, const int*, struct arg_t);
 // Trie creation and destruction.
 node_t *insert(node_t*, int, unsigned char);
 node_t *new_trienode(unsigned char);
-//void init_milestones(node_t*);
 void destroy_nodes_downstream_of(node_t*, void(*)(void*));
 
 
@@ -494,44 +493,6 @@ insert
 
    return child;
 
-}
-
-
-void
-init_milestones
-(
-   node_t *trie
-)
-// SYNOPSIS:                                                              
-//   Allocate memory for milestones (which is recycled when the trie is   
-//   destroyed.)                                                          
-//                                                                        
-// PARAMETERS:                                                            
-//   trie: the trie milestones are associated to                          
-//                                                                        
-// RETURN:                                                                
-//   'void'.                                                              
-//                                                                        
-// SIDE EFFECTS:                                                          
-//   Modifies the 'data' struct member of the trie and allocates memory   
-//   accordingly.                                                         
-{
-   info_t *info = trie->data;
-   for (int i = 0 ; i < get_height(trie) + 1 ; i++) {
-      info->milestones[i] = new_gstack();
-      if (info->milestones[i] == NULL) {
-         fprintf(stderr, "error: could not initialize trie info\n");
-         ERROR = 524;
-         while (--i >= 0) {
-            free(info->milestones[i]);
-            info->milestones[i] = NULL;
-         }
-         return;
-      }
-   }
-   // Push the root into the 0-depth cache.
-   // It will be the only node ever in there.
-   push(trie, info->milestones);
 }
 
 

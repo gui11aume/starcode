@@ -8,7 +8,7 @@
 useq_t *new_useq(int, char*);
 gstack_t *seq2useq(gstack_t*, int);
 gstack_t *read_file(FILE*);
-void destroy_useq (useq_t*);
+void destroy_useq(useq_t*);
 void addmatch(useq_t*, useq_t*, int, int);
 void transfer_counts(useq_t*);
 void unpad_useq (gstack_t*);
@@ -38,8 +38,8 @@ starcode
 
    // Get number of tries.
    const int ntries = 3 * maxthreads + (maxthreads % 2 == 0);
-   // The number of tries must be odd otherwise the
-   // scheduler will make mistakes. So, just in case...
+   // XXX The number of tries must be odd otherwise the
+   // XXX scheduler will make mistakes. So, just in case...
    if (ntries % 2 == 0) abort();
    
    if (verbose) fprintf(stderr, "reading input files\n");
@@ -48,6 +48,7 @@ starcode
    if (verbose) fprintf(stderr, "preprocessing\n");
    // Count unique sequences.
    gstack_t *useqS = seq2useq(seqS, maxthreads);
+   for (int i = 0 ; i < seqS->nitems ; i++) free(seqS->items[i]);
    free(seqS);
    // Pad sequences.
    int height = pad_useq(useqS);
@@ -638,6 +639,7 @@ addmatch
    int      tau
 )
 {
+   if (dist > tau) abort();
    // Add match to the sequence with least count.
    useq_t *parent = u1->count > u2->count ? u1 : u2;
    useq_t *child = u1->count > u2->count ? u2 : u1;
@@ -649,7 +651,7 @@ addmatch
    match->dist = dist;
    match->useq  = parent;
    // Push match to child stack.
-   push(match, child->matches);
+   push(match, child->matches + dist);
 }
 
 
@@ -686,8 +688,9 @@ new_useq
 {
    useq_t *new = malloc(sizeof(useq_t));
    if (new == NULL) abort();
+   new->seq = malloc((strlen(seq)+1) * sizeof(char));
+   strcpy(new->seq, seq);
    new->count = count;
-   new->seq = seq;
    new->matches = NULL;
    return new;
 }

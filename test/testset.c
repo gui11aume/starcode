@@ -12,6 +12,10 @@ void init_milestones(node_t*);
 node_t *new_trienode(char);
 int get_maxtau(node_t*);
 int get_height(node_t*);
+// -- DECLARATION OF PRIVATE FUNCTIONS FROM starcode.c -- //
+useq_t *new_useq(int, char *);
+void destroy_useq(useq_t*);
+void addmatch(useq_t*, useq_t*, int, int);
 
 
 typedef struct {
@@ -855,6 +859,37 @@ test_mem_4(
 
 
 void
+test_starcode_1
+(void)
+{
+   useq_t *case_1 = new_useq(1, "some sequence");
+   g_assert(case_1 != NULL);
+   g_assert_cmpint(case_1->count, ==, 1);
+   g_assert_cmpstr(case_1->seq, ==, "some sequence");
+   g_assert(case_1->matches == NULL);
+
+   useq_t *case_2 = new_useq(-1, "");
+   g_assert(case_2 != NULL);
+   g_assert_cmpint(case_2->count, ==, -1);
+   g_assert_cmpstr(case_2->seq, ==, "");
+   g_assert(case_2->matches == NULL);
+
+   addmatch(case_1, case_2, 1, 2);
+
+   g_assert(case_1->matches == NULL);
+   g_assert(case_2->matches != NULL);
+   match_t *match = (match_t *) case_2->matches[1]->items[0];
+   g_assert_cmpint(match->dist, ==, 1);
+   g_assert(match->useq == case_1);
+
+   destroy_useq(case_1);
+   destroy_useq(case_2);
+
+   return;
+}
+
+
+void
 test_run
 (void)
 {
@@ -906,6 +941,7 @@ main(
    g_test_add("/mem/2", fixture, NULL, setup, test_mem_2, teardown);
    g_test_add("/mem/3", fixture, NULL, setup, test_mem_3, teardown);
    g_test_add("/mem/4", fixture, NULL, setup, test_mem_4, teardown);
+   g_test_add_func("/starcode/1", test_starcode_1);
    if (g_test_perf()) {
       g_test_add_func("/starcode/run", test_run);
    }

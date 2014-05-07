@@ -165,7 +165,7 @@ _search
    // with positive index and requiring the path, from the part that
    // goes horizontally, with negative index and requiring previous
    // characters of the query.
-   char *pcache = node->cache + arg.maxtau + 1;
+   char *pcache = node->cache + arg.maxtau;
    // Risk of overflow at depth lower than 'tau'.
    int maxa = min((depth-1), arg.tau);
 
@@ -174,7 +174,7 @@ _search
    unsigned char shift;
 
    // Part of the cache that is shared between all the children.
-   char common[8] = {1,2,3,4,5,6,7,8};
+   char common[9] = {1,2,3,4,5,6,7,8,9};
 
    // The branch of the L that is identical among all children
    // is computed separately. It will be copied later.
@@ -200,7 +200,7 @@ _search
       if ((child = node->child[i]) == NULL) continue;
 
       // Same remark as for parent cache.
-      char *ccache = child->cache + arg.maxtau + 1;
+      char *ccache = child->cache + arg.maxtau;
       memcpy(ccache+1, common, arg.maxtau * sizeof(char));
 
       // Horizontal arm of the L (need previous characters).
@@ -208,7 +208,7 @@ _search
          // See comment above for initialization.
          mmatch = ((path & 15) == PAD ? 0 : pcache[-maxa]) +
                      (i != arg.query[depth-maxa]);
-         shift = min(pcache[1-maxa], ccache[-maxa-1]) + 1;
+         shift = min(pcache[1-maxa], maxa+1) + 1;
          ccache[-maxa] = min(mmatch, shift);
          for (int a = maxa-1 ; a > 0 ; a--) {
             mmatch = pcache[-a] + (i != arg.query[depth-a]);
@@ -376,7 +376,7 @@ new_trienode
 // RETURN:                                                                
 //   A pointer to trie node with no data and no children.                 
 {
-   size_t cachesize = (2*maxtau + 3) * sizeof(char);
+   size_t cachesize = (2*maxtau + 1) * sizeof(char);
    node_t *node = malloc(sizeof(node_t) + cachesize);
    if (node == NULL) {
       fprintf(stderr, "error: could not create trie node\n");
@@ -390,7 +390,7 @@ new_trienode
    for(int i = 0; i < 6; i++) node->child[i] = NULL;
    // Initialize the cache. This is important for the
    // dynamic programming algorithm.
-   const char init[19] = {9,8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8,9};
+   const char init[17] = {8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8};
    memcpy(node->cache, init+(8-maxtau), cachesize);
    return node;
 }

@@ -242,7 +242,7 @@ void
 test_base_2
 (void)
 {
-   const char init[19] = {9,8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8,9};
+   const char init[17] = {8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8};
    // Test node creation and destruction.
    for (char maxtau = 0 ; maxtau < 9 ; maxtau++) {
       node_t *node = new_trienode(maxtau);
@@ -253,7 +253,7 @@ test_base_2
       for (int i = 0 ; i < 6 ; i++) {
          g_assert(node->child[i] == NULL);
       }
-      for (int i = 0 ; i < 2*maxtau + 3 ; i++) {
+      for (int i = 0 ; i < 2*maxtau + 1 ; i++) {
          g_assert(node->cache[i] == init[i+(8-maxtau)]);
       }
       free(node);

@@ -254,8 +254,26 @@ plan_mt
     int       ntries,
     gstack_t *useqS
 )
-// Jobs are either "build" or "query" type. A "query" job
-// can only be done after a "build" job has built the trie.
+// SYNOPSIS:                                                              
+//   The scheduler makes the key assumption that the number of tries is   
+//   an odd number, which allows to distribute the jobs among as in the   
+//   example shown below. The rows indicate blocks of query strings and   
+//   the columns are distinct tries. An circle (o) indicates a build job, 
+//   a cross (x) indicates a query job, and a dot (.) indicates that the  
+//   block is not queried in the given trie.                              
+//                                                                        
+//                            --- Tries ---                               
+//                            1  2  3  4  5                               
+//                         1  o  .  .  x  x                               
+//                         2  x  o  .  .  x                               
+//                         3  x  x  o  .  .                               
+//                         4  .  x  x  o  .                               
+//                         5  .  .  x  x  o                               
+//                                                                        
+//   This simple schedule ensures that each trie is built from one query  
+//   block and that each block is queried against every other exactly one 
+//   time (a query of block i in trie j is the same as a query of block j 
+//   in trie i).                                                          
 {
    // Initialize plan.
    mtplan_t *mtplan = malloc(sizeof(mtplan_t));
@@ -519,6 +537,7 @@ seq2useq
    // Sort sequences, count and compact them.
    mergesort(seqS->items, seqS->nitems, AtoZ, maxthreads);
    gstack_t *useqS = new_gstack();
+   if (useqS == NULL) abort();
    
    int ucount = 0;
    for (int i = 0 ; i < seqS->nitems; i++) {

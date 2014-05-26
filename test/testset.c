@@ -7,15 +7,18 @@
 #include "starcode.h"
 
 // -- DECLARATION OF PRIVATE FUNCTIONS FROM trie.c -- //
+int get_maxtau(node_t*);
+int get_height(node_t*);
 node_t *insert (node_t *, int, unsigned char);
 void init_milestones(node_t*);
 node_t *new_trienode(char);
-int get_maxtau(node_t*);
-int get_height(node_t*);
 // -- DECLARATION OF PRIVATE FUNCTIONS FROM starcode.c -- //
-useq_t *new_useq(int, char *);
-void destroy_useq(useq_t*);
+int AtoZ(const void *a, const void *b);
 void addmatch(useq_t*, useq_t*, int, int);
+void destroy_useq(useq_t*);
+useq_t *new_useq(int, char *);
+gstack_t *seq2useq(gstack_t*, int);
+void transfer_counts(useq_t*);
 
 
 typedef struct {
@@ -860,6 +863,7 @@ test_mem_4(
 
 void
 test_starcode_1
+// Basic tests of useq.
 (void)
 {
    useq_t *case_1 = new_useq(1, "some sequence");
@@ -884,6 +888,108 @@ test_starcode_1
 
    destroy_useq(case_1);
    destroy_useq(case_2);
+
+   return;
+}
+
+
+void
+test_starcode_2
+(void)
+// Test 'mergesort()'.
+{
+   char *to_sort[] = {
+      "IRrLv<'*3S?UU<JF4S<,", "tcKvz5JTm!h*X0mSTg",
+      "tW:0K&Mvtax<PP/qY6er", "hcU+f!=`.Xs6[a,C7XpN",
+      ":3ILp'w?)f]4(a;mf%A9", "RlEF',$6[}ouJQyWqqT#",
+      "U Ct`3w8(#KAE+z;vh,",  "[S^jXvNS VP' cwg~_iq",
+      ".*/@*Q/]]}32kNB#`qqv", "#`Hwp(&,z|bN~07CSID'",
+   };
+   const char *sorted[] = {
+      "#`Hwp(&,z|bN~07CSID'", ".*/@*Q/]]}32kNB#`qqv",
+      ":3ILp'w?)f]4(a;mf%A9", "IRrLv<'*3S?UU<JF4S<,",
+      "RlEF',$6[}ouJQyWqqT#", "U Ct`3w8(#KAE+z;vh,",
+      "[S^jXvNS VP' cwg~_iq", "hcU+f!=`.Xs6[a,C7XpN",
+      "tW:0K&Mvtax<PP/qY6er", "tcKvz5JTm!h*X0mSTg",
+   };
+
+   mergesort((void **) to_sort, 10, AtoZ, 1);
+   for (int i = 0 ; i < 10 ; i++) {
+      g_assert_cmpstr(to_sort[i], ==, sorted[i]);
+   }
+
+   return;
+}
+
+
+void
+test_starcode_3
+(void)
+// Test 'seq2useq()'.
+{
+   char *seq[] = {
+      "7znoW,M'>(7Ta~vd|5MW", "gP+'O:=&SB#YF|u<,Fc",
+      "7(=ql_eWg]<]DLd-ScIN", "L6_fIxB8y/2^$`WkKr&D",
+      "7znoW,M'>(7Ta~vd|5MW", "7znoW,M'>(7Ta~vd|5MW",
+      "7(=ql_eWg]<]DLd-ScIN", "L6_fIxB8y/2^$`WkKr&D",
+   };
+
+   gstack_t *seqS = new_gstack();
+   g_assert(seqS != NULL);
+
+   for (int i = 0 ; i < 8 ; i++) {
+      push(seq[i], &seqS);
+   }
+
+   gstack_t *useqS = seq2useq(seqS, 1);
+
+   g_assert_cmpint(seqS->nitems, == , 8);
+   g_assert_cmpint(useqS->nitems, == , 4);
+   int expected_counts[] = {2, 3, 2, 1};
+   for (int i = 0 ; i < 4 ; i++) {
+      useq_t *u = (useq_t *)useqS->items[i];
+      g_assert(u->matches == NULL);
+      g_assert_cmpint(u->count, == , expected_counts[i]);
+   }
+
+   for (int i = 0 ; i < useqS->nitems ; i++) {
+      destroy_useq(useqS->items[i]);
+   }
+   free(seqS);
+   free(useqS);
+
+   return;
+}
+
+
+void
+test_starcode_4
+(void)
+// Test 'transfer_counts'.
+{
+   useq_t *u1 = new_useq(1, "B}d2)$ChPyDC=xZ D-C");
+   useq_t *u2 = new_useq(2, "RCD67vQc80:~@FV`?o%D");
+
+   // Add match to 'u1',
+   addmatch(u1, u2, 1, 1);
+
+   g_assert_cmpint(u1->count, ==, 1);
+   g_assert_cmpint(u2->count, ==, 2);
+
+   // This should do nothing.
+   transfer_counts(u2);
+
+   g_assert_cmpint(u1->count, ==, 1);
+   g_assert_cmpint(u2->count, ==, 2);
+
+   // This should transfer the counts from 'u1' to 'u2'.
+   transfer_counts(u1);
+
+   g_assert_cmpint(u1->count, ==, 0);
+   g_assert_cmpint(u2->count, ==, 3);
+
+   destroy_useq(u1);
+   destroy_useq(u2);
 
    return;
 }
@@ -942,6 +1048,9 @@ main(
    g_test_add("/mem/3", fixture, NULL, setup, test_mem_3, teardown);
    g_test_add("/mem/4", fixture, NULL, setup, test_mem_4, teardown);
    g_test_add_func("/starcode/1", test_starcode_1);
+   g_test_add_func("/starcode/2", test_starcode_2);
+   g_test_add_func("/starcode/3", test_starcode_3);
+   g_test_add_func("/starcode/4", test_starcode_4);
    if (g_test_perf()) {
       g_test_add_func("/starcode/run", test_run);
    }

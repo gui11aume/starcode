@@ -44,9 +44,10 @@ typedef struct mtjob_t mtjob_t;
 typedef struct sortargs_t sortargs_t;
 
 struct useq_t {
-  int         count;
-  char     *  seq;
-  gstack_t ** matches;
+  int              count;
+  char          *  seq;
+  gstack_t      ** matches;
+  struct useq_t *  canonical;
 };
 
 struct match_t {

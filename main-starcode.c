@@ -5,7 +5,7 @@ char *USAGE = "Usage:\n"
 "    -v --verbose: verbose\n"
 "    -d --dist: maximum Levenshtein distance (default 3)\n"
 "    -t --threads: number of concurrent threads (default 2)\n"
-"    -f --format: output format (default compact)\n"
+"    -f --format: output 'rel' or 'counts' (default)\n"
 "    -i --input: input file (default stdin)\n"
 "    -o --output: output file (default stdout)";
 
@@ -101,10 +101,10 @@ main(
 
       case 'f':
          if (format_option == UNSET) {
-            if (strcmp(optarg, "compact") == 0) {
+            if (strcmp(optarg, "counts") == 0) {
                format_flag = 0;
             }
-            else if (strcmp(optarg, "full") == 0) {
+            else if (strcmp(optarg, "rel") == 0) {
                format_flag = 1;
             }
             else {

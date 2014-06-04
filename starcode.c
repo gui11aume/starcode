@@ -19,7 +19,7 @@ int mintomax(const void*, const void*);
 void *do_query(void*);
 void run_plan(mtplan_t*, int, int);
 mtplan_t *plan_mt(int, int, int, gstack_t*);
-void print_counts(gstack_t*, int);
+void print_output(gstack_t*, int, int);
 
 FILE *OUTPUT = NULL;
 
@@ -60,13 +60,7 @@ starcode
    // Remove padding characters.
    unpad_useq(useqS);
 
-   switch (fmt) {
-      case 0 :
-         print_counts(useqS, maxthreads);
-         break;
-      default:
-         fprintf(OUTPUT, "not implemented\n");
-   }
+   print_output(useqS, maxthreads, fmt);
 
    // Do not free anything.
    OUTPUT = NULL;
@@ -342,14 +336,15 @@ plan_mt
 }
 
 void
-print_counts
+print_output
 (
    gstack_t *useqS,
-   const int maxthreads
+   const int maxthreads,
+   const int fmt
 )
 {
-   // Sort from min to max.
-   mergesort(useqS->items, useqS->nitems, mintomax, maxthreads);
+//   // Sort from min to max.
+//   mergesort(useqS->items, useqS->nitems, mintomax, maxthreads);
 
    // Transfer counts to parents recursively.
    for (int i = 0 ; i < useqS->nitems ; i++) {
@@ -357,15 +352,31 @@ print_counts
       transfer_counts(u);
    }
 
-   // Sort from max to min.
-   mergesort(useqS->items, useqS->nitems, maxtomin, maxthreads);
-   for (int i = 0 ; i < useqS->nitems ; i++) {
-      useq_t *u = (useq_t *) useqS->items[i];
-      // Do not show sequences with 0 count.
-      if (u->count == 0) break;
-      fprintf(OUTPUT, "%s\t%d\n", u->seq, u->count);
+   switch (fmt) {
+      case 0:
+         // Sort from max to min.
+         mergesort(useqS->items, useqS->nitems, maxtomin, maxthreads);
+         for (int i = 0 ; i < useqS->nitems ; i++) {
+            useq_t *u = (useq_t *) useqS->items[i];
+            // Do not show sequences with 0 count.
+            if (u->count == 0) break;
+            fprintf(OUTPUT, "%s\t%d\n", u->seq, u->count);
+         }
+         break;
+      case 1:
+         for (int i = 0 ; i < useqS->nitems ; i++) {
+            useq_t *u = (useq_t *) useqS->items[i];
+            fprintf(OUTPUT, "%s\t%s\n", u->seq, u->canonical->seq);
+         }
+         break;
+      default:
+         abort();
    }
+
+
+
    return;
+
 }
 
 
@@ -617,6 +628,67 @@ transfer_counts
    useq_t *useq
 )
 {
+   // If the read is a canonical do nothing.
+   if (useq->matches == NULL) {
+      useq->canonical = useq;
+      return;
+   }
+   // If the read has already been assigned a canonical, directly
+   // transfer counts to the canonical and return.
+   if (useq->canonical != NULL) {
+      useq->canonical->count += useq->count;
+      useq->count = 0;
+      return;
+   }
+//   if (useq->count == 0) return NULL;
+
+   // Get the lowest match stratum.
+   gstack_t *matches;
+   for (int i = 0 ; (matches = useq->matches[i]) != TOWER_TOP ; i++) {
+      if (matches->nitems > 0) break;
+   }
+
+   // Distribute counts evenly among parents.
+   int Q = useq->count / matches->nitems;
+   int R = useq->count % matches->nitems;
+   // Depending on the order in which matches were made
+   // (which is more or less random), the transferred
+   // counts can differ by 1. For this reason, the output
+   // can be slightly different for different tries numbers.
+   for (int i = 0 ; i < matches->nitems ; i++) {
+      match_t *match = (match_t *) matches->items[i];
+      match->useq->count += Q + (i < R);
+   }
+   // Transfer done.
+   useq->count = 0;
+
+   // Continue propagation. This will update the canonicals.
+   for (int i = 0 ; i < matches->nitems ; i++) {
+      match_t *match = (match_t *) matches->items[i];
+      transfer_counts(match->useq);
+   }
+
+   useq_t *canonical = ((match_t *) matches->items[0])->useq->canonical;
+   for (int i = 1 ; i < matches->nitems ; i++) {
+      match_t *match = (match_t *) matches->items[i];
+      if (match->useq->canonical != canonical) {
+         canonical = NULL;
+         break;
+      }
+   }
+
+   useq->canonical = canonical;
+   return;
+
+}
+
+
+void
+transfer_counts_old
+(
+   useq_t *useq
+)
+{
    // Break on parent nodes and empty nodes.
    if (useq->count == 0 || useq->matches == NULL) return;
 
@@ -633,7 +705,7 @@ transfer_counts
    // (which is more or less random), the transferred
    // counts can differ by 1. For this reason, the output
    // can be slightly different for different tries numbers.
-   for (int i = 0; i < matches->nitems; i++) {
+   for (int i = 0 ; i < matches->nitems ; i++) {
       match_t *match = (match_t *) matches->items[i];
       match->useq->count += Q + (i < R);
    }
@@ -711,6 +783,7 @@ new_useq
    strcpy(new->seq, seq);
    new->count = count;
    new->matches = NULL;
+   new->canonical = NULL;
    return new;
 }
 

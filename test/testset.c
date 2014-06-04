@@ -871,12 +871,14 @@ test_starcode_1
    g_assert_cmpint(case_1->count, ==, 1);
    g_assert_cmpstr(case_1->seq, ==, "some sequence");
    g_assert(case_1->matches == NULL);
+   g_assert(case_1->canonical == NULL);
 
    useq_t *case_2 = new_useq(-1, "");
    g_assert(case_2 != NULL);
    g_assert_cmpint(case_2->count, ==, -1);
    g_assert_cmpstr(case_2->seq, ==, "");
    g_assert(case_2->matches == NULL);
+   g_assert(case_2->canonical == NULL);
 
    addmatch(case_1, case_2, 1, 2);
 
@@ -970,26 +972,54 @@ test_starcode_4
    useq_t *u1 = new_useq(1, "B}d2)$ChPyDC=xZ D-C");
    useq_t *u2 = new_useq(2, "RCD67vQc80:~@FV`?o%D");
 
-   // Add match to 'u1',
+   // Add match to 'u1'.
    addmatch(u1, u2, 1, 1);
 
    g_assert_cmpint(u1->count, ==, 1);
    g_assert_cmpint(u2->count, ==, 2);
 
-   // This should do nothing.
+   // This should not transfer counts but update canonical.
    transfer_counts(u2);
 
    g_assert_cmpint(u1->count, ==, 1);
    g_assert_cmpint(u2->count, ==, 2);
+   g_assert(u1->canonical == NULL);
+   g_assert(u2->canonical == u2);
 
    // This should transfer the counts from 'u1' to 'u2'.
    transfer_counts(u1);
 
    g_assert_cmpint(u1->count, ==, 0);
    g_assert_cmpint(u2->count, ==, 3);
+   g_assert(u1->canonical == u2);
+   g_assert(u2->canonical == u2);
 
    destroy_useq(u1);
    destroy_useq(u2);
+
+   useq_t *u3 = new_useq(1, "{Lu[T}FOCMs}L_zx");
+   useq_t *u4 = new_useq(2, "|kAV|Ch|RZ]h~WjCoDpX");
+   useq_t *u5 = new_useq(2, "}lzHolUky");
+
+   // Add matches to 'u3'.
+   addmatch(u3, u4, 1, 1);
+   addmatch(u3, u5, 1, 1);
+
+   g_assert_cmpint(u3->count, ==, 1);
+   g_assert_cmpint(u4->count, ==, 2);
+   g_assert_cmpint(u5->count, ==, 2);
+
+   transfer_counts(u3);
+
+   g_assert_cmpint(u3->count, ==, 0);
+   g_assert_cmpint(u3->count, ==, 0);
+   g_assert(u3->canonical == NULL);
+   g_assert(u4->canonical == u4);
+   g_assert(u5->canonical == u5);
+
+   destroy_useq(u3);
+   destroy_useq(u4);
+   destroy_useq(u5);
 
    return;
 }

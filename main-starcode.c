@@ -1,11 +1,11 @@
 #include "starcode.h"
 
 char *USAGE = "Usage:\n"
-"  starcode [-v] [-d dist] [-f format] [-i input] [-o output]\n"
+"  starcode [-v] [-d dist] [-t threads] [-i input] [-o output]\n"
 "    -v --verbose: verbose\n"
 "    -d --dist: maximum Levenshtein distance (default 3)\n"
-"    -t --threads: number of concurrent threads (default 2)\n"
-"    -f --format: output 'rel' or 'counts' (default)\n"
+"    -t --threads: number of concurrent threads (default 1)\n"
+//"    -f --format: output 'rel' or 'counts' (default)\n"
 "    -i --input: input file (default stdin)\n"
 "    -o --output: output file (default stdout)";
 
@@ -35,12 +35,11 @@ main(
 
    // Unset flags (value -1).
    int verbose_flag = -1;
-   int format_flag = -1;
+//   int format_flag = -1;
    int dist_flag = -1;
    int threads_flag = -1;
    // Unset options (value 'UNSET').
    char * const UNSET;
-//   char _u; char *UNSET = &_u;
    char *format_option = UNSET;
    char *input = UNSET;
    char *output = UNSET;
@@ -51,7 +50,7 @@ main(
       static struct option long_options[] = {
          {"verbose", no_argument,       0, 'v'},
          {"help",    no_argument,       0, 'h'},
-         {"format",  required_argument, 0, 'f'},
+//         {"format",  required_argument, 0, 'f'},
          {"dist",    required_argument, 0, 'd'},
          {"input",   required_argument, 0, 'i'},
          {"output",  required_argument, 0, 'o'},
@@ -82,7 +81,7 @@ main(
             threads_flag = atoi(optarg);
          }
          else {
-            fprintf(stderr, "num. threads option set more than once\n");
+            fprintf(stderr, "thread option set more than once\n");
             say_usage();
             return 1;
          }
@@ -99,6 +98,11 @@ main(
          }
          break;
 
+// The current version of starcode has a single output format.
+// Possible options would be to suppress the cluster composition
+// in third column, or replace it by a compressed representation
+// of the alignment (e.g. gem output).
+/*
       case 'f':
          if (format_option == UNSET) {
             if (strcmp(optarg, "counts") == 0) {
@@ -120,6 +124,7 @@ main(
             return 1;
          }
          break;
+*/
   
       case 'o':
          if (output == UNSET) {
@@ -195,7 +200,7 @@ main(
 
    // Set default flags.
    if (verbose_flag < 0) verbose_flag = 0;
-   if (format_flag < 0) format_flag = 0;
+//   if (format_flag < 0) format_flag = 0;
    if (dist_flag < 0) dist_flag = 3;
    if (threads_flag < 0) threads_flag = 1;
 
@@ -203,7 +208,7 @@ main(
                       inputf,
                       outputf,
                       dist_flag,
-                      format_flag,
+//                      format_flag,
                       verbose_flag,
                       threads_flag
                   );

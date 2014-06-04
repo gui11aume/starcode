@@ -10,16 +10,15 @@ gstack_t *seq2useq(gstack_t*, int);
 gstack_t *read_file(FILE*);
 void destroy_useq(useq_t*);
 void addmatch(useq_t*, useq_t*, int, int);
-void transfer_counts(useq_t*);
+void transfer_counts_and_update_canonicals(useq_t*);
 void unpad_useq (gstack_t*);
 int pad_useq(gstack_t*);
 int AtoZ(const void *a, const void *b) { return strcmp(str(a), str(b)); }
-int maxtomin(const void*, const void*);
-int mintomax(const void*, const void*);
+int canonical_order(const void*, const void*);
 void *do_query(void*);
 void run_plan(mtplan_t*, int, int);
 mtplan_t *plan_mt(int, int, int, gstack_t*);
-void print_output(gstack_t*, int, int);
+void print_output(gstack_t*, int);
 
 FILE *OUTPUT = NULL;
 
@@ -29,7 +28,7 @@ starcode
    FILE *inputf,
    FILE *outputf,
    const int tau,
-   const int fmt,
+//   const int fmt,
    const int verbose,
    const int maxthreads
 )
@@ -60,7 +59,7 @@ starcode
    // Remove padding characters.
    unpad_useq(useqS);
 
-   print_output(useqS, maxthreads, fmt);
+   print_output(useqS, maxthreads);
 
    // Do not free anything.
    OUTPUT = NULL;
@@ -339,41 +338,44 @@ void
 print_output
 (
    gstack_t *useqS,
-   const int maxthreads,
-   const int fmt
+   const int maxthreads
 )
 {
-//   // Sort from min to max.
-//   mergesort(useqS->items, useqS->nitems, mintomax, maxthreads);
 
    // Transfer counts to parents recursively.
    for (int i = 0 ; i < useqS->nitems ; i++) {
       useq_t *u = (useq_t *) useqS->items[i];
-      transfer_counts(u);
+      transfer_counts_and_update_canonicals(u);
    }
 
-   switch (fmt) {
-      case 0:
-         // Sort from max to min.
-         mergesort(useqS->items, useqS->nitems, maxtomin, maxthreads);
-         for (int i = 0 ; i < useqS->nitems ; i++) {
-            useq_t *u = (useq_t *) useqS->items[i];
-            // Do not show sequences with 0 count.
-            if (u->count == 0) break;
-            fprintf(OUTPUT, "%s\t%d\n", u->seq, u->count);
-         }
-         break;
-      case 1:
-         for (int i = 0 ; i < useqS->nitems ; i++) {
-            useq_t *u = (useq_t *) useqS->items[i];
-            fprintf(OUTPUT, "%s\t%s\n", u->seq, u->canonical->seq);
-         }
-         break;
-      default:
-         abort();
+   // Sort in canonical order.
+   mergesort(useqS->items, useqS->nitems, canonical_order, maxthreads);
+   useq_t *canonical = ((useq_t *) useqS->items[0])->canonical;
+   useq_t *first = (useq_t *) useqS->items[0];
+
+   // If the first canonical is NULL they all are.
+   if (first->canonical == NULL) return;
+
+   fprintf(OUTPUT, "%s\t%d\t%s",
+      first->canonical->seq, first->canonical->count, first->seq);
+
+   for (int i = 1 ; i < useqS->nitems ; i++) {
+      useq_t *u = (useq_t *) useqS->items[i];
+      if (u->canonical == NULL) break;
+      if (u->canonical != canonical) {
+         canonical = u->canonical;
+         fprintf(OUTPUT, "\n%s\t%d\t%s",
+               canonical->seq, canonical->count, u->seq);
+      }
+      else {
+         fprintf(OUTPUT, ",%s", u->seq);
+      }
+      // Do not show sequences with 0 count.
+      //if (u->count == 0) break;
+      //fprintf(OUTPUT, "%s\t%d\n", u->seq, u->count);
    }
 
-
+   fprintf(OUTPUT, "\n");
 
    return;
 
@@ -623,7 +625,7 @@ unpad_useq
 
 
 void
-transfer_counts
+transfer_counts_and_update_canonicals
 (
    useq_t *useq
 )
@@ -640,7 +642,6 @@ transfer_counts
       useq->count = 0;
       return;
    }
-//   if (useq->count == 0) return NULL;
 
    // Get the lowest match stratum.
    gstack_t *matches;
@@ -665,7 +666,7 @@ transfer_counts
    // Continue propagation. This will update the canonicals.
    for (int i = 0 ; i < matches->nitems ; i++) {
       match_t *match = (match_t *) matches->items[i];
-      transfer_counts(match->useq);
+      transfer_counts_and_update_canonicals(match->useq);
    }
 
    useq_t *canonical = ((match_t *) matches->items[0])->useq->canonical;
@@ -679,44 +680,6 @@ transfer_counts
 
    useq->canonical = canonical;
    return;
-
-}
-
-
-void
-transfer_counts_old
-(
-   useq_t *useq
-)
-{
-   // Break on parent nodes and empty nodes.
-   if (useq->count == 0 || useq->matches == NULL) return;
-
-   // Get the lowest match stratum.
-   gstack_t *matches;
-   for (int i = 0 ; (matches = useq->matches[i]) != TOWER_TOP ; i++) {
-      if (matches->nitems > 0) break;
-   }
-
-   // Distribute counts evenly among parents.
-   int Q = useq->count / matches->nitems;
-   int R = useq->count % matches->nitems;
-   // Depending on the order in which matches were made
-   // (which is more or less random), the transferred
-   // counts can differ by 1. For this reason, the output
-   // can be slightly different for different tries numbers.
-   for (int i = 0 ; i < matches->nitems ; i++) {
-      match_t *match = (match_t *) matches->items[i];
-      match->useq->count += Q + (i < R);
-   }
-   // Transfer done.
-   useq->count = 0;
-
-   // Continue propagation.
-   for (int i = 0 ; i < matches->nitems ; i++) {
-      match_t *match = (match_t *) matches->items[i];
-      transfer_counts(match->useq);
-   }
 
 }
 
@@ -747,7 +710,7 @@ addmatch
 
 
 int
-mintomax
+canonical_order
 (
    const void *a,
    const void *b
@@ -755,18 +718,14 @@ mintomax
 {
    useq_t *u1 = (useq_t *) a;
    useq_t *u2 = (useq_t *) b;
-   return (u1->count > u2->count) ? 1 : -1;
-}
-
-
-int
-maxtomin
-(
-   const void *a,
-   const void *b
-)
-{
-   return mintomax(b, a);
+   if (u1->canonical == u2->canonical) return strcmp(u1->seq, u2->seq);
+   if (u1->canonical == NULL) return 1;
+   if (u2->canonical == NULL) return -1;
+   if (u1->canonical->count == u2->canonical->count) {
+      return strcmp(u1->canonical->seq, u2->canonical->seq);
+   }
+   if (u1->canonical->count > u2->canonical->count) return -1;
+   return 1;
 } 
 
 

@@ -18,7 +18,8 @@ void addmatch(useq_t*, useq_t*, int, int);
 void destroy_useq(useq_t*);
 useq_t *new_useq(int, char *);
 gstack_t *seq2useq(gstack_t*, int);
-void transfer_counts(useq_t*);
+void transfer_counts_and_update_canonicals(useq_t*);
+int canonical_order(const void*, const void*);
 
 
 typedef struct {
@@ -967,7 +968,7 @@ test_starcode_3
 void
 test_starcode_4
 (void)
-// Test 'transfer_counts'.
+// Test 'transfer_counts_and_update_canonicals'.
 {
    useq_t *u1 = new_useq(1, "B}d2)$ChPyDC=xZ D-C");
    useq_t *u2 = new_useq(2, "RCD67vQc80:~@FV`?o%D");
@@ -979,7 +980,7 @@ test_starcode_4
    g_assert_cmpint(u2->count, ==, 2);
 
    // This should not transfer counts but update canonical.
-   transfer_counts(u2);
+   transfer_counts_and_update_canonicals(u2);
 
    g_assert_cmpint(u1->count, ==, 1);
    g_assert_cmpint(u2->count, ==, 2);
@@ -987,7 +988,7 @@ test_starcode_4
    g_assert(u2->canonical == u2);
 
    // This should transfer the counts from 'u1' to 'u2'.
-   transfer_counts(u1);
+   transfer_counts_and_update_canonicals(u1);
 
    g_assert_cmpint(u1->count, ==, 0);
    g_assert_cmpint(u2->count, ==, 3);
@@ -1009,7 +1010,7 @@ test_starcode_4
    g_assert_cmpint(u4->count, ==, 2);
    g_assert_cmpint(u5->count, ==, 2);
 
-   transfer_counts(u3);
+   transfer_counts_and_update_canonicals(u3);
 
    g_assert_cmpint(u3->count, ==, 0);
    g_assert_cmpint(u3->count, ==, 0);
@@ -1023,6 +1024,110 @@ test_starcode_4
 
    return;
 }
+
+
+void
+test_starcode_5
+(void)
+// Test 'canonical_order'.
+{
+   useq_t *u1 = new_useq(1, "ABCD");
+   useq_t *u2 = new_useq(2, "EFGH");
+
+   g_assert_cmpint(canonical_order(u1, u2), ==, -4);
+   g_assert_cmpint(canonical_order(u2, u1), ==, 4);
+
+   // Add match to 'u1', and update canonicals.
+   addmatch(u1, u2, 1, 1);
+   transfer_counts_and_update_canonicals(u1);
+
+   g_assert_cmpint(canonical_order(u1, u2), ==, -4);
+   g_assert_cmpint(canonical_order(u2, u1), ==, 4);
+
+   useq_t *u3 = new_useq(1, "CDEF");
+   useq_t *u4 = new_useq(2, "GHIJ");
+
+   g_assert_cmpint(canonical_order(u1, u3), ==, -1);
+   g_assert_cmpint(canonical_order(u3, u1), ==, 1);
+   g_assert_cmpint(canonical_order(u1, u4), ==, -1);
+   g_assert_cmpint(canonical_order(u4, u1), ==, 1);
+   g_assert_cmpint(canonical_order(u2, u3), ==, -1);
+   g_assert_cmpint(canonical_order(u3, u2), ==, 1);
+   g_assert_cmpint(canonical_order(u2, u4), ==, -1);
+   g_assert_cmpint(canonical_order(u4, u2), ==, 1);
+   g_assert_cmpint(canonical_order(u3, u4), ==, -4);
+   g_assert_cmpint(canonical_order(u4, u3), ==, 4);
+
+   // Add match to 'u3', and update canonicals.
+   addmatch(u3, u4, 1, 1);
+   transfer_counts_and_update_canonicals(u3);
+
+   g_assert_cmpint(canonical_order(u1, u3), ==, -2);
+   g_assert_cmpint(canonical_order(u3, u1), ==, 2);
+   g_assert_cmpint(canonical_order(u1, u4), ==, -2);
+   g_assert_cmpint(canonical_order(u4, u1), ==, 2);
+   g_assert_cmpint(canonical_order(u2, u3), ==, -2);
+   g_assert_cmpint(canonical_order(u3, u2), ==, 2);
+   g_assert_cmpint(canonical_order(u2, u4), ==, -2);
+   g_assert_cmpint(canonical_order(u4, u2), ==, 2);
+   g_assert_cmpint(canonical_order(u3, u4), ==, -4);
+   g_assert_cmpint(canonical_order(u4, u3), ==, 4);
+
+   useq_t *u5 = new_useq(1, "CDEF");
+   useq_t *u6 = new_useq(3, "GHIJ");
+
+   g_assert_cmpint(canonical_order(u1, u5), ==, -1);
+   g_assert_cmpint(canonical_order(u5, u1), ==, 1);
+   g_assert_cmpint(canonical_order(u1, u6), ==, -1);
+   g_assert_cmpint(canonical_order(u6, u1), ==, 1);
+   g_assert_cmpint(canonical_order(u2, u5), ==, -1);
+   g_assert_cmpint(canonical_order(u5, u2), ==, 1);
+   g_assert_cmpint(canonical_order(u2, u6), ==, -1);
+   g_assert_cmpint(canonical_order(u6, u2), ==, 1);
+   g_assert_cmpint(canonical_order(u3, u5), ==, -1);
+   g_assert_cmpint(canonical_order(u5, u3), ==, 1);
+   g_assert_cmpint(canonical_order(u3, u6), ==, -1);
+   g_assert_cmpint(canonical_order(u6, u3), ==, 1);
+   g_assert_cmpint(canonical_order(u4, u5), ==, -1);
+   g_assert_cmpint(canonical_order(u5, u4), ==, 1);
+   g_assert_cmpint(canonical_order(u4, u6), ==, -1);
+   g_assert_cmpint(canonical_order(u6, u4), ==, 1);
+   g_assert_cmpint(canonical_order(u5, u6), ==, -4);
+   g_assert_cmpint(canonical_order(u6, u5), ==, 4);
+
+   // Add match to 'u5', and update canonicals.
+   addmatch(u5, u6, 1, 1);
+   transfer_counts_and_update_canonicals(u5);
+
+   g_assert_cmpint(canonical_order(u1, u5), ==, 1);
+   g_assert_cmpint(canonical_order(u5, u1), ==, -1);
+   g_assert_cmpint(canonical_order(u1, u6), ==, 1);
+   g_assert_cmpint(canonical_order(u6, u1), ==, -1);
+   g_assert_cmpint(canonical_order(u2, u5), ==, 1);
+   g_assert_cmpint(canonical_order(u5, u2), ==, -1);
+   g_assert_cmpint(canonical_order(u2, u6), ==, 1);
+   g_assert_cmpint(canonical_order(u6, u2), ==, -1);
+   g_assert_cmpint(canonical_order(u3, u5), ==, 1);
+   g_assert_cmpint(canonical_order(u5, u3), ==, -1);
+   g_assert_cmpint(canonical_order(u3, u6), ==, 1);
+   g_assert_cmpint(canonical_order(u6, u3), ==, -1);
+   g_assert_cmpint(canonical_order(u4, u5), ==, 1);
+   g_assert_cmpint(canonical_order(u5, u4), ==, -1);
+   g_assert_cmpint(canonical_order(u4, u6), ==, 1);
+   g_assert_cmpint(canonical_order(u6, u4), ==, -1);
+   g_assert_cmpint(canonical_order(u5, u6), ==, -4);
+   g_assert_cmpint(canonical_order(u6, u5), ==, 4);
+
+   destroy_useq(u1);
+   destroy_useq(u2);
+   destroy_useq(u3);
+   destroy_useq(u4);
+   destroy_useq(u5);
+   destroy_useq(u6);
+
+   return;
+}
+
 
 
 void
@@ -1081,6 +1186,7 @@ main(
    g_test_add_func("/starcode/2", test_starcode_2);
    g_test_add_func("/starcode/3", test_starcode_3);
    g_test_add_func("/starcode/4", test_starcode_4);
+   g_test_add_func("/starcode/5", test_starcode_5);
    if (g_test_perf()) {
       g_test_add_func("/starcode/run", test_run);
    }

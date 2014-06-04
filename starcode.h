@@ -95,7 +95,7 @@ struct mtjob_t {
    char             * active;
 };
 
-int starcode(FILE*, FILE*, const int, const int, const int, const int);
+int starcode(FILE*, FILE*, const int, const int, const int);
 int tquery(FILE*, FILE*, FILE*, const int, const int, const int, const int);
 void * tquery_thread(void*);
 int bisection(int,int,char*,useq_t**,int,int);

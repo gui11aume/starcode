@@ -37,8 +37,8 @@ starcode
 
    // Get number of tries.
    const int ntries = 3 * maxthreads + (maxthreads % 2 == 0);
-   // XXX The number of tries must be odd otherwise the
-   // XXX scheduler will make mistakes. So, just in case...
+   // XXX The number of tries must be odd otherwise the     XXX
+   // XXX scheduler will make mistakes. So, just in case... XXX
    if (ntries % 2 == 0) abort();
    
    if (verbose) fprintf(stderr, "reading input files\n");
@@ -86,10 +86,10 @@ run_plan
       idx = (idx+1) % mtplan->ntries;
       mttrie_t *mttrie = mtplan->tries + idx;
 
+      pthread_mutex_lock(mtplan->mutex);     
+
       // Check whether trie is idle and there are available threads.
       if (mttrie->flag == TRIE_FREE && mtplan->active < maxthreads) {
-
-         pthread_mutex_lock(mtplan->mutex);     
 
          // No more jobs on this trie.
          if (mttrie->currentjob == mttrie->njobs) {
@@ -121,7 +121,9 @@ run_plan
       pthread_mutex_unlock(mtplan->mutex);
 
    }
+
    return;
+
 }
 
 
@@ -231,8 +233,8 @@ do_query
    *(job->active) -= 1;
    *(job->jobsdone) += 1;
    *(job->trieflag) = TRIE_FREE;
-   pthread_mutex_unlock(job->mutex);
    pthread_cond_signal(job->monitor);
+   pthread_mutex_unlock(job->mutex);
 
    return NULL;
 
@@ -332,6 +334,7 @@ plan_mt
    mtplan->tries = mttries;
 
    return mtplan;
+
 }
 
 void

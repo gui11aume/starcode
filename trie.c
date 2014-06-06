@@ -13,7 +13,7 @@ int get_height(node_t *root) { return ((info_t *)root->data)->height; }
 // --  DECLARATION OF PRIVATE FUNCTIONS  -- //
 
 // Search.
-void _search(node_t*, int, struct arg_t);
+void poucet(node_t*, int, struct arg_t);
 void dash(node_t*, const int*, struct arg_t);
 // Trie creation and destruction.
 node_t *insert(node_t*, int, unsigned char);
@@ -110,7 +110,7 @@ search
    gstack_t *milestones = info->milestones[start];
    for (int i = 0 ; i < milestones->nitems ; i++) {
       node_t *start_node = (node_t *) milestones->items[i];
-      _search(start_node, start + 1, arg);
+      poucet(start_node, start + 1, arg);
    }
 
    // Return the error code of the process (the line of
@@ -121,7 +121,7 @@ search
 
 
 void
-_search
+poucet
 (
           node_t * restrict node,
    const  int      depth,
@@ -248,7 +248,7 @@ _search
          }
       }
 
-      _search(child, depth+1, arg);
+      poucet(child, depth+1, arg);
 
    }
 

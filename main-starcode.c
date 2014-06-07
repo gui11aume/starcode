@@ -1,9 +1,10 @@
 #include "starcode.h"
 
 char *USAGE = "Usage:\n"
-"  starcode [-v] [-d dist] [-t threads] [-i input] [-o output]\n"
+"  starcode [-i] input [-o output]\n"
 "    -v --verbose: verbose\n"
 "    -d --dist: maximum Levenshtein distance (default 3)\n"
+"    -s --spheres: cluster as sphere instead of message passing\n"
 "    -t --threads: number of concurrent threads (default 1)\n"
 //"    -f --format: output 'rel' or 'counts' (default)\n"
 "    -i --input: input file (default stdin)\n"
@@ -38,6 +39,7 @@ main(
 //   int format_flag = -1;
    int dist_flag = -1;
    int threads_flag = -1;
+   int cluster_flag = -1;
    // Unset options (value 'UNSET').
    char * const UNSET;
    char *format_option = UNSET;
@@ -50,6 +52,7 @@ main(
       static struct option long_options[] = {
          {"verbose", no_argument,       0, 'v'},
          {"help",    no_argument,       0, 'h'},
+         {"spheres", no_argument,       0, 's'},
 //         {"format",  required_argument, 0, 'f'},
          {"dist",    required_argument, 0, 'd'},
          {"input",   required_argument, 0, 'i'},
@@ -58,7 +61,7 @@ main(
          {0, 0, 0, 0}
       };
 
-      c = getopt_long(argc, argv, "d:i:f:t:ho:v",
+      c = getopt_long(argc, argv, "d:i:f:t:ho:vs",
             long_options, &option_index);
  
       /* Detect the end of the options. */
@@ -137,6 +140,17 @@ main(
          }
          break;
 
+      case 's':
+         if (cluster_flag < 0) {
+            cluster_flag = 1;
+         }
+         else {
+            fprintf(stderr, "spheres option set more than once\n");
+            say_usage();
+            return 1;
+         }
+         break;
+
       case 'v':
          if (verbose_flag < 0) {
             verbose_flag = 1;
@@ -203,6 +217,7 @@ main(
 //   if (format_flag < 0) format_flag = 0;
    if (dist_flag < 0) dist_flag = 3;
    if (threads_flag < 0) threads_flag = 1;
+   if (cluster_flag < 0) cluster_flag = 0;
 
    int exitcode = starcode(
                       inputf,
@@ -210,7 +225,8 @@ main(
                       dist_flag,
 //                      format_flag,
                       verbose_flag,
-                      threads_flag
+                      threads_flag,
+                      cluster_flag
                   );
 
    if (inputf != stdin) fclose(inputf);

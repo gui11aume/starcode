@@ -8,6 +8,7 @@
 #include <getopt.h>
 #include <pthread.h>
 #include <errno.h>
+#include <string.h>
 #include "trie.h"
 
 #ifndef __STARCODE_LOADED_
@@ -86,6 +87,7 @@ struct mtjob_t {
    int                end;
    int                tau;
    int                build;
+   int		      clusters;
    gstack_t         * useqS;
    node_t           * trie;
    pthread_mutex_t  * mutex;
@@ -95,7 +97,7 @@ struct mtjob_t {
    char             * active;
 };
 
-int starcode(FILE*, FILE*, const int, const int, const int);
+int starcode(FILE*, FILE*, const int, const int, const int, const int);
 int tquery(FILE*, FILE*, FILE*, const int, const int, const int, const int);
 void * tquery_thread(void*);
 int bisection(int,int,char*,useq_t**,int,int);

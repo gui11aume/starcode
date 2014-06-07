@@ -5,10 +5,7 @@ CC= gcc
 
 all: starcode
 
-#tquery: $(OBJECTS) main-tquery.c
-#	$(CC) $(CFLAGS) $(OBJECTS) main-tquery.c $(LDLIBS) -o tquery
-
 starcode: $(OBJECTS) main-starcode.c
 
 clean:
-	rm -f $(OBJECTS) starcode tquery
+	rm -f $(OBJECTS) starcode

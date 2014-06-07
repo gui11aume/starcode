@@ -15,10 +15,13 @@ void unpad_useq (gstack_t*);
 int pad_useq(gstack_t*);
 int AtoZ(const void *a, const void *b) { return strcmp(str(a), str(b)); }
 int canonical_order(const void*, const void*);
+int count_order(const void *a, const void *b);
 void *do_query(void*);
 void run_plan(mtplan_t*, int, int);
-mtplan_t *plan_mt(int, int, int, gstack_t*);
-void print_output(gstack_t*, int);
+mtplan_t *plan_mt(int, int, int, gstack_t*, const int);
+void message_passing_clustering(gstack_t*, int);
+void sphere_clustering(gstack_t*, int);
+void suck_counts(useq_t *);
 
 FILE *OUTPUT = NULL;
 
@@ -28,9 +31,9 @@ starcode
    FILE *inputf,
    FILE *outputf,
    const int tau,
-//   const int fmt,
    const int verbose,
-   const int maxthreads
+   const int maxthreads,
+   const int clusters
 )
 {
    OUTPUT = outputf;
@@ -52,14 +55,19 @@ starcode
    // Pad sequences.
    int height = pad_useq(useqS);
    // Make multithreading plan.
-   mtplan_t *mtplan = plan_mt(tau, height, ntries, useqS);
+   mtplan_t *mtplan = plan_mt(tau, height, ntries, useqS, clusters);
    // Run the query.
    run_plan(mtplan, verbose, maxthreads);
    if (verbose) fprintf(stderr, "starcode progress: 100.00%%\n");
    // Remove padding characters.
    unpad_useq(useqS);
 
-   print_output(useqS, maxthreads);
+   if (clusters == 0) {
+      message_passing_clustering(useqS, maxthreads);
+   }
+   else if (clusters == 1) {
+      sphere_clustering(useqS, maxthreads);
+   }
 
    // Do not free anything.
    OUTPUT = NULL;
@@ -134,10 +142,11 @@ do_query
 )  
 {
    // Unpack arguments.
-   mtjob_t  * job   = (mtjob_t*) args;
-   gstack_t * useqS = job->useqS;
-   node_t   * trie  = job->trie;
-   int        tau   = job->tau;
+   mtjob_t  * job      = (mtjob_t*) args;
+   gstack_t * useqS    = job->useqS;
+   node_t   * trie     = job->trie;
+   int        tau      = job->tau;
+   const int  clusters = job->clusters;
 
    // Create local hit stack.
    gstack_t **hits = new_tower(tau+1);
@@ -214,13 +223,28 @@ do_query
          for (int j = 0 ; j < hits[dist]->nitems ; j++) {
             node_t *match_node = (node_t *) hits[dist]->items[j];
             useq_t *match = (useq_t *) match_node->data;
-            // No link if counts are on the same order of magnitude.
-            int mincount = min(query->count, match->count);
-            int maxcount = max(query->count, match->count);
-            if ((maxcount < PARENT_TO_CHILD_FACTOR * mincount)) continue;
-            pthread_mutex_lock(job->mutex);
-            addmatch(query, match, dist, tau);
-            pthread_mutex_unlock(job->mutex);
+
+            int whichbig = count_order(query, match);
+            // Do not link hits when counts are equal.
+            if (whichbig == 0) continue;
+            useq_t *parent = whichbig > 0 ? match : query;
+            useq_t *child = whichbig > 0 ? query : match;
+
+            if (clusters == 0) {
+               // If clustering is done by message passing, do not link
+               // pair if counts are on the same order of magnitude.
+               int mincount = child->count;
+               int maxcount = parent->count;
+               if (maxcount < PARENT_TO_CHILD_FACTOR * mincount) continue;
+               pthread_mutex_lock(job->mutex);
+               addmatch(child, parent, dist, tau);
+               pthread_mutex_unlock(job->mutex);
+            }
+            else {
+               pthread_mutex_lock(job->mutex);
+               addmatch(parent, child, dist, tau);
+               pthread_mutex_unlock(job->mutex);
+            }
          }
       }
       start = trail;
@@ -247,7 +271,8 @@ plan_mt
     int       tau,
     int       height,
     int       ntries,
-    gstack_t *useqS
+    gstack_t *useqS,
+    const int clusters
 )
 // SYNOPSIS:                                                              
 //   The scheduler makes the key assumption that the number of tries is   
@@ -313,6 +338,7 @@ plan_mt
          jobs[j].start    = bounds[idx];
          jobs[j].end      = bounds[idx+1]-1;
          jobs[j].tau      = tau;
+         jobs[j].clusters = clusters;
          jobs[j].build    = only_if_first_job;
          jobs[j].useqS    = useqS;
          jobs[j].trie     = local_trie;
@@ -337,14 +363,58 @@ plan_mt
 
 }
 
+
+
+
 void
-print_output
+sphere_clustering
 (
    gstack_t *useqS,
    const int maxthreads
 )
 {
+   // Sort in count order.
+   qsort(useqS->items, useqS->nitems, sizeof(useq_t *), count_order);
+   for (int i = 0 ; i < useqS->nitems ; i++) {
+      suck_counts((useq_t *) useqS->items[i]);
+   }
 
+   // Sort in canonical order.
+   mergesort(useqS->items, useqS->nitems, canonical_order, maxthreads);
+
+   useq_t *first = (useq_t *) useqS->items[0];
+   useq_t *canonical = first->canonical;
+
+   fprintf(OUTPUT, "%s\t%d\t%s",
+      first->canonical->seq, first->canonical->count, first->seq);
+
+   for (int i = 1 ; i < useqS->nitems ; i++) {
+      useq_t *u = (useq_t *) useqS->items[i];
+      if (u->canonical == NULL) abort();
+      if (u->canonical != canonical) {
+         canonical = u->canonical;
+         fprintf(OUTPUT, "\n%s\t%d\t%s",
+               canonical->seq, canonical->count, u->seq);
+      }
+      else {
+         fprintf(OUTPUT, ",%s", u->seq);
+      }
+   }
+
+   fprintf(OUTPUT, "\n");
+
+   return;
+
+}
+
+
+void
+message_passing_clustering
+(
+   gstack_t *useqS,
+   const int maxthreads
+)
+{
    // Transfer counts to parents recursively.
    for (int i = 0 ; i < useqS->nitems ; i++) {
       useq_t *u = (useq_t *) useqS->items[i];
@@ -353,8 +423,8 @@ print_output
 
    // Sort in canonical order.
    mergesort(useqS->items, useqS->nitems, canonical_order, maxthreads);
-   useq_t *canonical = ((useq_t *) useqS->items[0])->canonical;
    useq_t *first = (useq_t *) useqS->items[0];
+   useq_t *canonical = first->canonical;
 
    // If the first canonical is NULL they all are.
    if (first->canonical == NULL) return;
@@ -373,9 +443,6 @@ print_output
       else {
          fprintf(OUTPUT, ",%s", u->seq);
       }
-      // Do not show sequences with 0 count.
-      //if (u->count == 0) break;
-      //fprintf(OUTPUT, "%s\t%d\n", u->seq, u->count);
    }
 
    fprintf(OUTPUT, "\n");
@@ -451,6 +518,7 @@ _mergesort
             nullj++;
             j++;
          }
+         // Insert 'NULL' when comparison returns 0.
          else if ((cmp = sortargs->compar(l[i],r[j])) == 0) {
             j++;
             repeats++;
@@ -465,7 +533,6 @@ _mergesort
             for (n = 0; n < nulli; n++)
                buf[idx++] = NULL;
             nulli = 0;
-
             buf[idx++] = l[i++];
          }
          else {
@@ -473,7 +540,6 @@ _mergesort
             for (n = 0; n < nullj; n++)
                buf[idx++] = NULL;
             nullj = 0;
-
             buf[idx++] = r[j++];
          }
       }
@@ -513,6 +579,7 @@ mergesort
    free(buffer);
    
    return numels - args.repeats;
+
 }
 
 
@@ -633,7 +700,7 @@ transfer_counts_and_update_canonicals
    useq_t *useq
 )
 {
-   // If the read is a canonical do nothing.
+   // If the read is canonical do nothing.
    if (useq->matches == NULL) {
       useq->canonical = useq;
       return;
@@ -682,33 +749,56 @@ transfer_counts_and_update_canonicals
    }
 
    useq->canonical = canonical;
+
    return;
 
 }
 
 
 void
+suck_counts
+(
+   useq_t *useq
+)
+{
+   // This sequence has been claimed already.
+   if (useq->canonical != NULL) return;
+
+   useq->canonical = useq;
+   if (useq->matches == NULL) return;
+
+   gstack_t *matches;
+   for (int i = 0 ; (matches = useq->matches[i]) != TOWER_TOP ; i++) {
+      for (int j = 0 ; j < matches->nitems ; j++) {
+         match_t *match = (match_t *) matches->items[j];
+         useq->count += match->useq->count;
+         match->useq->count = 0;
+         match->useq->canonical = useq;
+      }
+   }
+   return;
+}
+
+
+void
 addmatch
 (
-   useq_t * u1,
-   useq_t * u2,
+   useq_t * from,
+   useq_t * to,
    int      dist,
    int      tau
 )
 {
    if (dist > tau) abort();
-   // Add match to the sequence with least count.
-   useq_t *parent = u1->count > u2->count ? u1 : u2;
-   useq_t *child = u1->count > u2->count ? u2 : u1;
    // Create stack if not done before.
-   if (child->matches == NULL) child->matches = new_tower(tau+1);
+   if (from->matches == NULL) from->matches = new_tower(tau+1);
    // Create match.
    match_t *match = malloc(sizeof(match_t));
    if (match == NULL) abort();
    match->dist = dist;
-   match->useq  = parent;
+   match->useq = to;
    // Push match to child stack.
-   push(match, child->matches + dist);
+   push(match, from->matches + dist);
 }
 
 
@@ -729,6 +819,19 @@ canonical_order
    }
    if (u1->canonical->count > u2->canonical->count) return -1;
    return 1;
+} 
+
+
+int
+count_order
+(
+   const void *a,
+   const void *b
+)
+{
+   int Ca = ((useq_t *) a)->count;
+   int Cb = ((useq_t *) b)->count;
+   return (Ca < Cb) - (Ca > Cb);
 } 
 
 

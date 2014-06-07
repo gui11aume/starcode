@@ -881,7 +881,7 @@ test_starcode_1
    g_assert(case_2->matches == NULL);
    g_assert(case_2->canonical == NULL);
 
-   addmatch(case_1, case_2, 1, 2);
+   addmatch(case_2, case_1, 1, 2);
 
    g_assert(case_1->matches == NULL);
    g_assert(case_2->matches != NULL);
@@ -901,14 +901,14 @@ test_starcode_2
 (void)
 // Test 'mergesort()'.
 {
-   char *to_sort[] = {
+   char *to_sort_1[] = {
       "IRrLv<'*3S?UU<JF4S<,", "tcKvz5JTm!h*X0mSTg",
       "tW:0K&Mvtax<PP/qY6er", "hcU+f!=`.Xs6[a,C7XpN",
       ":3ILp'w?)f]4(a;mf%A9", "RlEF',$6[}ouJQyWqqT#",
       "U Ct`3w8(#KAE+z;vh,",  "[S^jXvNS VP' cwg~_iq",
       ".*/@*Q/]]}32kNB#`qqv", "#`Hwp(&,z|bN~07CSID'",
    };
-   const char *sorted[] = {
+   const char *sorted_1[] = {
       "#`Hwp(&,z|bN~07CSID'", ".*/@*Q/]]}32kNB#`qqv",
       ":3ILp'w?)f]4(a;mf%A9", "IRrLv<'*3S?UU<JF4S<,",
       "RlEF',$6[}ouJQyWqqT#", "U Ct`3w8(#KAE+z;vh,",
@@ -916,9 +916,18 @@ test_starcode_2
       "tW:0K&Mvtax<PP/qY6er", "tcKvz5JTm!h*X0mSTg",
    };
 
-   mergesort((void **) to_sort, 10, AtoZ, 1);
+   mergesort((void **) to_sort_1, 10, AtoZ, 1);
    for (int i = 0 ; i < 10 ; i++) {
-      g_assert_cmpstr(to_sort[i], ==, sorted[i]);
+      g_assert_cmpstr(to_sort_1[i], ==, sorted_1[i]);
+   }
+
+   char *to_sort_2[] = {
+      "repeated", "repeated", "repeated", "repeated", "repeated", "xyz"
+   };
+
+   mergesort((void **) to_sort_2, 6, AtoZ, 1);
+   for (int i = 0 ; i < 6 ; i++) {
+      g_assert_cmpstr(to_sort_2[i], ==, to_sort_2[i]);
    }
 
    return;

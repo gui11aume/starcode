@@ -7,8 +7,8 @@
 #include "starcode.h"
 
 // -- DECLARATION OF PRIVATE FUNCTIONS FROM trie.c -- //
-int get_maxtau(node_t*);
-int get_height(node_t*);
+int get_maxtau(trie_t*);
+int get_height(trie_t*);
 node_t *insert (node_t *, int, unsigned char);
 void init_milestones(node_t*);
 node_t *new_trienode(char);
@@ -23,13 +23,16 @@ int canonical_order(const void*, const void*);
 
 
 typedef struct {
-   node_t *trie;
+   trie_t *trie;
 } fixture;
 
 
 // Convenience functions.
-int visit(node_t*, char*, int);
-char *to_string (node_t *trie, char* s) { visit(trie, s, 0); return s; }
+int visit(node_t*, char*, int, int, int);
+char *to_string (trie_t *trie, char* s) {
+   visit(trie->root, s, 0, get_height(trie), 0);
+   return s;
+}
 void reset(gstack_t **g) {
    for (int i = 0 ; g[i] != TOWER_TOP ; i++) g[i]->nitems = 0;
 }
@@ -39,13 +42,19 @@ visit
 (
    node_t *node,
    char *buff,
-   int j
+   int j,
+   int maxdepth,
+   int depth
 )
 {
    for (int i = 0 ; i < 6 ; i++) {
       if (node->child[i] != NULL) {
          buff[j++] = untranslate[i];
-         j = visit(node->child[i], buff, j);
+         if (depth < maxdepth-1) {
+            node_t *child = (node_t *) node->child[i];
+            j = visit(child, buff, j, maxdepth, depth+1);
+         }
+         else buff[j++] = '*';
       }
    }
    buff[j++] = '*';
@@ -125,15 +134,15 @@ setup(
 
 
    f->trie = new_trie(3, 20);
-   if (f->trie == NULL || f->trie->data == NULL) {
+   if (f->trie == NULL) {
       g_error("failed to initialize fixture\n");
    }
    for (int i = 0 ; i < 22 ; i++) {
-      node_t *node = insert_string(f->trie, string[i]);
+      void **data = insert_string(f->trie, string[i]);
       // Set node data to non 'NULL'.
-      if (node != NULL) {
+      if (data != NULL) {
          // Set the 'data' pointer to self.
-         node->data = node;
+         *data = data;
       }
       else {
          g_warning("error during fixture initialization\n");
@@ -221,16 +230,17 @@ test_base_1
    // Test trie creation and destruction.
    for (char maxtau = 0 ; maxtau < 9 ; maxtau++) {
    for (int height = 0 ; height < M ; height++) {
-      node_t *trie = new_trie(maxtau, height);
+      trie_t *trie = new_trie(maxtau, height);
       g_assert(trie != NULL);
-      g_assert(trie->data != NULL);
+      g_assert(trie->root != NULL);
+      g_assert(trie->info != NULL);
 
       g_assert_cmpint(get_maxtau(trie), ==, maxtau);
       g_assert_cmpint(get_height(trie), ==, height);
 
       // Make sure that 'info' is initialized properly.
-      info_t *info = (info_t *) trie->data;
-      g_assert(((node_t*) *info->milestones[0]->items) == trie);
+      info_t *info = trie->info;
+      g_assert(((node_t*) *info->milestones[0]->items) == trie->root);
       for (int i = 1 ; i < M ; i++) {
          g_assert(info->milestones[i]->items != NULL);
       }
@@ -252,7 +262,6 @@ test_base_2
       node_t *node = new_trienode(maxtau);
       g_assert(node != NULL);
       g_assert(node->cache != NULL);
-      g_assert(node->data == NULL);
       g_assert_cmpint(node->path, ==, 0);
       for (int i = 0 ; i < 6 ; i++) {
          g_assert(node->child[i] == NULL);
@@ -270,13 +279,14 @@ void
 test_base_3
 (void)
 {
-   node_t *trie = new_trie(3, 20);
+   trie_t *trie = new_trie(3, 20);
    g_assert(trie != NULL);
 
+   node_t *root = trie->root;
    for (int i = 0 ; i < 6 ; i++) {
-      node_t *node = insert(trie, i, 3);
+      node_t *node = insert(root, i, 3);
       g_assert(node != NULL);
-      g_assert(trie->child[i] == node);
+      g_assert(root->child[i] == node);
       g_assert_cmpint(node->path, ==, i);
    }
    destroy_trie(trie, NULL);
@@ -288,11 +298,12 @@ void
 test_base_4
 (void)
 {
-   node_t *trie = new_trie(3, 20);
+   trie_t *trie = new_trie(3, 20);
    g_assert(trie != NULL);
 
-   node_t *node = insert_string(trie, "AAAAAAAAAAAAAAAAAAAA");
-   g_assert(node != NULL);
+   void **data = insert_string(trie, "AAAAAAAAAAAAAAAAAAAA");
+   g_assert(data != NULL);
+   *data = data;
    g_assert_cmpint(21, ==, count_nodes(trie));
 
    destroy_trie(trie, NULL);
@@ -532,7 +543,7 @@ test_errmsg
 
    // Check error messages in 'new_trie()'.
    redirect_stderr_to(ERROR_BUFFER);
-   node_t *trie = new_trie(9, 20);
+   trie_t *trie = new_trie(9, 20);
    unredirect_sderr();
    g_assert(trie == NULL);
    g_assert_cmpstr(ERROR_BUFFER, ==,
@@ -543,10 +554,10 @@ test_errmsg
    too_long_string[M+1] = '\0';
    for (int i = 0 ; i < M+1 ; i++) too_long_string[i] = 'A';
    redirect_stderr_to(ERROR_BUFFER);
-   node_t *not_inserted = insert_string(f->trie, too_long_string);
+   void **not_inserted = insert_string(f->trie, too_long_string);
    unredirect_sderr();
    sprintf(string, "error: cannot insert string longer than %d\n",
-         MAXBRCDLEN);
+         get_height(f->trie));
    g_assert(not_inserted == NULL);
    g_assert_cmpstr(ERROR_BUFFER, ==, string);
  
@@ -554,7 +565,7 @@ test_errmsg
    // Check error messages in 'search()'.
    redirect_stderr_to(ERROR_BUFFER);
    err = search(f->trie, "AAAAAAAAAAAAAAAAAAAAA", 3, hits, 0, 0);
-   g_assert_cmpint(err, ==, 65);
+   g_assert_cmpint(err, ==, 80);
    unredirect_sderr();
    g_assert_cmpstr(ERROR_BUFFER, ==,
          "error: query longer than allowed max\n");
@@ -567,7 +578,7 @@ test_errmsg
    redirect_stderr_to(ERROR_BUFFER);
    err = search(f->trie, " TGCTAGGGTACTCGATAAC", 4, hits, 0, 0);
    unredirect_sderr();
-   g_assert_cmpint(err, ==, 59);
+   g_assert_cmpint(err, ==, 74);
    g_assert_cmpstr(ERROR_BUFFER, ==,
          "error: requested tau greater than 'maxtau'\n");
    g_assert_cmpint(hits[0]->nitems, ==, 0);
@@ -578,13 +589,12 @@ test_errmsg
    // Force 'malloc()' to fail and check error messages of constructors.
    redirect_stderr_to(ERROR_BUFFER);
    set_alloc_failure_rate_to(1);
-   node_t *trie_fail = new_trie(3, 20);
+   trie_t *trie_fail = new_trie(3, 20);
    reset_alloc();
    unredirect_sderr();
    g_assert(trie_fail == NULL);
    g_assert_cmpint(check_trie_error_and_reset(), > , 0);
    g_assert_cmpstr(ERROR_BUFFER, ==,
-      "error: could not create trie node\n"
       "error: could not create trie\n");
 
    redirect_stderr_to(ERROR_BUFFER);
@@ -635,7 +645,7 @@ test_mem_1(
    char seq[9];
    seq[8] = '\0';
 
-   node_t *trie = new_trie(8, 8);
+   trie_t *trie = new_trie(8, 8);
    g_assert(trie != NULL);
 
    gstack_t **hits = new_tower(9);
@@ -648,9 +658,9 @@ test_mem_1(
       for (int j = 0 ; j < 8 ; j++) {
          seq[j] = untranslate[(int)(5 * drand48())];
       }
-      node_t *node = insert_string(trie, seq);
-      g_assert(node != NULL);
-      node->data = node;
+      void **data = insert_string(trie, seq);
+      g_assert(data != NULL);
+      *data = data;
    }
 
    // Search with failure in 'malloc()'.
@@ -692,7 +702,7 @@ test_mem_2(
 
    redirect_stderr_to(ERROR_BUFFER);
    for (int i = 0 ; i < 1000 ; i++) {
-      node_t *trie = new_trie(3, 20);
+      trie_t *trie = new_trie(3, 20);
       if (trie == NULL) {
          // Make sure errors are reported.
          g_assert_cmpint(check_trie_error_and_reset(), >, 0);
@@ -702,15 +712,16 @@ test_mem_2(
          for (int k = 0 ; k < 20 ; k++) {
             seq[k] = untranslate[(int)(5 * drand48())];
          }
-         node_t *node = insert_string(trie, seq);
-         if (node == NULL) {
+         void **data = insert_string(trie, seq);
+         if (data == NULL) {
             // Make sure errors are reported.
             g_assert_cmpint(check_trie_error_and_reset(), >, 0);
          }
          else {
             // This can fail, but should not cause problem
             // when the trie is destroyed.
-            node->data = malloc(sizeof(char));
+            g_assert(*data == NULL);
+            *data = malloc(sizeof(char));
          }
       }
       destroy_trie(trie, free);
@@ -731,7 +742,7 @@ test_mem_3(
 {
    // The variable 'trie' and 'hstack' are initialized
    // without 'malloc()' failure.
-   node_t *trie = new_trie(3, 20);
+   trie_t *trie = new_trie(3, 20);
    g_assert(trie != NULL);
 
    gstack_t **hits = new_tower(4);
@@ -765,12 +776,12 @@ test_mem_3(
       for (int j = 0 ; j < 20 ; j++) {
          seq[j] = untranslate[(int)(5 * drand48())];
       }
-      node_t *node = insert_string(trie, seq);
-      if (node == NULL) {
+      void **data = insert_string(trie, seq);
+      if (data == NULL) {
          g_assert_cmpint(check_trie_error_and_reset(), > , 0);
       }
       else {
-         node->data = node;
+         *data = data;
       }
    }
 
@@ -797,7 +808,7 @@ test_mem_4(
 // NOTE: It may be that the 'g_assert()' functions call 'malloc()'
 // in which case I am not sure what may sometimes happen.
 {
-   node_t *trie;
+   trie_t *trie;
    node_t *trienode;
    gstack_t *gstack;
    gstack_t **tower;
@@ -885,9 +896,6 @@ test_starcode_1
 
    g_assert(case_1->matches == NULL);
    g_assert(case_2->matches != NULL);
-   match_t *match = (match_t *) case_2->matches[1]->items[0];
-   g_assert_cmpint(match->dist, ==, 1);
-   g_assert(match->useq == case_1);
 
    destroy_useq(case_1);
    destroy_useq(case_2);
@@ -924,10 +932,13 @@ test_starcode_2
    char *to_sort_2[] = {
       "repeated", "repeated", "repeated", "repeated", "repeated", "xyz"
    };
+   char *sorted_2[] = {
+      NULL, NULL, NULL, NULL, "repeated", "xyz"
+   };
 
    mergesort((void **) to_sort_2, 6, AtoZ, 1);
    for (int i = 0 ; i < 6 ; i++) {
-      g_assert_cmpstr(to_sort_2[i], ==, to_sort_2[i]);
+      g_assert_cmpstr(to_sort_2[i], ==, sorted_2[i]);
    }
 
    return;

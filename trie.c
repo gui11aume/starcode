@@ -7,8 +7,8 @@
 int ERROR = 0;
 
 // Here functions.
-int get_maxtau(node_t *root) { return ((info_t *)root->data)->maxtau; }
-int get_height(node_t *root) { return ((info_t *)root->data)->height; }
+int get_maxtau(trie_t *trie) { return trie->info->maxtau; }
+int get_height(trie_t *trie) { return trie->info->height; }
 
 // --  DECLARATION OF PRIVATE FUNCTIONS  -- //
 
@@ -18,7 +18,9 @@ void dash(node_t*, const int*, struct arg_t);
 // Trie creation and destruction.
 node_t *insert(node_t*, int, unsigned char);
 node_t *new_trienode(unsigned char);
-void destroy_nodes_downstream_of(node_t*, void(*)(void*));
+void destroy_nodes_recursively(node_t*, void(*)(void*), int, int);
+// Snippets.
+int recursive_count_nodes(node_t * node, int, int);
 
 
 // ------  SEARCH FUNCTIONS ------ //
@@ -26,12 +28,12 @@ void destroy_nodes_downstream_of(node_t*, void(*)(void*));
 int
 search
 (
-         node_t   *  trie,
+         trie_t   *  trie,
    const char     *  query,
    const int         tau,
 //         hstack_t ** hits,
          gstack_t ** hits,
-   const int         start,
+         int         start,
    const int         trail
 )
 // SYNOPSIS:                                                              
@@ -69,19 +71,20 @@ search
       // If this is exceeded, the search will try to read from and
       // write to forbidden memory space.
       fprintf(stderr, "error: requested tau greater than 'maxtau'\n");
-      return 59;
+      return 74;
    }
 
    int length = strlen(query);
    if (length > height) {
       fprintf(stderr, "error: query longer than allowed max\n");
-      return 65;
+      return 80;
    }
 
    // Make sure the cache is allocated.
-   info_t *info = trie->data;
+   info_t *info = trie->info;
 
    // Reset the milestones that will be overwritten.
+   start = max(start, 0);
    for (int i = start+1 ; i <= min(trail, height) ; i++) {
       info->milestones[i]->nitems = 0;
    }
@@ -197,10 +200,12 @@ poucet
    node_t *child;
    for (int i = 0 ; i < 6 ; i++) {
       // Skip if current node has no child at this position.
-      if ((child = node->child[i]) == NULL) continue;
+      if ((child = (node_t *) node->child[i]) == NULL) continue;
 
       // Same remark as for parent cache.
-      char *ccache = child->cache + arg.maxtau;
+      char local_cache[] = {9,8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8,9};
+      char *ccache = depth == arg.height ?
+         local_cache + 9 : child->cache + arg.maxtau;
       memcpy(ccache+1, common, arg.maxtau * sizeof(char));
 
       // Horizontal arm of the L (need previous characters).
@@ -224,14 +229,14 @@ poucet
       // Stop searching if 'tau' is exceeded.
       if (ccache[0] > arg.tau) continue;
 
-      // Cache nodes in milestones when trailing.
-      if (depth <= arg.trail) push(child, (arg.milestones)+depth);
-
       // Reached height of the trie: it's a hit!
       if (depth == arg.height) {
          push(child, arg.hits + ccache[0]);
          continue;
       }
+
+      // Cache nodes in milestones when trailing.
+      if (depth <= arg.trail) push(child, (arg.milestones)+depth);
 
       if (depth > arg.trail) {
          // Use 'dash()' if no more mismatches allowed.
@@ -282,12 +287,12 @@ dash
 
    // Early return if the suffix path is broken.
    while ((c = *suffix++) != EOS) {
-      if ((c > 4) || (child = node->child[c]) == NULL) return;
+      if ((c > 4) || (child = (node_t *) node->child[c]) == NULL) return;
       node = child;
    }
 
    // End of query, check whether node is a tail.
-   if (node->data != NULL) push(node, arg.hits + arg.tau);
+   push(node, arg.hits + arg.tau);
 
    return;
 
@@ -297,7 +302,7 @@ dash
 // ------  TRIE CONSTRUCTION AND DESTRUCTION  ------ //
 
 
-node_t *
+trie_t *
 new_trie
 (
    unsigned char maxtau,
@@ -316,7 +321,7 @@ new_trie
 
    if (maxtau > 8) {
       fprintf(stderr, "error: 'maxtau' cannot be greater than 8\n");
-      ERROR = 320;
+      ERROR = 323;
       // DETAIL:                                                         
       // There is an absolute limit at 'tau' = 8 because the struct      
       // member 'path' is encoded as a 32 bit 'int', ie an 8 x 4-bit     
@@ -324,17 +329,24 @@ new_trie
       return NULL;
    }
 
+   trie_t *trie = malloc(sizeof(trie_t *));
+   if (trie == NULL) {
+      fprintf(stderr, "error: could not create trie\n");
+      ERROR = 334;
+      return NULL;
+   }
+
    node_t *root = new_trienode(maxtau);
    if (root == NULL) {
-      fprintf(stderr, "error: could not create trie\n");
-      ERROR = 331;
+      fprintf(stderr, "error: could not create root\n");
+      ERROR = 341;
       return NULL;
    }
 
    info_t *info = malloc(sizeof(info_t));
    if (info == NULL) {
       fprintf(stderr, "error: could not create trie\n");
-      ERROR = 338;
+      ERROR = 348;
       free(root);
       return NULL;
    }
@@ -342,20 +354,21 @@ new_trie
    // Set the values of the meta information.
    info->maxtau = maxtau;
    info->height = height;
-
-   root->data = info;
    info->milestones = new_tower(M);
 
    if (info->milestones == NULL) {
       fprintf(stderr, "error: could not create trie\n");
-      ERROR = 352;
+      ERROR = 360;
       free(info);
       free(root);
       return NULL;
    }
 
    push(root, info->milestones);
-   return root;
+   trie->root = root;
+   trie->info = info;
+
+   return trie;
 
 }
 
@@ -380,12 +393,11 @@ new_trienode
    node_t *node = malloc(sizeof(node_t) + cachesize);
    if (node == NULL) {
       fprintf(stderr, "error: could not create trie node\n");
-      ERROR = 384;
+      ERROR = 395;
       return NULL;
    }
 
    // Set all base values to 0.
-   node->data = NULL;
    node->path = 0;
    for(int i = 0; i < 6; i++) node->child[i] = NULL;
    // Initialize the cache. This is important for the
@@ -396,19 +408,16 @@ new_trienode
 }
 
 
-node_t *
+void **
 insert_string
 (
-         node_t * trie,
+         trie_t * trie,
    const char   * string
 )
 // SYNOPSIS:                                                              
 //   Front end function to fill in a trie. Insert a string from root, or  
 //   simply return the node at the end of the string path if it already   
 //   exists.                                                              
-//   XXX If the empty string is inserted, this will return the root  XXX  
-//   XXX so modifying the 'data' struct member of the resturn value  XXX  
-//   XXX without checking can cause terrible bugs.                   XXX  
 //                                                                        
 // RETURN:                                                                
 //   The leaf node in case of succes, 'NULL' otherwise.                   
@@ -417,39 +426,38 @@ insert_string
    int i;
 
    int nchar = strlen(string);
-   if (nchar > MAXBRCDLEN) {
+   if (nchar > get_height(trie)) {
       fprintf(stderr, "error: cannot insert string longer than %d\n",
-            MAXBRCDLEN);
-      ERROR = 424;
+            get_height(trie));
+      ERROR = 432;
       return NULL;
    }
    
    unsigned char maxtau = get_maxtau(trie);
 
-   // Find existing path and append one node.
-   node_t *node = trie;
-   for (i = 0 ; i < nchar ; i++) {
+   // Find existing path.
+   node_t *node = trie->root;
+   for (i = 0 ; i < nchar-1; i++) {
       node_t *child;
       int c = translate[(int) string[i]];
-      if ((child = node->child[c]) == NULL) {
-         node = insert(node, c, maxtau);
+      if ((child = (node_t *) node->child[c]) == NULL) {
          break;
       }
       node = child;
    }
 
    // Append more nodes.
-   for (i++ ; i < nchar ; i++) {
-      if (node == NULL) {
-         fprintf(stderr, "error: could not insert string\n");
-         ERROR = 446;
-         return NULL;
-      }
+   for ( ; i < nchar-1 ; i++) {
       int c = translate[(int) string[i]];
       node = insert(node, c, maxtau);
+      if (node == NULL) {
+         fprintf(stderr, "error: could not insert string\n");
+         ERROR = 455;
+         return NULL;
+      }
    }
 
-   return node;
+   return node->child + translate[(int) string[nchar-1]];
 
 }
 
@@ -483,7 +491,7 @@ insert
    node_t *child = new_trienode(maxtau);
    if (child == NULL) {
       fprintf(stderr, "error: could not insert node\n");
-      ERROR = 487;
+      ERROR = 494;
       return NULL;
    }
    // Update child path and parent pointer.
@@ -499,7 +507,7 @@ insert
 void
 destroy_trie
 (
-   node_t *trie,
+   trie_t *trie,
    void (*destruct)(void *)
 )
 // SYNOPSIS:                                                              
@@ -522,27 +530,20 @@ destroy_trie
 //   nodes.                                                               
 {
    // Free the milesones.
-   info_t *info = trie->data;
-   destroy_tower(info->milestones);
-//   for (int i = 0 ; i < M ; i++) {
-//      if (info->milestones[i] != NULL) free(info->milestones[i]);
-//   }
-   // Set info to 'NULL' before recursive destruction.
-   // This will prevent 'destroy_nodes_downstream_of()' to
-   // double free it.
-   free(trie->data);
-   trie->data = NULL;
-
-   // ... and bye-bye.
-   destroy_nodes_downstream_of(trie, destruct);
+   destroy_tower(trie->info->milestones);
+   destroy_nodes_recursively(trie->root, destruct, get_height(trie), 0);
+   free(trie->info);
+   free(trie);
 }
 
 
 void
-destroy_nodes_downstream_of
+destroy_nodes_recursively
 (
    node_t *node,
-   void (*destruct)(void *)
+   void (*destruct)(void *),
+   int maxdepth,
+   int depth
 )
 // SYNOPSIS:                                                              
 //   Back end function to free the memory allocated on a trie. It should  
@@ -557,12 +558,17 @@ destroy_nodes_downstream_of
 //   data associated to the tail nodes.                                   
 {  
    if (node != NULL) {
-      for (int i = 0 ; i < 6 ; i++) {
-         destroy_nodes_downstream_of(node->child[i], destruct);
+      if (depth == maxdepth) {
+         if (destruct != NULL) (*destruct)(node);
+         return;
       }
-      if (node->data != NULL && destruct != NULL) (*destruct)(node->data);
+      for (int i = 0 ; i < 6 ; i++) {
+         node_t * child = (node_t *) node->child[i];
+         destroy_nodes_recursively(child, destruct, maxdepth, depth+1);
+      }
       free(node);
    }
+   return;
 }
 
 
@@ -580,7 +586,7 @@ new_gstack
    gstack_t *new = malloc(base_size + extra_size);
    if (new == NULL) {
       fprintf(stderr, "error: could not create gstack\n");
-      ERROR = 622;
+      ERROR = 589;
       return NULL;
    }
    new->nitems = 0;
@@ -597,13 +603,13 @@ new_tower
    gstack_t **new = malloc((height+1) * sizeof(gstack_t *));
    if (new == NULL) {
       fprintf(stderr, "error: could not create tower\n");
-      ERROR = 639;
+      ERROR = 606;
       return NULL;
    }
    for (int i = 0 ; i < height ; i++) {
       new[i] = new_gstack();
       if (new[i] == NULL) {
-         ERROR = 645;
+         ERROR = 612;
          fprintf(stderr, "error: could not initialize tower\n");
          while (--i >= 0) {
             free(new[i]);
@@ -655,7 +661,7 @@ push
          // 'nitems' beyond 'nslots' to lock the stack.
          fprintf(stderr, "error: could not push to gstack\n");
          stack->nitems++;
-         ERROR = 697;
+         ERROR = 664;
          return;
       }
       *stack_addr = stack = ptr;
@@ -679,11 +685,17 @@ int check_trie_error_and_reset(void) {
 }
 
 // Snippet to count nodes of a trie.
-int count_nodes(node_t* node) {
+int count_nodes(trie_t * trie) {
+   return recursive_count_nodes(trie->root, get_height(trie), 0);
+}
+
+int recursive_count_nodes(node_t * node, int maxdepth, int depth) {
    int count = 1;
    for (int i = 0 ; i < 6 ; i++) {
       if (node->child[i] == NULL) continue;
-      count += count_nodes(node->child[i]);
+      node_t *child = (node_t *) node->child[i];
+      count += depth < maxdepth - 1 ?
+         recursive_count_nodes(child, maxdepth, depth+1) : 1;
    }
    return count;
 }

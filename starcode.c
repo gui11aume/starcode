@@ -39,7 +39,8 @@ starcode
    OUTPUT = outputf;
 
    // Get number of tries.
-   const int ntries = 3 * maxthreads + (maxthreads % 2 == 0);
+//   const int ntries = 3 * maxthreads + (maxthreads % 2 == 0);
+   const int ntries = 1;
    // XXX The number of tries must be odd otherwise the     XXX
    // XXX scheduler will make mistakes. So, just in case... XXX
    if (ntries % 2 == 0) abort();
@@ -144,7 +145,7 @@ do_query
    // Unpack arguments.
    mtjob_t  * job      = (mtjob_t*) args;
    gstack_t * useqS    = job->useqS;
-   node_t   * trie     = job->trie;
+   trie_t   * trie     = job->trie;
    int        tau      = job->tau;
    const int  clusters = job->clusters;
 
@@ -158,10 +159,8 @@ do_query
 
    int start = 0;
    for (int i = job->start ; i <= job->end ; i++) {
-      char prefix[MAXBRCDLEN];
       useq_t *query = (useq_t *) useqS->items[i];
 
-      prefix[0] = '\0';
       int trail = 0;
       if (i < job->end) {
          useq_t *next_query = (useq_t *) useqS->items[i+1];
@@ -169,24 +168,23 @@ do_query
          // before the end of the 'char' arrays because all
          // the queries have the same length and are different.
          while (query->seq[trail] == next_query->seq[trail]) {
-            prefix[trail] = query->seq[trail];
             trail++;
          }
-         prefix[trail] = '\0';
       }
 
-      // Insert the prefix in the trie. This is not a tail
-      // node, so the 'data' pointer is left unset.
-      node_t *node;
+      // Insert the new sequence in the trie, but let the
+      // last pointer to NULL so that the query does not
+      // find itself upon search.
+      void **data = NULL;
       if (job->build) {
-         node = insert_string(trie, prefix);
-         if (node == NULL) {
+         data = insert_string(trie, query->seq);
+         if (data == NULL || *data != NULL) {
             fprintf(stderr, "error: cannot build trie (%d)\n",
                   check_trie_error_and_reset());
             abort();
          }
       }
-
+ 
       // Clear hit stack.
       for (int j = 0 ; hits[j] != TOWER_TOP ; j++) hits[j]->nitems = 0;
       int err = search(trie, query->seq, tau, hits, start, trail);
@@ -195,19 +193,9 @@ do_query
          abort();
       }
 
-      // Insert the rest of the new sequence in the trie.
       if (job->build) {
-         node = insert_string(trie, query->seq);
-         if (node == NULL) {
-            fprintf(stderr, "error: cannot build trie (%d)\n",
-                  check_trie_error_and_reset());
-            abort();
-         }
-         // Set the 'data' pointer of the inserted tail node.
-         // NB: 'node' cannot be the root of the trie because
-         // the empty string is never inserted (see the warning
-         // in the code of 'insert_string()'.
-         node->data = query;
+         // Finally set the pointer of the inserted tail node.
+         *data = query;
       }
 
       for (int j = 0 ; hits[j] != TOWER_TOP ; j++) {
@@ -221,9 +209,7 @@ do_query
       // Link matching pairs.
       for (int dist = 0 ; dist < tau+1 ; dist++) {
          for (int j = 0 ; j < hits[dist]->nitems ; j++) {
-            node_t *match_node = (node_t *) hits[dist]->items[j];
-            useq_t *match = (useq_t *) match_node->data;
-
+            useq_t *match = (useq_t *) hits[dist]->items[j];
             int whichbig = count_order(query, match);
             // Do not link hits when counts are equal.
             if (whichbig == 0) continue;
@@ -320,7 +306,7 @@ plan_mt
    for (int i = 0 ; i < ntries; i++) {
       // Remember that 'ntries' is odd.
       int njobs = (ntries+1)/2;
-      node_t *local_trie = new_trie(tau, height);
+      trie_t *local_trie = new_trie(tau, height);
       mtjob_t *jobs = malloc(njobs * sizeof(mtjob_t));
       if (local_trie == NULL || jobs == NULL) abort();
 
@@ -727,22 +713,22 @@ transfer_counts_and_update_canonicals
    // counts can differ by 1. For this reason, the output
    // can be slightly different for different tries numbers.
    for (int i = 0 ; i < matches->nitems ; i++) {
-      match_t *match = (match_t *) matches->items[i];
-      match->useq->count += Q + (i < R);
+      useq_t *match = (useq_t *) matches->items[i];
+      match->count += Q + (i < R);
    }
    // Transfer done.
    useq->count = 0;
 
    // Continue propagation. This will update the canonicals.
    for (int i = 0 ; i < matches->nitems ; i++) {
-      match_t *match = (match_t *) matches->items[i];
-      transfer_counts_and_update_canonicals(match->useq);
+      useq_t *match = (useq_t *) matches->items[i];
+      transfer_counts_and_update_canonicals(match);
    }
 
-   useq_t *canonical = ((match_t *) matches->items[0])->useq->canonical;
+   useq_t *canonical = ((useq_t *) matches->items[0])->canonical;
    for (int i = 1 ; i < matches->nitems ; i++) {
-      match_t *match = (match_t *) matches->items[i];
-      if (match->useq->canonical != canonical) {
+      useq_t *match = (useq_t *) matches->items[i];
+      if (match->canonical != canonical) {
          canonical = NULL;
          break;
       }
@@ -770,10 +756,10 @@ suck_counts
    gstack_t *matches;
    for (int i = 0 ; (matches = useq->matches[i]) != TOWER_TOP ; i++) {
       for (int j = 0 ; j < matches->nitems ; j++) {
-         match_t *match = (match_t *) matches->items[j];
-         useq->count += match->useq->count;
-         match->useq->count = 0;
-         match->useq->canonical = useq;
+         useq_t *match = (useq_t *) matches->items[j];
+         useq->count += match->count;
+         match->count = 0;
+         match->canonical = useq;
       }
    }
    return;
@@ -792,13 +778,7 @@ addmatch
    if (dist > tau) abort();
    // Create stack if not done before.
    if (from->matches == NULL) from->matches = new_tower(tau+1);
-   // Create match.
-   match_t *match = malloc(sizeof(match_t));
-   if (match == NULL) abort();
-   match->dist = dist;
-   match->useq = to;
-   // Push match to child stack.
-   push(match, from->matches + dist);
+   push(to, from->matches + dist);
 }
 
 

@@ -44,6 +44,7 @@ typedef struct mtjob_t mtjob_t;
 
 typedef struct sortargs_t sortargs_t;
 
+
 struct useq_t {
   int              count;
   char          *  seq;
@@ -51,10 +52,6 @@ struct useq_t {
   struct useq_t *  canonical;
 };
 
-struct match_t {
-   struct useq_t  * useq;
-          int       dist;
-};
 
 struct sortargs_t {
    void ** buf0;
@@ -89,7 +86,7 @@ struct mtjob_t {
    int                build;
    int		      clusters;
    gstack_t         * useqS;
-   node_t           * trie;
+   trie_t           * trie;
    pthread_mutex_t  * mutex;
    pthread_cond_t   * monitor;
    int	    	    * jobsdone;

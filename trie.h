@@ -10,13 +10,15 @@
 
 static const char BASES[8] = "ACGTN";
 
-struct node_t;
 struct gstack_t;
 struct info_t;
+struct node_t;
+struct trie_t;
 
 typedef struct gstack_t gstack_t;
 typedef struct info_t info_t;
 typedef struct node_t node_t;
+typedef struct trie_t trie_t;
 
 // Global constants.
 #define PAD 5		   // Position of padding nodes.
@@ -27,12 +29,12 @@ typedef struct node_t node_t;
 gstack_t * const TOWER_TOP;
 
 
-int         search(node_t*, const char*, int, gstack_t**, int, int);
-node_t   *  new_trie(unsigned char, unsigned char);
-node_t   *  insert_string(node_t*, const char*);
-void        destroy_trie(node_t*, void(*)(void *));
+int         search(trie_t*, const char*, int, gstack_t**, int, int);
+trie_t   *  new_trie(unsigned char, unsigned char);
+void     ** insert_string(trie_t*, const char*);
+void        destroy_trie(trie_t*, void(*)(void *));
 int         check_trie_error_and_reset(void);
-int         count_nodes(node_t*);
+int         count_nodes(trie_t*);
 gstack_t *  new_gstack(void);
 gstack_t ** new_tower(int);
 void 	    destroy_tower(gstack_t **);
@@ -70,12 +72,18 @@ struct arg_t {
 };
 
 
+struct trie_t
+{
+   node_t * root;
+   info_t * info;
+};
+
+
 struct node_t
 {
-            void    * data;           // Data (for tail nodes only).
-   struct   node_t  * child[6];       // Array of 6 children pointers.
-            uint32_t  path;           // Encoded path end to the node.
-            char      cache[];        // Dynamic programming space.
+   void     * child[6];       // Array of 6 children pointers.
+   uint32_t   path;           // Encoded path end to the node.
+   char       cache[];        // Dynamic programming space.
 };
 
 struct gstack_t

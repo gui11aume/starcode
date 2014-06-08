@@ -39,8 +39,7 @@ starcode
    OUTPUT = outputf;
 
    // Get number of tries.
-//   const int ntries = 3 * maxthreads + (maxthreads % 2 == 0);
-   const int ntries = 1;
+   const int ntries = 3 * maxthreads + (maxthreads % 2 == 0);
    // XXX The number of tries must be odd otherwise the     XXX
    // XXX scheduler will make mistakes. So, just in case... XXX
    if (ntries % 2 == 0) abort();

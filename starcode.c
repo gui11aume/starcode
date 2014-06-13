@@ -21,7 +21,6 @@ void run_plan(mtplan_t*, int, int);
 mtplan_t *plan_mt(int, int, int, gstack_t*, const int);
 void message_passing_clustering(gstack_t*, int);
 void sphere_clustering(gstack_t*, int);
-void suck_counts(useq_t *);
 
 FILE *OUTPUT = NULL;
 
@@ -209,12 +208,10 @@ do_query
       for (int dist = 0 ; dist < tau+1 ; dist++) {
          for (int j = 0 ; j < hits[dist]->nitems ; j++) {
             useq_t *match = (useq_t *) hits[dist]->items[j];
-            int whichbig = count_order(query, match);
             // Do not link hits when counts are equal.
-            if (whichbig == 0) continue;
-            useq_t *parent = whichbig > 0 ? match : query;
-            useq_t *child = whichbig > 0 ? query : match;
-
+            if (match->count == query->count) continue;
+            useq_t *parent = match->count > query->count ? match : query;
+            useq_t *child = match->count > query->count ? query : match;
             if (clusters == 0) {
                // If clustering is done by message passing, do not link
                // pair if counts are on the same order of magnitude.
@@ -349,8 +346,6 @@ plan_mt
 }
 
 
-
-
 void
 sphere_clustering
 (
@@ -360,33 +355,50 @@ sphere_clustering
 {
    // Sort in count order.
    qsort(useqS->items, useqS->nitems, sizeof(useq_t *), count_order);
+
    for (int i = 0 ; i < useqS->nitems ; i++) {
-      suck_counts((useq_t *) useqS->items[i]);
-   }
+      useq_t *useq = (useq_t *) useqS->items[i];
+      if (useq->canonical != NULL) continue;
+      useq->canonical = useq;
 
-   // Sort in canonical order.
-   mergesort(useqS->items, useqS->nitems, canonical_order, maxthreads);
-
-   useq_t *first = (useq_t *) useqS->items[0];
-   useq_t *canonical = first->canonical;
-
-   fprintf(OUTPUT, "%s\t%d\t%s",
-      first->canonical->seq, first->canonical->count, first->seq);
-
-   for (int i = 1 ; i < useqS->nitems ; i++) {
-      useq_t *u = (useq_t *) useqS->items[i];
-      if (u->canonical == NULL) abort();
-      if (u->canonical != canonical) {
-         canonical = u->canonical;
-         fprintf(OUTPUT, "\n%s\t%d\t%s",
-               canonical->seq, canonical->count, u->seq);
-      }
-      else {
-         fprintf(OUTPUT, ",%s", u->seq);
+      gstack_t *matches;
+      for (int i = 0 ; (matches = useq->matches[i]) != TOWER_TOP ; i++) {
+         for (int j = 0 ; j < matches->nitems ; j++) {
+            useq_t *match = (useq_t *) matches->items[j];
+            match->canonical = useq;
+            useq->count += match->count;
+            match->count = 0;
+         }
       }
    }
 
-   fprintf(OUTPUT, "\n");
+   // Sort in count order after update.
+   qsort(useqS->items, useqS->nitems, sizeof(useq_t *), count_order);
+
+   for (int i = 0 ; i < useqS->nitems ; i++) {
+
+      useq_t *useq = (useq_t *) useqS->items[i];
+      if (useq->canonical != useq) break;
+
+      fprintf(OUTPUT, "%s\t", useq->seq);
+      if (useq->matches == NULL) {
+         fprintf(OUTPUT, "%d\t%s\n", useq->count, useq->seq);
+         continue;  
+      }
+
+      fprintf(OUTPUT, "%d\t%s", useq->count, useq->seq);
+
+      gstack_t *matches;
+      for (int i = 0 ; (matches = useq->matches[i]) != TOWER_TOP ; i++) {
+         for (int j = 0 ; j < matches->nitems ; j++) {
+            useq_t *match = (useq_t *) matches->items[j];
+            fprintf(OUTPUT, ",%s", match->seq);
+         }
+      }
+
+      fprintf(OUTPUT, "\n");
+
+   }
 
    return;
 
@@ -741,31 +753,6 @@ transfer_counts_and_update_canonicals
 
 
 void
-suck_counts
-(
-   useq_t *useq
-)
-{
-   // This sequence has been claimed already.
-   if (useq->canonical != NULL) return;
-
-   useq->canonical = useq;
-   if (useq->matches == NULL) return;
-
-   gstack_t *matches;
-   for (int i = 0 ; (matches = useq->matches[i]) != TOWER_TOP ; i++) {
-      for (int j = 0 ; j < matches->nitems ; j++) {
-         useq_t *match = (useq_t *) matches->items[j];
-         useq->count += match->count;
-         match->count = 0;
-         match->canonical = useq;
-      }
-   }
-   return;
-}
-
-
-void
 addmatch
 (
    useq_t * from,
@@ -808,8 +795,8 @@ count_order
    const void *b
 )
 {
-   int Ca = ((useq_t *) a)->count;
-   int Cb = ((useq_t *) b)->count;
+   int Ca = (*(useq_t **) a)->count;
+   int Cb = (*(useq_t **) b)->count;
    return (Ca < Cb) - (Ca > Cb);
 } 
 

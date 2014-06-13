@@ -25,7 +25,7 @@ typedef struct trie_t trie_t;
 #define EOS -1             // End Of String, for 'dash()'.
 #define MAXBRCDLEN 127     // Maximum barcode length.
 #define M 128              // MAXBRCDLEN + 1, for short.
-#define STACK_INIT_SIZE 32 // Initial space for 'nstack' and 'hstack'
+#define STACK_INIT_SIZE 16 // Initial space for 'nstack' and 'hstack'
 gstack_t * const TOWER_TOP;
 
 

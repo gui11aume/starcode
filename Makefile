@@ -5,7 +5,7 @@ CC= gcc
 
 all: starcode
 
-starcode: $(OBJECTS) main-starcode.c
+starcode: $(OBJECTS) main-starcode.c 
 
 clean:
 	rm -f $(OBJECTS) starcode

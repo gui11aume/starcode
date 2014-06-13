@@ -449,6 +449,58 @@ message_passing_clustering
 }
 
 
+int
+mergesort
+(
+ void **data,
+ int numels,
+ int (*compar)(const void*, const void*),
+ int maxthreads
+)
+// SYNOPSIS:                                                              
+//   This function implements a recursive multithreaded mergesort algorithm.
+//   The data is provided as an array of pointers and the content of each
+//   array position is passed to the comparison function 'compar'. 
+//   The repeated elements (compar return '0') are freed (disabled for speed)
+//   from memory and their addresses are set to NULL in data. One can compute
+//   the number of repeats for each element by counting the preceding number of
+//   NULL addresses.
+//                                                                        
+// PARAMETERS:                                                            
+//   data:       an array of pointers to each element.
+//   numels:     number of elements, i.e. size of 'data'.
+//   compar:     pointer to the comparison function.
+//   maxthreads: number of threads.
+//                                                                        
+// RETURN:                                                                
+//   Returns the number of unique elements.
+//                                                                        
+// SIDE EFFECTS:                                                          
+//   Pointers to repeated elements are set to NULL.
+{
+   // Copy to buffer.
+   void **buffer = malloc(numels * sizeof(void *));
+   memcpy(buffer, data, numels * sizeof(void *));
+
+   // Prepare args struct.
+   sortargs_t args;
+   args.buf0   = data;
+   args.buf1   = buffer;
+   args.size   = numels;
+   args.b      = 0; // Important so that sorted elements end in data (not in buffer).
+   args.thread = 0;
+   args.repeats = 0;
+   args.compar = compar;
+   while ((maxthreads >> (args.thread + 1)) > 0) args.thread++;
+
+   _mergesort(&args);
+
+   free(buffer);
+   
+   return numels - args.repeats;
+
+}
+
 void *
 _mergesort
 (
@@ -544,38 +596,6 @@ _mergesort
    }
    
    return NULL;
-
-}
-
-int
-mergesort
-(
- void **data,
- int numels,
- int (*compar)(const void*, const void*),
- int maxthreads
-)
-{
-   // Copy to buffer.
-   void **buffer = malloc(numels * sizeof(void *));
-   memcpy(buffer, data, numels * sizeof(void *));
-
-   // Prepare args struct.
-   sortargs_t args;
-   args.buf0   = data;
-   args.buf1   = buffer;
-   args.size   = numels;
-   args.b      = 0; // Important so that sorted elements end in data (not in buffer).
-   args.thread = 0;
-   args.repeats = 0;
-   args.compar = compar;
-   while ((maxthreads >> (args.thread + 1)) > 0) args.thread++;
-
-   _mergesort(&args);
-
-   free(buffer);
-   
-   return numels - args.repeats;
 
 }
 

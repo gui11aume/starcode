@@ -360,11 +360,12 @@ sphere_clustering
       useq_t *useq = (useq_t *) useqS->items[i];
       if (useq->canonical != NULL) continue;
       useq->canonical = useq;
+      if (useq->matches == NULL) continue;
 
       gstack_t *matches;
-      for (int i = 0 ; (matches = useq->matches[i]) != TOWER_TOP ; i++) {
-         for (int j = 0 ; j < matches->nitems ; j++) {
-            useq_t *match = (useq_t *) matches->items[j];
+      for (int j = 0 ; (matches = useq->matches[j]) != TOWER_TOP ; j++) {
+         for (int k = 0 ; k < matches->nitems ; k++) {
+            useq_t *match = (useq_t *) matches->items[k];
             match->canonical = useq;
             useq->count += match->count;
             match->count = 0;
@@ -389,9 +390,9 @@ sphere_clustering
       fprintf(OUTPUT, "%d\t%s", useq->count, useq->seq);
 
       gstack_t *matches;
-      for (int i = 0 ; (matches = useq->matches[i]) != TOWER_TOP ; i++) {
-         for (int j = 0 ; j < matches->nitems ; j++) {
-            useq_t *match = (useq_t *) matches->items[j];
+      for (int j = 0 ; (matches = useq->matches[j]) != TOWER_TOP ; j++) {
+         for (int k = 0 ; k < matches->nitems ; k++) {
+            useq_t *match = (useq_t *) matches->items[k];
             fprintf(OUTPUT, ",%s", match->seq);
          }
       }
@@ -458,22 +459,22 @@ mergesort
  int maxthreads
 )
 // SYNOPSIS:                                                              
-//   This function implements a recursive multithreaded mergesort algorithm.
-//   The data is provided as an array of pointers and the content of each
-//   array position is passed to the comparison function 'compar'. 
-//   The repeated elements (compar return '0') are freed (disabled for speed)
-//   from memory and their addresses are set to NULL in data. One can compute
-//   the number of repeats for each element by counting the preceding number of
-//   NULL addresses.
+//   This function implements a recursive multithreaded mergesort algo-   
+//   rithm. The data is provided as an array of pointers and the content  
+//   of each array position is passed to the function 'compar()'. The     
+//   repeated elements ('compar()' returns 0) are freed (disabled for     
+//   speed) from memory and their addresses are set to NULL in data. One  
+//   can compute the number of repeats for each element by counting the   
+//   preceding number of NULL addresses.                                  
 //                                                                        
 // PARAMETERS:                                                            
-//   data:       an array of pointers to each element.
-//   numels:     number of elements, i.e. size of 'data'.
-//   compar:     pointer to the comparison function.
-//   maxthreads: number of threads.
+//   data:       an array of pointers to each element.                    
+//   numels:     number of elements, i.e. size of 'data'.                 
+//   compar:     pointer to the comparison function.                      
+//   maxthreads: number of threads.                                       
 //                                                                        
 // RETURN:                                                                
-//   Returns the number of unique elements.
+//   Returns the number of unique elements.                               
 //                                                                        
 // SIDE EFFECTS:                                                          
 //   Pointers to repeated elements are set to NULL.
@@ -606,25 +607,42 @@ read_file
    FILE *inputf
 )
 {
-   gstack_t *seqS = new_gstack();
+   char *seq = NULL;
+   char copy[MAXBRCDLEN];
    ssize_t nread;
-   size_t nchar = MAXBRCDLEN;
-   char *seq = malloc(MAXBRCDLEN * sizeof(char));
+   size_t nchar = M;
+   gstack_t *seqS = new_gstack();
+   if (seqS == NULL) abort();
+   char *line = malloc(M * sizeof(char));
+   if (line == NULL) abort();
+   int count = 0;
+
    // Read sequences from input file and store in an array. Assume
    // that it contains one sequence per line and nothing else. 
-   while ((nread = getline(&seq, &nchar, inputf)) != -1) {
+   while ((nread = getline(&line, &nchar, inputf)) != -1) {
+      // Skip fasta header lines.
+      if (line[0] == '>') continue;
       // Strip end of line character.
-      if (seq[nread-1] == '\n') seq[nread-1] = '\0';
-      // Copy and push to stack.
-      char *new = malloc(nread * sizeof(char));
-      if (new == NULL) abort();
-      strncpy(new, seq, nread);
-      push(new, &seqS);
+      if (line[nread-1] == '\n') line[nread-1] = '\0';
+      if (sscanf(line, "%s\t%d", copy, &count) != 2) {
+         count = 1;
+         seq = line;
+      }
+      else {
+         seq = copy;
+      }
+      if (strlen(seq) > MAXBRCDLEN) abort();
+      for (int i = 0 ; i < count ; i++) {
+         // Copy and push to stack.
+         char *new = malloc((strlen(seq)+1) * sizeof(char));
+         if (new == NULL) abort();
+         strncpy(new, seq, strlen(seq)+1);
+         push(new, &seqS);
+      }
    }
-   free(seq);
+   free(line);
    return seqS;
 }
-
 
 
 gstack_t *
@@ -650,6 +668,8 @@ seq2useq
    }
    return useqS;
 }
+
+
 
 
 int

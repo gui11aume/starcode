@@ -20,6 +20,7 @@ useq_t *new_useq(int, char *);
 gstack_t *seq2useq(gstack_t*, int);
 void transfer_counts_and_update_canonicals(useq_t*);
 int canonical_order(const void*, const void*);
+int seqsort (void **, int, int (*)(const void*, const void*), int);
 
 
 typedef struct {
@@ -907,7 +908,7 @@ test_starcode_1
 void
 test_starcode_2
 (void)
-// Test 'mergesort()'.
+// Test 'seqsort()'.
 {
    char *to_sort_1[] = {
       "IRrLv<'*3S?UU<JF4S<,", "tcKvz5JTm!h*X0mSTg",
@@ -924,7 +925,7 @@ test_starcode_2
       "tW:0K&Mvtax<PP/qY6er", "tcKvz5JTm!h*X0mSTg",
    };
 
-   mergesort((void **) to_sort_1, 10, AtoZ, 1);
+   seqsort((void **) to_sort_1, 10, AtoZ, 1);
    for (int i = 0 ; i < 10 ; i++) {
       g_assert_cmpstr(to_sort_1[i], ==, sorted_1[i]);
    }
@@ -936,7 +937,7 @@ test_starcode_2
       NULL, NULL, NULL, NULL, "repeated", "xyz"
    };
 
-   mergesort((void **) to_sort_2, 6, AtoZ, 1);
+   seqsort((void **) to_sort_2, 6, AtoZ, 1);
    for (int i = 0 ; i < 6 ; i++) {
       g_assert_cmpstr(to_sort_2[i], ==, sorted_2[i]);
    }

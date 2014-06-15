@@ -98,8 +98,6 @@ int starcode(FILE*, FILE*, const int, const int, const int, const int);
 int tquery(FILE*, FILE*, FILE*, const int, const int, const int, const int);
 void * tquery_thread(void*);
 int bisection(int,int,char*,useq_t**,int,int);
-void * _mergesort(void *);
-int mergesort(void **, int, int (*)(const void*, const void*), int);
 match_t * new_match(useq_t *,int);
 
 #endif

@@ -5,4 +5,5 @@ make
 ./starcode test_file.txt
 
 On Mac, the above will work in the terminal if xcode is installed
-(available from the Mac appstore).
+(available from the Mac appstore). Compilation will produce a bunch
+of warnings, but running the example above should work.

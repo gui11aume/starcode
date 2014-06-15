@@ -21,6 +21,9 @@ void run_plan(mtplan_t*, int, int);
 mtplan_t *plan_mt(int, int, int, gstack_t*, const int);
 void message_passing_clustering(gstack_t*, int);
 void sphere_clustering(gstack_t*, int);
+void * _mergesort(void *);
+int seqsort (void **, int, int (*)(const void*, const void*), int);
+
 
 FILE *OUTPUT = NULL;
 
@@ -420,7 +423,7 @@ message_passing_clustering
    }
 
    // Sort in canonical order.
-   mergesort(useqS->items, useqS->nitems, canonical_order, maxthreads);
+   seqsort(useqS->items, useqS->nitems, canonical_order, maxthreads);
    useq_t *first = (useq_t *) useqS->items[0];
    useq_t *canonical = first->canonical;
 
@@ -451,7 +454,7 @@ message_passing_clustering
 
 
 int
-mergesort
+seqsort
 (
  void **data,
  int numels,
@@ -632,6 +635,12 @@ read_file
          seq = copy;
       }
       if (strlen(seq) > MAXBRCDLEN) abort();
+      // TODO: This patch is a bit silly because it creates one
+      // sequence (as an array of 'char') for every count. This take
+      // time because of 'malloc()' and memory because the pointers are
+      // lost in 'seqsort()'. Ideally, the 'useq' should be created
+      // here, but the code of 'seqsort()' has to be updated to
+      // deal with this case.
       for (int i = 0 ; i < count ; i++) {
          // Copy and push to stack.
          char *new = malloc((strlen(seq)+1) * sizeof(char));
@@ -653,7 +662,7 @@ seq2useq
 )
 {
    // Sort sequences, count and compact them.
-   mergesort(seqS->items, seqS->nitems, AtoZ, maxthreads);
+   seqsort(seqS->items, seqS->nitems, AtoZ, maxthreads);
    gstack_t *useqS = new_gstack();
    if (useqS == NULL) abort();
    

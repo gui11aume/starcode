@@ -11,11 +11,11 @@ transit = {
       'G': ('C', 'T', 'A',),
       'C': ('A', 'T', 'G',),
 }
-numbrcd = 100
-brcdlen = 40
-tau = 3
-ncanon = 47
-nmut = 3
+numbrcd = 5
+brcdlen = 20
+tau = 2
+ncanon = 6
+nmut = 1
 
 seq = []
 for i in range(numbrcd):

@@ -1,2 +1,8 @@
+Starcode is tested on Linux and Mac. It has not been tested on Windows.
+Compile the usual way with `make` on Linux.
+
 make
-time ./starcode test/input_test_file | head
+./starcode test_file.txt
+
+On Mac, the above will work in the terminal if xcode is installed
+(available from the Mac appstore).

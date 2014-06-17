@@ -10,7 +10,7 @@
 int get_maxtau(trie_t*);
 int get_height(trie_t*);
 node_t *insert (node_t *, int, unsigned char);
-void init_milestones(node_t*);
+void init_pebbles(node_t*);
 node_t *new_trienode(char);
 // -- DECLARATION OF PRIVATE FUNCTIONS FROM starcode.c -- //
 int AtoZ(const void *a, const void *b);
@@ -241,9 +241,9 @@ test_base_1
 
       // Make sure that 'info' is initialized properly.
       info_t *info = trie->info;
-      g_assert(((node_t*) *info->milestones[0]->items) == trie->root);
+      g_assert(((node_t*) *info->pebbles[0]->items) == trie->root);
       for (int i = 1 ; i < M ; i++) {
-         g_assert(info->milestones[i]->items != NULL);
+         g_assert(info->pebbles[i]->items != NULL);
       }
       destroy_trie(trie, NULL);
       trie = NULL;

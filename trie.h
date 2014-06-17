@@ -62,7 +62,7 @@ static const int altranslate[256] = {
 struct arg_t {
 //   hstack_t ** hits;
    gstack_t ** hits;
-   gstack_t ** milestones;
+   gstack_t ** pebbles;
    char        tau;
    char        maxtau;
    int       * query;
@@ -98,7 +98,7 @@ struct info_t
 {
    unsigned char        maxtau;         // Max distance the trie can take.
             int         height;         // Critical depth with all hits.
-   struct   gstack_t ** milestones;     // Milestones for trail search.
+   struct   gstack_t ** pebbles;        // White pebbles for the search.
 };
 
 #endif

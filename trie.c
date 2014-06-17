@@ -83,10 +83,10 @@ search
    // Make sure the cache is allocated.
    info_t *info = trie->info;
 
-   // Reset the milestones that will be overwritten.
+   // Reset the pebbles that will be overwritten.
    start = max(start, 0);
    for (int i = start+1 ; i <= min(trail, height) ; i++) {
-      info->milestones[i]->nitems = 0;
+      info->pebbles[i]->nitems = 0;
    }
 
    // Translate the query string. The first 'char' is kept to store
@@ -100,19 +100,19 @@ search
 
    // Set the search options.
    struct arg_t arg = {
-      .hits        = hits,
-      .query       = translated,
-      .tau         = tau,
-      .maxtau      = maxtau,
-      .milestones  = info->milestones,
-      .trail       = trail,
-      .height      = height,
+      .hits    = hits,
+      .query   = translated,
+      .tau     = tau,
+      .maxtau  = maxtau,
+      .pebbles = info->pebbles,
+      .trail   = trail,
+      .height  = height,
    };
 
    // Run recursive search from cached nodes.
-   gstack_t *milestones = info->milestones[start];
-   for (int i = 0 ; i < milestones->nitems ; i++) {
-      node_t *start_node = (node_t *) milestones->items[i];
+   gstack_t *pebbles = info->pebbles[start];
+   for (int i = 0 ; i < pebbles->nitems ; i++) {
+      node_t *start_node = (node_t *) pebbles->items[i];
       poucet(start_node, start + 1, arg);
    }
 
@@ -149,8 +149,8 @@ poucet
 //   search is interrupted. On the other hand, if the search has passed   
 //   trailing depth and 'tau' is exactly reached, the search finishes by  
 //   a 'dash()' which checks whether an exact suffix can be found.        
-//   While trailing, the nodes are pushed in milestone node arrays that   
-//   can be serve as starting points for future searches.                 
+//   While trailing, the nodes are pushed in the g_stack 'pebbles' so     
+//   they can serve as starting points for future searches.               
 //                                                                        
 // PARAMETERS:                                                            
 //   node: the focus node in the trie                                     
@@ -235,8 +235,8 @@ poucet
          continue;
       }
 
-      // Cache nodes in milestones when trailing.
-      if (depth <= arg.trail) push(child, (arg.milestones)+depth);
+      // Cache nodes in pebbles when trailing.
+      if (depth <= arg.trail) push(child, (arg.pebbles)+depth);
 
       if (depth > arg.trail) {
          // Use 'dash()' if no more mismatches allowed.
@@ -354,9 +354,9 @@ new_trie
    // Set the values of the meta information.
    info->maxtau = maxtau;
    info->height = height;
-   info->milestones = new_tower(M);
+   info->pebbles = new_tower(M);
 
-   if (info->milestones == NULL) {
+   if (info->pebbles == NULL) {
       fprintf(stderr, "error: could not create trie\n");
       ERROR = 360;
       free(info);
@@ -364,7 +364,7 @@ new_trie
       return NULL;
    }
 
-   push(root, info->milestones);
+   push(root, info->pebbles);
    trie->root = root;
    trie->info = info;
 
@@ -530,7 +530,7 @@ destroy_trie
 //   nodes.                                                               
 {
    // Free the milesones.
-   destroy_tower(trie->info->milestones);
+   destroy_tower(trie->info->pebbles);
    destroy_nodes_recursively(trie->root, destruct, get_height(trie), 0);
    free(trie->info);
    free(trie);
@@ -548,7 +548,7 @@ destroy_nodes_recursively
 // SYNOPSIS:                                                              
 //   Back end function to free the memory allocated on a trie. It should  
 //   not be called directly on a trie to prevent memory leaks (otherwise  
-//   the milestones will not be freed).                                   
+//   the pebbles will not be freed).                                      
 //                                                                        
 // RETURN:                                                                
 //   'void'.                                                              

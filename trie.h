@@ -66,7 +66,7 @@ struct arg_t {
    char        tau;
    char        maxtau;
    int       * query;
-   int         trail;
+   int         seed_depth;
    int         height;
    int         err;
 };

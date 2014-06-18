@@ -33,24 +33,24 @@ search
    const int         tau,
 //         hstack_t ** hits,
          gstack_t ** hits,
-         int         start,
-   const int         trail
+         int         start_depth,
+   const int         seed_depth
 )
 // SYNOPSIS:                                                              
-//   Front end query of a trie with the "trail search" algorithm. Search  
+//   Front end query of a trie with the "poucet search" algorithm. Search 
 //   does not start from root. Instead, it starts from a given depth      
 //   corresponding to the length of the prefix from the previous search.  
 //   Since initial computations are identical for queries starting with   
 //   the same prefix, the search can restart from there. Each call to     
-//   the function starts ahead and leaves a trail for the next query.     
+//   the function starts ahead and seeds pebbles for the next query.      
 //                                                                        
 // PARAMETERS:                                                            
 //   trie: the trie to query                                              
 //   query: the query as an ascii string                                  
 //   tau: the maximum edit distance                                       
 //   hits: a hit stack to push the hits                                   
-//   start: the depth to start the search                                 
-//   trail: how deep to trail                                             
+//   start_depth: the depth to start the search                           
+//   seed_depth: how deep to seed pebbles                                 
 //                                                                        
 // RETURN:                                                                
 //   A pointer to 'hits' node array.                                      
@@ -84,8 +84,8 @@ search
    info_t *info = trie->info;
 
    // Reset the pebbles that will be overwritten.
-   start = max(start, 0);
-   for (int i = start+1 ; i <= min(trail, height) ; i++) {
+   start_depth = max(start_depth, 0);
+   for (int i = start_depth+1 ; i <= min(seed_depth, height) ; i++) {
       info->pebbles[i]->nitems = 0;
    }
 
@@ -94,7 +94,7 @@ search
    int translated[M];
    translated[0] = length;
    translated[length+1] = EOS;
-   for (int i = max(0, start-maxtau) ; i < length ; i++) {
+   for (int i = max(0, start_depth-maxtau) ; i < length ; i++) {
       translated[i+1] = altranslate[(int) query[i]];
    }
 
@@ -105,15 +105,15 @@ search
       .tau     = tau,
       .maxtau  = maxtau,
       .pebbles = info->pebbles,
-      .trail   = trail,
+      .seed_depth    = seed_depth,
       .height  = height,
    };
 
    // Run recursive search from cached nodes.
-   gstack_t *pebbles = info->pebbles[start];
+   gstack_t *pebbles = info->pebbles[start_depth];
    for (int i = 0 ; i < pebbles->nitems ; i++) {
       node_t *start_node = (node_t *) pebbles->items[i];
-      poucet(start_node, start + 1, arg);
+      poucet(start_node, start_depth + 1, arg);
    }
 
    // Return the error code of the process (the line of
@@ -131,7 +131,7 @@ poucet
    struct arg_t    arg
 )
 // SYNOPSIS:                                                              
-//   Back end recursive "trail search" algorithm. Most of the time is     
+//   Back end recursive "poucet search" algorithm. Most of the time is    
 //   spent in this function. The focus node sets the values for an L-     
 //   shaped section (but with the angle on the right side) of the dynamic 
 //   programming table for its children. One of the arms of the L is      
@@ -236,9 +236,9 @@ poucet
       }
 
       // Cache nodes in pebbles when trailing.
-      if (depth <= arg.trail) push(child, (arg.pebbles)+depth);
+      if (depth <= arg.seed_depth) push(child, (arg.pebbles)+depth);
 
-      if (depth > arg.trail) {
+      if (depth > arg.seed_depth) {
          // Use 'dash()' if no more mismatches allowed.
          int can_dash = 1;
          for (int a = -maxa ; a < maxa+1 ; a++) {

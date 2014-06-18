@@ -1,0 +1,69 @@
+\documentclass[10pt,onecolumn]{article}
+
+\usepackage[cmex10]{amsmath}
+\usepackage{amssymb}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+
+\begin{document}
+
+\begin{algorithm}
+  \caption{Starcode algorithm}
+  \label{alg:starcode}
+  \begin{algorithmic}[1]
+    \State Define: $\tau$
+    \State \textbf{Initialize variables:} $seed$, $start = 0$,
+    $height$, $seq$, $trie$
+    \State \textbf{Initialize containers:} $hits$, $pebbles$
+    \State \textsc{read} sequence file
+    \State $height \gets$ \textsc{determine} maximum sequence length
+    \State \textsc{pad} sequences up to $height$
+    \State \textsc{sort} sequences alphabetically
+    \State $trie \gets$ \textsc{create} an empty trie of height $height$
+    \State \textsc{insert} root node of $trie$ in $pebbles$ at depth 0
+    \ForAll{sequences}
+    \State $seq \gets$ \textsc{get} next sequence
+    \State $seed \gets$ \textsc{length} of shared prefix
+    between current and next $seq$
+    \State \textsc{clear} hits
+    \State \textsc{clear} $pebbles$ at depth $>start$
+    \ForAll{$pebbles$ at depth $start$}
+    \State $node \gets$ \textsc{get} next node from $pebbles$
+    \State \textbf{call} \textsc{poucet}($node$, $seed$, $hits$)
+    \EndFor
+    \State \textsc{insert} $seq$ path in $trie$
+    \State \textsc{process} $hits$ and \textsc{link} matches to $seq$
+    \State $start \gets seed$
+    \EndFor
+  \end{algorithmic}
+\end{algorithm}
+
+
+\begin{algorithm}
+  \caption{Poucet search algorithm}
+  \label{alg:poucet}
+  \begin{algorithmic}[1]
+    \Procedure{poucet}{$node$, $seed$, $hits$}:
+    \State \textsc{compute} $node$-specific column values following NW algorithm
+    \ForAll{$child$ nodes in $node$}
+    \State \textsc{compute} $child$-specific row values following NW algorithm
+    \State \textsc{compute} center value using row and column
+    values
+    \If{center value $>\tau$} \Comment{Mismatches exceeded.}
+    \State \textbf{continue} with next $child$
+    \EndIf
+    \If{$node$ depth = $height$} \Comment{Hit found.}
+    \State \textsc{save} $node$ sequence in $hits$
+    \State \textbf{continue} with next $child$
+    \EndIf
+    \If{$node$ depth $\leq seed$}
+    \State \textsc{save} $node$ in pebbles at current depth
+    \EndIf
+    \State \textbf{call} poucet($child$, $seed$, $hits$)
+    \EndFor
+    \EndProcedure
+  \end{algorithmic}
+\end{algorithm}
+
+\end{document}

@@ -1,0 +1,145 @@
+\begin{thebibliography}{}
+
+\bibitem[Akhtar {\em et~al.}(2013)Akhtar, de~Jong, Pindyurin, Pagie, Meuleman,
+  de~Ridder, Berns, Wessels, van Lohuizen, and van Steensel]{pmid23953119}
+Akhtar, W., de~Jong, J., Pindyurin, A.~V., Pagie, L., Meuleman, W., de~Ridder,
+  J., Berns, A., Wessels, L. F.~A., van Lohuizen, M., and van Steensel, B.
+  (2013).
+\newblock {Chromatin position effects assayed by thousands of reporters
+  integrated in parallel.}
+\newblock {\em {Cell}\/}, {\bf 154}(4), 914--27.
+
+\bibitem[Dohm {\em et~al.}(2008)Dohm, Lottaz, Borodina, and
+  Himmelbauer]{pmid18660515}
+Dohm, J.~C., Lottaz, C., Borodina, T., and Himmelbauer, H. (2008).
+\newblock {Substantial biases in ultra-short read data sets from
+  high-throughput DNA sequencing.}
+\newblock {\em {Nucleic Acids Res.}}, {\bf 36}(16), e105.
+
+\bibitem[Edgar(2010)Edgar]{pmid20709691}
+Edgar, R.~C. (2010).
+\newblock {Search and clustering orders of magnitude faster than BLAST.}
+\newblock {\em {Bioinformatics}\/}, {\bf 26}(19), 2460--1.
+
+\bibitem[Eid {\em et~al.}(2009)Eid, Fehr, Gray, Luong, Lyle, Otto, Peluso,
+  Rank, Baybayan, Bettman, Bibillo, Bjornson, Chaudhuri, Christians, Cicero,
+  Clark, Dalal, Dewinter, Dixon, Foquet, Gaertner, Hardenbol, Heiner, Hester,
+  Holden, Kearns, Kong, Kuse, Lacroix, Lin, Lundquist, Ma, Marks, Maxham,
+  Murphy, Park, Pham, Phillips, Roy, Sebra, Shen, Sorenson, Tomaney, Travers,
+  Trulson, Vieceli, Wegener, Wu, Yang, Zaccarin, Zhao, Zhong, Korlach, and
+  Turner]{pmid19023044}
+Eid, J., Fehr, A., Gray, J., Luong, K., Lyle, J., Otto, G., Peluso, P., Rank,
+  D., Baybayan, P., Bettman, B., Bibillo, A., Bjornson, K., Chaudhuri, B.,
+  Christians, F., Cicero, R., Clark, S., Dalal, R., Dewinter, A., Dixon, J.,
+  Foquet, M., Gaertner, A., Hardenbol, P., Heiner, C., Hester, K., Holden, D.,
+  Kearns, G., Kong, X., Kuse, R., Lacroix, Y., Lin, S., Lundquist, P., Ma, C.,
+  Marks, P., Maxham, M., Murphy, D., Park, I., Pham, T., Phillips, M., Roy, J.,
+  Sebra, R., Shen, G., Sorenson, J., Tomaney, A., Travers, K., Trulson, M.,
+  Vieceli, J., Wegener, J., Wu, D., Yang, A., Zaccarin, D., Zhao, P., Zhong,
+  F., Korlach, J., and Turner, S. (2009).
+\newblock {Real-time DNA sequencing from single polymerase molecules.}
+\newblock {\em {Science}\/}, {\bf 323}(5910), 133--8.
+
+\bibitem[Filion {\em et~al.}(2010)Filion, van Bemmel, Braunschweig, Talhout,
+  Kind, Ward, Brugman, de~Castro, Kerkhoven, Bussemaker, and van
+  Steensel]{pmid20888037}
+Filion, G.~J., van Bemmel, J.~G., Braunschweig, U., Talhout, W., Kind, J.,
+  Ward, L.~D., Brugman, W., de~Castro, I.~J., Kerkhoven, R.~M., Bussemaker,
+  H.~J., and van Steensel, B. (2010).
+\newblock {Systematic protein location mapping reveals five principal chromatin
+  types in Drosophila cells.}
+\newblock {\em {Cell}\/}, {\bf 143}(2), 212--24.
+
+\bibitem[Fu {\em et~al.}(2012)Fu, Niu, Zhu, Wu, and Li]{pmid23060610}
+Fu, L., Niu, B., Zhu, Z., Wu, S., and Li, W. (2012).
+\newblock {CD-HIT: accelerated for clustering the next-generation sequencing
+  data.}
+\newblock {\em {Bioinformatics}\/}, {\bf 28}(23), 3150--2.
+
+\bibitem[Langmead and Salzberg(2012)Langmead and Salzberg]{pmid22388286}
+Langmead, B. and Salzberg, S.~L. (2012).
+\newblock {Fast gapped-read alignment with Bowtie 2.}
+\newblock {\em {Nat. Methods}\/}, {\bf 9}(4), 357--9.
+
+\bibitem[Li and Durbin(2009)Li and Durbin]{pmid19451168}
+Li, H. and Durbin, R. (2009).
+\newblock {Fast and accurate short read alignment with Burrows-Wheeler
+  transform.}
+\newblock {\em {Bioinformatics}\/}, {\bf 25}(14), 1754--60.
+
+\bibitem[MacKay(2002)MacKay]{mackay}
+MacKay, D. J.~C. (2002).
+\newblock {\em Information Theory, Inference \& Learning Algorithms\/}.
+\newblock Cambridge University Press, New York, NY, USA.
+
+\bibitem[Marco-Sola {\em et~al.}(2012)Marco-Sola, Sammeth, Guigó, and
+  Ribeca]{pmid23103880}
+Marco-Sola, S., Sammeth, M., Guigó, R., and Ribeca, P. (2012).
+\newblock {The GEM mapper: fast, accurate and versatile alignment by
+  filtration.}
+\newblock {\em {Nat. Methods}\/}, {\bf 9}(12), 1185--8.
+
+\bibitem[Margulies {\em et~al.}(2005)Margulies, Egholm, Altman, Attiya, Bader,
+  Bemben, Berka, Braverman, Chen, Chen, Dewell, Du, Fierro, Gomes, Godwin, He,
+  Helgesen, Ho, Ho, Irzyk, Jando, Alenquer, Jarvie, Jirage, Kim, Knight, Lanza,
+  Leamon, Lefkowitz, Lei, Li, Lohman, Lu, Makhijani, McDade, McKenna, Myers,
+  Nickerson, Nobile, Plant, Puc, Ronan, Roth, Sarkis, Simons, Simpson,
+  Srinivasan, Tartaro, Tomasz, Vogt, Volkmer, Wang, Wang, Weiner, Yu, Begley,
+  and Rothberg]{pmid16056220}
+Margulies, M., Egholm, M., Altman, W.~E., Attiya, S., Bader, J.~S., Bemben,
+  L.~A., Berka, J., Braverman, M.~S., Chen, Y.-J., Chen, Z., Dewell, S.~B., Du,
+  L., Fierro, J.~M., Gomes, X.~V., Godwin, B.~C., He, W., Helgesen, S., Ho,
+  C.~H., Ho, C.~H., Irzyk, G.~P., Jando, S.~C., Alenquer, M. L.~I., Jarvie,
+  T.~P., Jirage, K.~B., Kim, J.-B., Knight, J.~R., Lanza, J.~R., Leamon, J.~H.,
+  Lefkowitz, S.~M., Lei, M., Li, J., Lohman, K.~L., Lu, H., Makhijani, V.~B.,
+  McDade, K.~E., McKenna, M.~P., Myers, E.~W., Nickerson, E., Nobile, J.~R.,
+  Plant, R., Puc, B.~P., Ronan, M.~T., Roth, G.~T., Sarkis, G.~J., Simons,
+  J.~F., Simpson, J.~W., Srinivasan, M., Tartaro, K.~R., Tomasz, A., Vogt,
+  K.~A., Volkmer, G.~A., Wang, S.~H., Wang, Y., Weiner, M.~P., Yu, P., Begley,
+  R.~F., and Rothberg, J.~M. (2005).
+\newblock {Genome sequencing in microfabricated high-density picolitre
+  reactors.}
+\newblock {\em {Nature}\/}, {\bf 437}(7057), 376--80.
+
+\bibitem[Nakamura {\em et~al.}(2011)Nakamura, Oshima, Morimoto, Ikeda,
+  Yoshikawa, Shiwa, Ishikawa, Linak, Hirai, Takahashi, Altaf-Ul-Amin,
+  Ogasawara, and Kanaya]{pmid21576222}
+Nakamura, K., Oshima, T., Morimoto, T., Ikeda, S., Yoshikawa, H., Shiwa, Y.,
+  Ishikawa, S., Linak, M.~C., Hirai, A., Takahashi, H., Altaf-Ul-Amin, M.,
+  Ogasawara, N., and Kanaya, S. (2011).
+\newblock {Sequence-specific error profile of Illumina sequencers.}
+\newblock {\em {Nucleic Acids Res.}}, {\bf 39}(13), e90.
+
+\bibitem[Needleman and Wunsch(1970)Needleman and Wunsch]{pmid5420325}
+Needleman, S.~B. and Wunsch, C.~D. (1970).
+\newblock {A general method applicable to the search for similarities in the
+  amino acid sequence of two proteins.}
+\newblock {\em {J. Mol. Biol.}}, {\bf 48}(3), 443--53.
+
+\bibitem[Schepers {\em et~al.}(2008)Schepers, Swart, van Heijst, Gerlach,
+  Castrucci, Sie, Heimerikx, Velds, Kerkhoven, Arens, and
+  Schumacher]{pmid18809713}
+Schepers, K., Swart, E., van Heijst, J. W.~J., Gerlach, C., Castrucci, M., Sie,
+  D., Heimerikx, M., Velds, A., Kerkhoven, R.~M., Arens, R., and Schumacher, T.
+  N.~M. (2008).
+\newblock {Dissecting T cell lineage relationships by cellular barcoding.}
+\newblock {\em {J. Exp. Med.}}, {\bf 205}(10), 2309--18.
+
+\bibitem[Smith {\em et~al.}(1999)Smith, Gwinn, and Salzberg]{pmid10673000}
+Smith, H.~O., Gwinn, M.~L., and Salzberg, S.~L. (1999).
+\newblock {DNA uptake signal sequences in naturally transformable bacteria.}
+\newblock {\em {Res. Microbiol.}}, {\bf 150}(9-10), 603--16.
+
+\bibitem[Ukkonen(1995)Ukkonen]{ukkonen}
+Ukkonen, E. (1995).
+\newblock On-line construction of suffix trees.
+\newblock {\em Algorithmica\/}, {\bf 14}(3), 249--260.
+
+\bibitem[van Steensel {\em et~al.}(2003)van Steensel, Delrow, and
+  Bussemaker]{pmid12601174}
+van Steensel, B., Delrow, J., and Bussemaker, H.~J. (2003).
+\newblock {Genomewide analysis of Drosophila GAGA factor target genes reveals
+  context-dependent DNA binding.}
+\newblock {\em {Proc. Natl. Acad. Sci. U.S.A.}}, {\bf 100}(5), 2580--5.
+
+\end{thebibliography}

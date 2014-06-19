@@ -109,9 +109,15 @@ programming approach is $O(mn)$.
 \caption{Needleman-Wunsch (NW) alignment. \textbf{a}
   Alignment of GTTGCA and GATCCA using
 the NW alignment matrix. The margins (purple) are initialized and the cells of
-the matrix (yellow) are computed from left to right and from top to bottom by a
-dynamic programming algorithm. The Levenshtein distance distance between the two
-sequences is found in the bottom right cell. \textbf{b}
+the matrix (yellow) are computed from left to right and from top to bottom by
+the following
+dynamic programming algorithm. The value in each cell is computed from the values
+of the neighboring top, left and top-left cells. Denoting $a$, $b$ and $c$ these
+respective terms, the value in the cell of coordinates $(i,j)$ is computed as
+$\min(a+1, b+1, c)$ if the $i$-th letter from the first sequence is identical to
+the $j$-th letter from the second, or $\min(a+1, b+1, c+1)$ if the letters are
+different. The Levenshtein distance
+between the two sequences is found in the bottom right cell. \textbf{b}
 Lower complexity algorithm to
 determine whether GTTGCA and GATCCA are 2-neighbors. The values in purple cells
 are set during initialization. The dynamic programming algorithm proceeds as above,

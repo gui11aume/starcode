@@ -12,13 +12,12 @@
 \@writefile{toc}{\contentsline {section}{\numberline {2}Methods}{1}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {{2.1}}Inexact string matching using tries}{1}}
 \citation{ukkonen}
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Needleman-Wunsch (NW) alignment. \textbf  {a} Alignment of GTTGCA and GATCCA using the NW alignment matrix. The margins (purple) are initialized and the cells of the matrix (yellow) are computed from left to right and from top to bottom by a dynamic programming algorithm. The Levenshtein distance distance between the two sequences is found in the bottom right cell. \textbf  {b} Lower complexity algorithm to determine whether GTTGCA and GATCCA are 2-neighbors. The values in purple cells are set during initialization. The dynamic programming algorithm proceeds as above, with the difference that it is interrupted if the value of a diagonal cell (bold borders) is larger than 2. The values in purple cells are not always the same as their equivalent in a (purple arrow), but the values in the yellow cells are nevertheless identical. The values of the white cells are never computed, which contributes to making the algorithm less complex.}}{2}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Needleman-Wunsch (NW) alignment. \textbf  {a} Alignment of GTTGCA and GATCCA using the NW alignment matrix. The margins (purple) are initialized and the cells of the matrix (yellow) are computed from left to right and from top to bottom by the following dynamic programming algorithm. The value in each cell is computed from the values of the neighboring top, left and top-left cells. Denoting $a$, $b$ and $c$ these respective terms, the value in the cell of coordinates $(i,j)$ is computed as $\qopname  \relax m{min}(a+1, b+1, c)$ if the $i$-th letter from the first sequence is identical to the $j$-th letter from the second, or $\qopname  \relax m{min}(a+1, b+1, c+1)$ if the letters are different. The Levenshtein distance between the two sequences is found in the bottom right cell. \textbf  {b} Lower complexity algorithm to determine whether GTTGCA and GATCCA are 2-neighbors. The values in purple cells are set during initialization. The dynamic programming algorithm proceeds as above, with the difference that it is interrupted if the value of a diagonal cell (bold borders) is larger than 2. The values in purple cells are not always the same as their equivalent in a (purple arrow), but the values in the yellow cells are nevertheless identical. The values of the white cells are never computed, which contributes to making the algorithm less complex.}}{2}}
 \newlabel{fig:01}{{1}{2}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {{2.2}}The poucet search algorithm}{2}}
 \@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Trie query with NW alignment. Each sequence of the index is a path in the trie. The query GTTGCA is written at the top of a NW matrix, which is initialized as shown on Figure\nobreakspace  {}1\hbox {}b. The trie is traversed by a depth-first search (red path) from the root. At each depth, the node added to the path is written on the left of the NW matrix and the row is computed. Checkpoints from 1 to 4 (circled red numbers) show the state of the NW matrix as the search proceeds. The node labelled 3 is a leaf and thus corresponds to a 2-neighbor of the query. The search path then backtracks to the node labelled 2 and the last rows of the NW are erased. The search path then goes to node labelled 4, in which case the newly computed diagonal cell exceeds the threshold (circled in red). Even if this node has children, they are not visited (red crosses).}}{2}}
 \newlabel{fig:02}{{2}{2}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {{2.3}}Seek and construct}{2}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {{2.4}}Parallelization}{2}}
 \citation{mackay}
 \citation{pmid23953119}
 \citation{pmid23953119}
@@ -26,25 +25,26 @@
 \citation{pmid20709691}
 \@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Poucet search algorithm. The algorithm proceeds with the same principles as shown on Figure\nobreakspace  {}2\hbox {} with the difference that the NW matrix is not updated row-wise, but along horizontally flipped L shapes. As the depth-first search proceeds, these values are stored in the nodes of the trie. Only the nodes at the top contain initialized values; for the other nodes, the values at the border are implicitly known to be 3. Since the values in the vertical part of the flipped L are the same for every child of the same node, they are computed only once (purple arrow). The values in the grey cells will be computed as the search path (red) visits the node. Storing the intermediates in the nodes allows the next query to restart at depth $k$ if it shares a common prefix of length $k$ with the current query.}}{3}}
 \newlabel{fig:03}{{3}{3}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {{2.5}}Clustering}{3}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {{2.6}}Benchmark options}{3}}
 \@writefile{loa}{\contentsline {algorithm}{\numberline {1}{\ignorespaces Starcode algorithm}}{3}}
 \newlabel{alg:starcode}{{1}{3}}
 \@writefile{loa}{\contentsline {algorithm}{\numberline {2}{\ignorespaces Poucet search algorithm}}{3}}
 \newlabel{alg:poucet}{{2}{3}}
-\@writefile{toc}{\contentsline {section}{\numberline {3}Results}{3}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {{3.1}}Benchmark against sequence clustering algorithms}{3}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {{2.4}}Parallelization}{3}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {{2.5}}Clustering}{3}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {{2.6}}Benchmark options}{3}}
 \citation{pmid22388286}
 \citation{pmid19451168}
 \citation{pmid23103880}
 \citation{pmid23953119}
-\citation{pmid23953119}
 \@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Software execution parameters}}{4}}
 \newlabel{tab:soft-options}{{1}{4}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Results}{4}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {{3.1}}Benchmark against sequence clustering algorithms}{4}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {{3.2}}Benchmark against short read mappers}{4}}
 \@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Benchmark of starcode against sequence clustering algorithms and short read mappers. \textbf  {a} Running time compared to CD-HIT and UCLUST on the dataset described in the text. \textbf  {b} Error rate compared to CD-HIT and UCLUST, expressed as the percentage of clusters failing to be merged. \textbf  {c} Running time compared to Bowtie2, BWA and GEM on this dataset. The running time is decomposed in extraction of unique sequences (purple), Burrows-Wheeler indexing (yellow), and query proper (white). The extraction was performed with the Linux sort command, so the time is the same in every case. \textbf  {d} Error rate compared to Bowtie2, BWA and GEM, expressed as the proportion of matches with a single hit. This is an underestimate of the true error rate.}}{4}}
 \newlabel{fig:04}{{4}{4}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {{3.3}}Clustering TRIP barcodes}{4}}
+\citation{pmid23953119}
 \citation{pmid10673000}
 \citation{pmid20888037}
 \citation{pmid12601174}

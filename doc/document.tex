@@ -285,10 +285,10 @@ Algorithms~\ref{alg:starcode} and \ref{alg:poucet}.
 \subsection{Parallelization}
 To parallelize the search, queries are separated into contiguous blocks after
 sorting. The matching algorithm proceeds in two phases. During the first phase,
-an independent trie is created for each block and filled with its sequence using
-the seek and construct process described above. In the second
-phase, blocks are only queried against but not inserted into the tries built in
-the first phase. If the
+an independent trie is created and filled with the sequences
+of one block using the seek and construct process described above. In the second
+phase, blocks of sequences are queried against but not inserted into the tries
+built in the first phase. If the
 queries are segregated into $N$ blocks, the first phase consists of $N$ seek and
 construct jobs, and the second consists of $N(N-1)/2$ query jobs. Since the jobs
 show little dependence on each other, the matching algorithm can be efficiently
@@ -306,7 +306,7 @@ In message passing clustering, read counts are distributed equally among the
 closest neighbors of each barcode if they are at least 5 times more frequent.
 The remaining sequences at the end of the process are considered
 canonical, and their associated count is the estimated cluster size. A barcode
-is assigned to a cluster if all its read count are eventually given to the
+is assigned to a cluster if all its read counts are eventually given to the
 corresponding canonical barcode. The barcodes for which the read counts are
 split between different canonical barcodes are not assigned to any cluster. The
 reason for imposing a factor 5 or larger in order to transfer the read counts
@@ -344,7 +344,7 @@ Table~\ref{tab:soft-options}.
 
 
 Denoted as \emph{sequential R} is the sequential algorithm of
-\cite{pmid23953119} which implemented in R and relied on the \texttt{stringdist}
+\cite{pmid23953119} which is implemented in R and relied on the \texttt{stringdist}
 function of the \texttt{stringdist} package.
 
 \end{methods}
@@ -360,14 +360,15 @@ We generated 1 million random 40-mers that were duplicated 47 times. For each
 40-mer, we inserted 3 addional mutant sequences to the pool by sampling again
 3 nucleotides
 at random positions. The probability that such a mutant sequence is within a
-distance 3 of any other 40-mer is of the order of 10-12 and can be neglected.
+distance 3 of any other 40-mer is of the order of $10^{-12}$ and can be neglected.
 Each cluster thus consists of 50 sequences, of which 3 have a distance at most
 3 from the canonical representant.
 
 Using 20 cores, starcode clustered the shuffled 50 million sequences in 4 minutes
 without a single error (the output consisted of 1 million clusters of size 50).
 We submitted the unique sequences of the dataset to CD-HIT and USEARCH. The
-results are summarized in Figure~\ref{fig:04}. The running times of CD-HIT and USEARCH
+results are summarized in Figure~\ref{fig:04}a and \ref{fig:04}b. The running
+times of CD-HIT and USEARCH
 were 59 and 64 minutes respectively, and they identified 2,362,352 and 2,739,954
 clusters respectively. Both algorithms rely on heuristics, fact that explains why the
 number of clusters is off target. These results clearly demonstrate that starcode
@@ -404,12 +405,12 @@ sequence has at least 2 distinct matches at a distance 3 (mutant sequences
 from the same cluster may be at a distance up to 6). This means that we
 can use matches with a single hit (themselves) as a lower bound on the inaccuracy.
 We used unique sequences to build an index and queried the index with the same
-sequences. Figure~\ref{fig:05} shows the running time of starcode along with the
-decomposition of the running time for the three mappers. Note that time to
+sequences. Figure~\ref{fig:04}c shows the running time of starcode along with the
+decomposition of the running time for the three mappers. Note that the time to
 extract unique sequences is always the same because we used the Linux
 \texttt{sort -u} command in every case. It appears that the running time of
 starcode is about the same as the time required by BWA (the fastest aligner in
-this test) to index and run the query proper. Figure~\ref{fig:05} shows the
+this test) to index and run the query proper. Figure~\ref{fig:04}d shows the
 lower bound on
 the error rate, as estimated by the proportion of single hits. BWA was found to
 be the most accurate aligner with a lower bound of 19\% errors. This measure
@@ -419,7 +420,8 @@ starcode runs slightly faster than short read mappers when all steps are taken
 into account, and clearly outperforms them in precision on this particular problem.
 
 \subsection{Clustering TRIP barcodes}
-In the course of setting up the TRIP technology in our lab \citep{pmid23953119}, we
+In the course of setting up the TRIP technology in our laboratory
+\citep{pmid23953119}, we
 realized the need to develop efficient algorithms to cluster similar sequences.
 Briefly, the principle of TRIP (Thousands of Reporters Integrated in Parallel)
 is to tag reporter transcripts with random barcodes and measure the abundance
@@ -432,7 +434,7 @@ We tested the efficiency of starcode on the TRIP dataset from
 \cite{pmid23953119}. In the experiment labelled mPGKA, we identified
 24.1 million (91\%) barcode-containing reads out of 26.6 million, consisting
 of approximately 223,000 and 220,000 unique barcode sequences for PCR replicates
-1 and 2 respectively. Following the authors, we kept only the barcodes with
+1 and 2, respectively. Following the authors, we kept only the barcodes with
 at least 5 counts and performed clustering as described: ``First we sorted
 barcodes according to their counts. Then, for each barcode (starting from the
 most frequent one), we identified and removed all its mutant versions, defined
@@ -453,7 +455,7 @@ and 30 minutes (and
 the output differed from that of starcode). Note that in all the cases
 mentioned above, starcode was run with a single core to compare the algorithms
 based on similar computer resources. In conclusion, the barcode clustering
-problem can be simplified by various heuristics, but starcode brings down the
+problem can be simplified by various tricks, but starcode brings down the
 running time to nearly instantaneous, and thereby obviates the need for such
 arbitrary heuristics.
 
@@ -476,12 +478,12 @@ extracted the 12-mers from both orientations of  the 2.19 Mb genome, yielding
 4.39 million 12-mers, consisting of 2.77 million unique sequences. Clustering
 the 12-mers with starcode within a Levenshtein distance of 2 took less
 than 3 minutes with 20 cores. We identified the known DNA uptake sequence of
-Neisseria meningitidis (ATGCCGTCTGAA) as the most abundant 12-mer, comprising
+\textit{Neisseria meningitidis} (ATGCCGTCTGAA) as the most abundant 12-mer, comprising
 1,466 exact matches and 4,625 inexact matches. This result testifies to the
 fact that starcode can be used to identify biologically relevant motifs in
 bacterial genomes.
 
-To test starcode on the scale of a metazoan genome, we used a Drosophila
+To test starcode on the scale of a metazoan genome, we used a \textit{Drosophila}
 dataset from \cite{pmid20888037}. The study describes two
 signatures of chromatin proteins called Red and Yellow, both corresponding
 to transcribed regions of the genome. The distinction is based on epigenomic
@@ -489,14 +491,12 @@ features only, which prompted us to identify sequence features that could
 discriminate Red \textit{versus} Yellow regions. To this end, we used starcode to
 cluster 18-mers from both regions.
 
-The total coverage of Red and Yellow chromatin in the Drosophila genome is
+The total coverage of Red and Yellow chromatin in the \textit{Drosophila} genome is
 10.7 Mb and 21.3 Mb respectively, corresponding to 21.5 million and 42.5 million
 18-mers, respectively. We used starcode to identify clusters of 18-mers within
 a Levenshtein distance of 3 (the running time was approximately 35 minutes for
-Red 18-mers and 70 minutes for Yellow 18-mers using 20 threads). The frequencies
-of the most abundant 18-mers showed that Red chromatin has a lower sequence
-complexity than Yellow chromatin (not shown). The most discriminating 18-mer
-was (GA)$_9$, which showed a 4.8 fold enrichment in Red \textit{versus} Yellow
+Red and 70 minutes for Yellow chromatin using 20 threads). The most discriminating
+18-mer was (GA)$_9$, which showed a 4.8 fold enrichment in Red \textit{versus} Yellow
 chromatin.
 We counted 832 exact matches and 6,749 inexact matches over 3,880 distinct
 18-mers in Red chromatin, showing that a larger portion of the signal comes
@@ -512,7 +512,7 @@ multi-core platforms. Our benchmark shows that starcode is superior in speed
 and accuracy compared to other methods on the problem of clustering short random
 sequences. Part of the reason is that such task is stretching the tested
 software far from their initial design. Sequence clustering algorithms are
-meant to to cluster long biological sequences, while short read mappers are
+meant to cluster long biological sequences, while short read mappers are
 meant to map reads on potentially large genomes. In this respect, starcode
 fills a need arising from the development of barcoding technologies.
 
@@ -521,8 +521,9 @@ problems, such as identifying enriched k-mers in genomes and in experimental
 data. Here we have given two examples of such applications. In the first, we
 recover a known enriched 12-mer in the genome of \textit{Neisseria meningitidis}.
 In the second, we identify a sequence feature that discriminates genomic
-regions found in two different chromatin types in Drosophila. GA repeats are
-known to be bound in vivo by the protein GAF \citep{pmid12601174}, which suggests
+regions found in two different chromatin types in \textit{Drosophila}. GA
+repeats are known to be bound \textit{in vivo} by the protein GAF
+\citep{pmid12601174}, which suggests
 that this transcription factor is instrumental in setting the distinction
 between Red and Yellow chromatin.
 
@@ -530,13 +531,13 @@ The current version of starcode has been mildly optimized for memory
 consumption. The memory footprint depends on the number of sequences to
 cluster (because the sequences of the input set are loaded in memory as a
 group of tries) and on the mean number of matches per sequence. Every match
-has to be stored until the clustering phase and may represent a heavy
+has to be stored until the clustering phase, which may represent a large
 memory overhead. As counterintuitive as it may seem, long queries will usually
 impose a lower memory footprint because the matches between sequences are less
 frequent.
 
 The speed of starcode could also benefit other applications, such as searching
-shared subsequences in genome assembly. However, starcode supports only global
+shared subsequences during genome assembly. However, starcode supports only global
 and not local alignment. A workaround is to compare k-mers as we have done
 in the examples above, but this approach is expected to be memory demanding.
 Even though extending the starcode algorithm to support clustering of protein

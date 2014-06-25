@@ -41,6 +41,7 @@ typedef struct match_t match_t;
 typedef struct mtplan_t mtplan_t;
 typedef struct mttrie_t mttrie_t;
 typedef struct mtjob_t mtjob_t;
+typedef struct lookup_t lookup_t;
 
 typedef struct sortargs_t sortargs_t;
 
@@ -50,6 +51,13 @@ struct useq_t {
   char          *  seq;
   gstack_t      ** matches;
   struct useq_t *  canonical;
+};
+
+struct lookup_t {
+   int    kmers;
+   int    slen;
+   int  * klen;
+   char * lut[];
 };
 
 

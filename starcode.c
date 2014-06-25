@@ -12,7 +12,7 @@ void destroy_useq(useq_t*);
 void addmatch(useq_t*, useq_t*, int, int);
 void transfer_counts_and_update_canonicals(useq_t*);
 void unpad_useq (gstack_t*);
-int pad_useq(gstack_t*);
+int pad_useq(gstack_t*, int*);
 int AtoZ(const void *a, const void *b) { return strcmp(str(a), str(b)); }
 int canonical_order(const void*, const void*);
 int count_order(const void *a, const void *b);
@@ -47,15 +47,16 @@ starcode
    if (ntries % 2 == 0) abort();
    
    if (verbose) fprintf(stderr, "reading input files\n");
-   gstack_t *seqS = read_file(inputf);
+    gstack_t *seqS = read_file(inputf);
 
    if (verbose) fprintf(stderr, "preprocessing\n");
    // Count unique sequences.
    gstack_t *useqS = seq2useq(seqS, maxthreads);
    for (int i = 0 ; i < seqS->nitems ; i++) free(seqS->items[i]);
    free(seqS);
-   // Pad sequences.
-   int height = pad_useq(useqS);
+   // Pad sequences. (And return the median size)
+   int median;
+   int height = pad_useq(useqS, &median);
    // Make multithreading plan.
    mtplan_t *mtplan = plan_mt(tau, height, ntries, useqS, clusters);
    // Run the query.
@@ -684,7 +685,8 @@ seq2useq
 int
 pad_useq
 (
-   gstack_t *useqS
+   gstack_t * useqS,
+   int      * median
 )
 {
    // Compute maximum length.
@@ -695,6 +697,9 @@ pad_useq
       if (len > maxlen) maxlen = len;
    }
 
+   // Alloc median bins. (Initializes to 0)
+   int count[maxlen];
+
    char *spaces = malloc((maxlen + 1) * sizeof(char));
    for (int i = 0 ; i < maxlen ; i++) spaces[i] = ' ';
    spaces[maxlen] = '\0';
@@ -703,6 +708,7 @@ pad_useq
    for (int i = 0 ; i < useqS->nitems ; i++) {
       useq_t *u = useqS->items[i];
       int len = strlen(u->seq);
+      count[len]++;
       if (len == maxlen) continue;
       // Create a new sequence with padding characters.
       char *padded = malloc((maxlen + 1) * sizeof(char));
@@ -711,6 +717,15 @@ pad_useq
       free(u->seq);
       u->seq = padded;
    }
+
+   // Compute median.
+   *median = 0;
+   int ccount = 0;
+   do {
+      ccount += count[++(*median)];
+   } while (ccount < useqS->nitems / 2);
+
+   // Free and return.
    free(spaces);
    return maxlen;
 }

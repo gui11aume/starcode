@@ -54,8 +54,8 @@ struct useq_t {
 };
 
 struct lookup_t {
+   int    offset;
    int    kmers;
-   int    slen;
    int  * klen;
    char * lut[];
 };
@@ -95,6 +95,7 @@ struct mtjob_t {
    int		      clusters;
    gstack_t         * useqS;
    trie_t           * trie;
+   lookup_t         * lut;
    pthread_mutex_t  * mutex;
    pthread_cond_t   * monitor;
    int	    	    * jobsdone;

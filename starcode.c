@@ -5,6 +5,7 @@
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #define max(a,b) (((a) > (b)) ? (a) : (b))
 
+lookup_t *new_lookup(int, int, int, int);
 useq_t *new_useq(int, char*);
 gstack_t *seq2useq(gstack_t*, int);
 gstack_t *read_file(FILE*);
@@ -18,7 +19,7 @@ int canonical_order(const void*, const void*);
 int count_order(const void *a, const void *b);
 void *do_query(void*);
 void run_plan(mtplan_t*, int, int);
-mtplan_t *plan_mt(int, int, int, gstack_t*, const int);
+mtplan_t *plan_mt(int, int, int, int, gstack_t*, const int);
 void message_passing_clustering(gstack_t*, int);
 void sphere_clustering(gstack_t*, int);
 void * _mergesort(void *);
@@ -58,7 +59,7 @@ starcode
    int median;
    int height = pad_useq(useqS, &median);
    // Make multithreading plan.
-   mtplan_t *mtplan = plan_mt(tau, height, ntries, useqS, clusters);
+   mtplan_t *mtplan = plan_mt(tau, height, median, ntries, useqS, clusters);
    // Run the query.
    run_plan(mtplan, verbose, maxthreads);
    if (verbose) fprintf(stderr, "starcode progress: 100.00%%\n");
@@ -148,6 +149,7 @@ do_query
    mtjob_t  * job      = (mtjob_t*) args;
    gstack_t * useqS    = job->useqS;
    trie_t   * trie     = job->trie;
+   lookup_t * lut      = job->lut;
    int        tau      = job->tau;
    const int  clusters = job->clusters;
 
@@ -159,26 +161,20 @@ do_query
       abort();
    }
 
-   int start = 0;
+   useq_t * last_query = NULL;
+   int start;
    for (int i = job->start ; i <= job->end ; i++) {
       useq_t *query = (useq_t *) useqS->items[i];
 
-      int trail = 0;
-      if (i < job->end) {
-         useq_t *next_query = (useq_t *) useqS->items[i+1];
-         // The 'while' condition is guaranteed to be false
-         // before the end of the 'char' arrays because all
-         // the queries have the same length and are different.
-         while (query->seq[trail] == next_query->seq[trail]) {
-            trail++;
-         }
-      }
+      // Do lookup.
+      int do_search = lut_search(lut, query);
 
-      // Insert the new sequence in the trie, but let the
-      // last pointer to NULL so that the query does not
+      // Insert the new sequence in the lut and trie, but let
+      // the last pointer to NULL so that the query does not
       // find itself upon search.
       void **data = NULL;
       if (job->build) {
+         lut_insert(lut, query);
          data = insert_string(trie, query->seq);
          if (data == NULL || *data != NULL) {
             fprintf(stderr, "error: cannot build trie (%d)\n",
@@ -186,54 +182,75 @@ do_query
             abort();
          }
       }
- 
-      // Clear hit stack.
-      for (int j = 0 ; hits[j] != TOWER_TOP ; j++) hits[j]->nitems = 0;
-      int err = search(trie, query->seq, tau, hits, start, trail);
-      if (err) {
-         fprintf(stderr, "error: cannot complete query (%d)\n", err);
-         abort();
+
+      if (do_search) {
+         int trail = 0;
+         if (i < job->end) {
+            useq_t *next_query = (useq_t *) useqS->items[i+1];
+            // The 'while' condition is guaranteed to be false
+            // before the end of the 'char' arrays because all
+            // the queries have the same length and are different.
+            while (query->seq[trail] == next_query->seq[trail]) {
+               trail++;
+            }
+         } 
+
+         // Compute start height.
+         start = 0;
+         if (last_query != NULL) {
+            while(query->seq[start] == last_query->seq[start]) start++;
+         }
+
+         // Clear hit stack.
+         for (int j = 0 ; hits[j] != TOWER_TOP ; j++) hits[j]->nitems = 0;
+         int err = search(trie, query->seq, tau, hits, start, trail);
+         if (err) {
+            fprintf(stderr, "error: cannot complete query (%d)\n", err);
+            abort();
+         }
+
+         for (int j = 0 ; hits[j] != TOWER_TOP ; j++) {
+            if (hits[j]->nitems > hits[j]->nslots) {
+               fprintf(stderr, "warning: incomplete search results (%s)\n",
+                       query->seq);
+               break;
+            }
+         }
+
+         // Link matching pairs.
+         // Only unique sequences, so start at d=1.
+         for (int dist = 1 ; dist < tau+1 ; dist++) {
+            for (int j = 0 ; j < hits[dist]->nitems ; j++) {
+               useq_t *match = (useq_t *) hits[dist]->items[j];
+               // Do not link hits when counts are equal.
+               if (match->count == query->count) continue;
+               useq_t *parent = match->count > query->count ? match : query;
+               useq_t *child = match->count > query->count ? query : match;
+               if (clusters == 0) {
+                  // If clustering is done by message passing, do not link
+                  // pair if counts are on the same order of magnitude.
+                  int mincount = child->count;
+                  int maxcount = parent->count;
+                  if (maxcount < PARENT_TO_CHILD_FACTOR * mincount) continue;
+                  pthread_mutex_lock(job->mutex);
+                  addmatch(child, parent, dist, tau);
+                  pthread_mutex_unlock(job->mutex);
+               }
+               else {
+                  pthread_mutex_lock(job->mutex);
+                  addmatch(parent, child, dist, tau);
+                  pthread_mutex_unlock(job->mutex);
+               }
+            }
+         }
+
+         last_query = query;
       }
 
       if (job->build) {
          // Finally set the pointer of the inserted tail node.
          *data = query;
       }
-
-      for (int j = 0 ; hits[j] != TOWER_TOP ; j++) {
-      if (hits[j]->nitems > hits[j]->nslots) {
-         fprintf(stderr, "warning: incomplete search results (%s)\n",
-               query->seq);
-         break;
-      }
-      }
-
-      // Link matching pairs.
-      for (int dist = 0 ; dist < tau+1 ; dist++) {
-         for (int j = 0 ; j < hits[dist]->nitems ; j++) {
-            useq_t *match = (useq_t *) hits[dist]->items[j];
-            // Do not link hits when counts are equal.
-            if (match->count == query->count) continue;
-            useq_t *parent = match->count > query->count ? match : query;
-            useq_t *child = match->count > query->count ? query : match;
-            if (clusters == 0) {
-               // If clustering is done by message passing, do not link
-               // pair if counts are on the same order of magnitude.
-               int mincount = child->count;
-               int maxcount = parent->count;
-               if (maxcount < PARENT_TO_CHILD_FACTOR * mincount) continue;
-               pthread_mutex_lock(job->mutex);
-               addmatch(child, parent, dist, tau);
-               pthread_mutex_unlock(job->mutex);
-            }
-            else {
-               pthread_mutex_lock(job->mutex);
-               addmatch(parent, child, dist, tau);
-               pthread_mutex_unlock(job->mutex);
-            }
-         }
-      }
-      start = trail;
    }
    
    destroy_tower(hits);
@@ -256,8 +273,10 @@ plan_mt
 (
     int       tau,
     int       height,
+    int       medianlen,
     int       ntries,
     gstack_t *useqS,
+    lookup_t *lookup,
     const int clusters
 )
 // SYNOPSIS:                                                              
@@ -310,6 +329,10 @@ plan_mt
       mtjob_t *jobs = malloc(njobs * sizeof(mtjob_t));
       if (local_trie == NULL || jobs == NULL) abort();
 
+      // Allocate lookup struct.
+      // TODO: Try only one lut as well. (It will always return 1 in the query step though).
+      lookup_t * local_lut = new_lookup(medianlen, height, tau, 14);
+
       mttries[i].flag       = TRIE_FREE;
       mttries[i].currentjob = 0;
       mttries[i].njobs      = njobs;
@@ -328,6 +351,7 @@ plan_mt
          jobs[j].build    = only_if_first_job;
          jobs[j].useqS    = useqS;
          jobs[j].trie     = local_trie;
+         jobs[j].lut      = local_lut;
          jobs[j].mutex    = mutex;
          jobs[j].monitor  = monitor;
          jobs[j].jobsdone = &(mtplan->jobsdone);
@@ -863,6 +887,81 @@ count_order
    int Cb = (*(useq_t **) b)->count;
    return (Ca < Cb) - (Ca > Cb);
 } 
+
+
+lookup_t *
+new_lookup
+(
+ int slen,
+ int maxlen,
+ int tau,
+ int maxkmer
+)
+{
+   lookup_t * lut = (lookup_t *) malloc(2*sizeof(int) + sizeof(int *) + (tau+1)*sizeof(char *));
+   int k   = slen / (tau + 1);
+   int rem = slen % (tau + 1);
+
+   // Set parameters.
+   lut->kmers  = tau + 1;
+   lut->offset = maxlen - median;
+   
+   // Compute k-mer lengths.
+   if (k > maxkmer)
+      for (int i = 0; i < tau + 1; i++) lut->klen[i] = maxkmer;
+   else
+      for (int i = 0; i < tau + 1; i++) lut->klen[i] = k - (rem-- > 0);
+
+   // Allocate lookup tables.
+   for (int i = 0; i < tau + 1; i++)
+      lut->lut[i] = (char *) calloc(1 << max(0,(2*lut->klen[i] - 3)), sizeof(char));
+
+   return lut;
+}
+
+int
+lut_search
+(
+ lookup_t * lut,
+ useq_t   * query
+)
+{
+   int found = 0;
+   int offset = lut->offset;
+   // Iterate for all kmers and for ins/dels.
+   for (int i = 0; i < lut->kmers && !found; i++) {
+      for (int j = -i; j <= i && !found; j++) {
+         // If sequence contains 'N' seq2id will return -1.
+         int seqid = seq2id(query->seq + offset + j, lut->kmers[i]);
+         if (seqid < 0) continue;
+         found = (lut->lut[seqid/8] >> (seqid%8)) & 1;
+      }
+      offset += lut->kmers[i];
+   }
+
+   return found;
+}
+
+void
+lut_insert
+(
+ lookup_t * lut,
+ useq_t   * query
+)
+{
+   // ...
+}
+
+int seq2id
+(
+  char * seq,
+  int    slen
+)
+{
+   int seqid = 0;
+   // ...
+   return seqid;
+}
 
 
 useq_t *

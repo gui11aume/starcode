@@ -5,10 +5,6 @@
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #define max(a,b) (((a) > (b)) ? (a) : (b))
 
-// DEBUG
-int totalq = 0;
-int searchq = 0;
-
 lookup_t *new_lookup(int, int, int, int);
 int lut_search(lookup_t *, useq_t *);
 void lut_insert(lookup_t *, useq_t *);
@@ -73,9 +69,6 @@ starcode
    // Remove padding characters.
    unpad_useq(useqS);
 
-   // DEBUG
-   fprintf(stderr, "avoided trie-search %f%%\n", (totalq - searchq)*100.0/totalq);
-   
    if (clusters == 0) {
       message_passing_clustering(useqS, maxthreads);
    }
@@ -175,8 +168,6 @@ do_query
    int start;
    for (int i = job->start ; i <= job->end ; i++) {
       useq_t *query = (useq_t *) useqS->items[i];
-      // DEBUG
-      totalq++;
       // Do lookup.
       int do_search = lut_search(lut, query);
 
@@ -195,8 +186,6 @@ do_query
       }
 
       if (do_search) {
-         //DEBUG
-         searchq++;
          int trail = 0;
          if (i < job->end) {
             useq_t *next_query = (useq_t *) useqS->items[i+1];
@@ -235,6 +224,7 @@ do_query
          for (int dist = 1 ; dist < tau+1 ; dist++) {
             for (int j = 0 ; j < hits[dist]->nitems ; j++) {
                useq_t *match = (useq_t *) hits[dist]->items[j];
+
                // Do not link hits when counts are equal.
                if (match->count == query->count) continue;
                useq_t *parent = match->count > query->count ? match : query;
@@ -380,12 +370,6 @@ plan_mt
    mtplan->mutex = mutex;
    mtplan->monitor = monitor;
    mtplan->tries = mttries;
-
-   // DEBUG
-   lookup_t * lut = mttries[0].jobs[0].lut;
-   fprintf(stderr, "median = %d, offset = %d, number of kmers = %d. klen = {", medianlen, lut->offset, lut->kmers);
-   for (int i = 0; i < lut->kmers; i++) fprintf(stderr," %d", lut->klen[i]);
-   fprintf(stderr, "}\n");
 
    return mtplan;
 
@@ -947,20 +931,19 @@ lut_search
  useq_t   * query
 )
 {
-   int found = 0;
    int offset = lut->offset;
    // Iterate for all kmers and for ins/dels.
-   for (int i = 0; i < lut->kmers && !found; i++) {
-      for (int j = -i; j <= i && !found; j++) {
+   for (int i = 0; i < lut->kmers; i++) {
+      for (int j = -i; j <= i; j++) {
          // If sequence contains 'N' seq2id will return -1.
          int seqid = seq2id(query->seq + offset + j, lut->klen[i]);
          if (seqid < 0) continue;
-         found = (lut->lut[i][seqid/8] >> (seqid%8)) & 1;
+         if ((lut->lut[i][seqid/8] >> (seqid%8)) & 1) return 1;
       }
       offset += lut->klen[i];
    }
 
-   return found;
+   return 0;
 }
 
 
@@ -974,7 +957,7 @@ lut_insert
    int offset = lut->offset;
    for (int i = 0; i < lut->kmers; i++) {
       int seqid = seq2id(query->seq + offset, lut->klen[i]);
-      if (seqid > 0) lut->lut[i][seqid/8] = 1 << (seqid%8);
+      if (seqid >= 0) lut->lut[i][seqid/8] |= 1 << (seqid%8);
       offset += lut->klen[i];
    }
 }

@@ -5,7 +5,14 @@
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #define max(a,b) (((a) > (b)) ? (a) : (b))
 
+// DEBUG
+int totalq = 0;
+int searchq = 0;
+
 lookup_t *new_lookup(int, int, int, int);
+int lut_search(lookup_t *, useq_t *);
+void lut_insert(lookup_t *, useq_t *);
+int seq2id(char *, int);
 useq_t *new_useq(int, char*);
 gstack_t *seq2useq(gstack_t*, int);
 gstack_t *read_file(FILE*);
@@ -66,6 +73,9 @@ starcode
    // Remove padding characters.
    unpad_useq(useqS);
 
+   // DEBUG
+   fprintf(stderr, "avoided trie-search %f%%\n", (totalq - searchq)*100.0/totalq);
+   
    if (clusters == 0) {
       message_passing_clustering(useqS, maxthreads);
    }
@@ -165,7 +175,8 @@ do_query
    int start;
    for (int i = job->start ; i <= job->end ; i++) {
       useq_t *query = (useq_t *) useqS->items[i];
-
+      // DEBUG
+      totalq++;
       // Do lookup.
       int do_search = lut_search(lut, query);
 
@@ -184,6 +195,8 @@ do_query
       }
 
       if (do_search) {
+         //DEBUG
+         searchq++;
          int trail = 0;
          if (i < job->end) {
             useq_t *next_query = (useq_t *) useqS->items[i+1];
@@ -276,7 +289,6 @@ plan_mt
     int       medianlen,
     int       ntries,
     gstack_t *useqS,
-    lookup_t *lookup,
     const int clusters
 )
 // SYNOPSIS:                                                              
@@ -368,6 +380,12 @@ plan_mt
    mtplan->mutex = mutex;
    mtplan->monitor = monitor;
    mtplan->tries = mttries;
+
+   // DEBUG
+   lookup_t * lut = mttries[0].jobs[0].lut;
+   fprintf(stderr, "median = %d, offset = %d, number of kmers = %d. klen = {", medianlen, lut->offset, lut->kmers);
+   for (int i = 0; i < lut->kmers; i++) fprintf(stderr," %d", lut->klen[i]);
+   fprintf(stderr, "}\n");
 
    return mtplan;
 
@@ -723,6 +741,7 @@ pad_useq
 
    // Alloc median bins. (Initializes to 0)
    int count[maxlen];
+   for (int i = 0; i < maxlen; i++) count[i] = 0;
 
    char *spaces = malloc((maxlen + 1) * sizeof(char));
    for (int i = 0 ; i < maxlen ; i++) spaces[i] = ' ';
@@ -900,11 +919,12 @@ new_lookup
 {
    lookup_t * lut = (lookup_t *) malloc(2*sizeof(int) + sizeof(int *) + (tau+1)*sizeof(char *));
    int k   = slen / (tau + 1);
-   int rem = slen % (tau + 1);
+   int rem = tau - slen % (tau + 1);
 
    // Set parameters.
    lut->kmers  = tau + 1;
-   lut->offset = maxlen - median;
+   lut->offset = maxlen - slen;
+   lut->klen   = (int *) malloc(lut->kmers * sizeof(int));
    
    // Compute k-mer lengths.
    if (k > maxkmer)
@@ -919,6 +939,7 @@ new_lookup
    return lut;
 }
 
+
 int
 lut_search
 (
@@ -932,15 +953,16 @@ lut_search
    for (int i = 0; i < lut->kmers && !found; i++) {
       for (int j = -i; j <= i && !found; j++) {
          // If sequence contains 'N' seq2id will return -1.
-         int seqid = seq2id(query->seq + offset + j, lut->kmers[i]);
+         int seqid = seq2id(query->seq + offset + j, lut->klen[i]);
          if (seqid < 0) continue;
-         found = (lut->lut[seqid/8] >> (seqid%8)) & 1;
+         found = (lut->lut[i][seqid/8] >> (seqid%8)) & 1;
       }
-      offset += lut->kmers[i];
+      offset += lut->klen[i];
    }
 
    return found;
 }
+
 
 void
 lut_insert
@@ -949,17 +971,34 @@ lut_insert
  useq_t   * query
 )
 {
-   // ...
+   int offset = lut->offset;
+   for (int i = 0; i < lut->kmers; i++) {
+      int seqid = seq2id(query->seq + offset, lut->klen[i]);
+      if (seqid > 0) lut->lut[i][seqid/8] = 1 << (seqid%8);
+      offset += lut->klen[i];
+   }
 }
 
-int seq2id
+
+int
+seq2id
 (
   char * seq,
   int    slen
 )
 {
    int seqid = 0;
-   // ...
+   for (int i = 0; i < slen; i++) {
+      // Padding spaces are substituted by 'A'. It does not hurt
+      // anyway to generate some false positives.
+      if (seq[i] == 'A' || seq[i] == 'a' || seq[i] == ' ') { }
+      else if (seq[i] == 'C' || seq[i] == 'c') seqid += 1;
+      else if (seq[i] == 'G' || seq[i] == 'g') seqid += 2;
+      else if (seq[i] == 'T' || seq[i] == 't') seqid += 3;
+      else return -1;
+      if (i < slen - 1) seqid <<= 2;
+   }
+
    return seqid;
 }
 

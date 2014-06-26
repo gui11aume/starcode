@@ -8,6 +8,9 @@
 #ifndef __STARCODE_TRIE_LOADED_
 #define __STARCODE_TRIE_LOADED_
 
+#define DESTROY_NODES_YES 1
+#define DESTROY_NODES_NO 0
+
 static const char BASES[8] = "ACGTN";
 
 struct gstack_t;
@@ -32,13 +35,15 @@ gstack_t * const TOWER_TOP;
 int         search(trie_t*, const char*, int, gstack_t**, int, int);
 trie_t   *  new_trie(unsigned char, unsigned char);
 void     ** insert_string(trie_t*, const char*);
-void        destroy_trie(trie_t*, void(*)(void *));
+void        destroy_trie(trie_t*, int, void(*)(void *));
 int         check_trie_error_and_reset(void);
 int         count_nodes(trie_t*);
 gstack_t *  new_gstack(void);
 gstack_t ** new_tower(int);
 void 	    destroy_tower(gstack_t **);
 void 	    push(void*, gstack_t**);
+void     ** insert_string_wo_malloc(trie_t *, const char *, void *);
+
 
 
 // Translation tables between letters and numbers.

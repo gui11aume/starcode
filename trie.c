@@ -17,6 +17,7 @@ void poucet(node_t*, int, struct arg_t);
 void dash(node_t*, const int*, struct arg_t);
 // Trie creation and destruction.
 node_t *insert(node_t*, int, unsigned char);
+node_t *insert_wo_malloc(node_t *, int, unsigned char, void *);
 node_t *new_trienode(unsigned char);
 void destroy_nodes_recursively(node_t*, void(*)(void*), int, int);
 // Snippets.
@@ -504,10 +505,91 @@ insert
 }
 
 
+void **
+insert_string_wo_malloc
+(
+         trie_t * trie,
+   const char   * string,
+         void   * from_address
+)
+// SYNOPSIS:                                                              
+//                                                                        
+// RETURN:                                                                
+{
+
+   int i;
+
+   int nchar = strlen(string);
+   if (nchar > get_height(trie)) {
+      fprintf(stderr, "error: cannot insert string longer than %d\n",
+            get_height(trie));
+      ERROR = 432;
+      return NULL;
+   }
+   
+   unsigned char maxtau = get_maxtau(trie);
+
+   // Find existing path.
+   node_t *node = trie->root;
+   for (i = 0 ; i < nchar-1; i++) {
+      node_t *child;
+      int c = translate[(int) string[i]];
+      if ((child = (node_t *) node->child[c]) == NULL) {
+         break;
+      }
+      node = child;
+   }
+
+   // Append more nodes.
+   for ( ; i < nchar-1 ; i++) {
+      int c = translate[(int) string[i]];
+      node = insert_wo_malloc(node, c, maxtau, node+1);
+      if (node == NULL) {
+         fprintf(stderr, "error: could not insert string\n");
+         ERROR = 455;
+         return NULL;
+      }
+   }
+
+   return node->child + translate[(int) string[nchar-1]];
+
+}
+
+node_t *
+insert_wo_malloc
+(
+            node_t * parent,
+            int      position,
+   unsigned char     maxtau,
+            void   * at_address
+)
+// SYNOPSIS:                                                              
+//                                                                        
+// PARAMETERS:                                                            
+//                                                                        
+// RETURN:                                                                
+// SIDE EFFECTS:
+{
+
+   node_t *node = (node_t *) at_address;
+   size_t cachesize = (2*maxtau + 1) * sizeof(char);
+
+   for(int i = 0; i < 6; i++) node->child[i] = NULL;
+   const char init[17] = {8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8};
+   memcpy(node->cache, init+(8-maxtau), cachesize);
+   node->path = (parent->path << 4) + position;
+   parent->child[position] = node;
+
+   return node;
+
+}
+
+
 void
 destroy_trie
 (
    trie_t *trie,
+   int destroy_nodes,
    void (*destruct)(void *)
 )
 // SYNOPSIS:                                                              
@@ -531,7 +613,12 @@ destroy_trie
 {
    // Free the milesones.
    destroy_tower(trie->info->pebbles);
-   destroy_nodes_recursively(trie->root, destruct, get_height(trie), 0);
+   if (destroy_nodes) {
+      destroy_nodes_recursively(trie->root, destruct, get_height(trie), 0);
+   }
+   else {
+      free(trie->root);
+   }
    free(trie->info);
    free(trie);
 }

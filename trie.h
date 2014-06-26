@@ -42,7 +42,7 @@ gstack_t *  new_gstack(void);
 gstack_t ** new_tower(int);
 void 	    destroy_tower(gstack_t **);
 void 	    push(void*, gstack_t**);
-void     ** insert_string_wo_malloc(trie_t *, const char *, void *);
+void     ** insert_string_wo_malloc(trie_t *, const char *, node_t **);
 
 
 

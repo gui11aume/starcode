@@ -260,8 +260,15 @@ test_base_2
    for (int i = 0 ; i < 6 ; i++) {
       node_t *node = insert(root, i, maxtau);
       g_assert(node != NULL);
-      g_assert(root->child[i] == node);
+      for (int j = 0 ; j < 6 ; j++) {
+         g_assert(node->child[j] == NULL);
+      }
+      const char cache[] = {3,2,1,0,1,2,3};
+      for (int j = 0 ; j < 7 ; j++) {
+         g_assert(node->cache[j] == cache[j]);
+      }
       g_assert_cmpint(node->path, ==, i);
+      g_assert(root->child[i] == node);
    }
 
    // Destroy manually.
@@ -295,7 +302,7 @@ test_base_3
       for (int j = 0 ; j < 7 ; j++) {
          g_assert(node->cache[j] == cache[j]);
       }
-      g_assert(node->path == i);
+      g_assert_cmpint(node->path, ==, i);
       g_assert(root->child[i] == node);
    }
 
@@ -311,6 +318,7 @@ test_base_4
 (void)
 // Test trie creation and destruction.
 {
+
    for (char maxtau = 0 ; maxtau < 9 ; maxtau++) {
    for (int height = 0 ; height < M ; height++) {
       trie_t *trie = new_trie(maxtau, height);
@@ -326,6 +334,17 @@ test_base_4
       g_assert(((node_t*) *info->pebbles[0]->items) == trie->root);
       for (int i = 1 ; i < M ; i++) {
          g_assert(info->pebbles[i]->items != NULL);
+      }
+
+      // Insert 20 random sequences.
+      for (int i = 0 ; i < 20 ; i++) {
+         char seq[M] = {0};
+         for (int j = 0 ; j < height ; j++) {
+            seq[j] = untranslate[(int)(5 * drand48())];
+         }
+         void **data = insert_string(trie, seq);
+         g_assert(data != NULL);
+         *data = data;
       }
       destroy_trie(trie, DESTROY_NODES_YES, NULL);
       trie = NULL;
@@ -348,7 +367,23 @@ test_base_4
       for (int i = 1 ; i < M ; i++) {
          g_assert(info->pebbles[i]->items != NULL);
       }
-      destroy_trie(trie, DESTROY_NODES_YES, NULL);
+
+      // Insert 20 random sequences without malloc.
+      size_t cachesize = (2*maxtau + 1) * sizeof(char);
+      node_t *nodes = malloc(20*height * (sizeof(node_t) + cachesize));
+      g_assert(nodes != NULL);
+      node_t *pos = nodes;
+      for (int i = 0 ; i < 20 ; i++) {
+         char seq[M] = {0};
+         for (int j = 0 ; j < height ; j++) {
+            seq[j] = untranslate[(int)(5 * drand48())];
+         }
+         void **data = insert_string_wo_malloc(trie, seq, &pos);
+         g_assert(data != NULL);
+         *data = data;
+      }
+      destroy_trie(trie, DESTROY_NODES_NO, NULL);
+      free(nodes);
       trie = NULL;
    }
    }

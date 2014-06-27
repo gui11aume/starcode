@@ -12,6 +12,7 @@ int get_height(trie_t*);
 node_t *insert (node_t *, int, unsigned char);
 void init_pebbles(node_t*);
 node_t *new_trienode(char);
+node_t *insert_wo_malloc(node_t *, int, unsigned char, void *);
 // -- DECLARATION OF PRIVATE FUNCTIONS FROM starcode.c -- //
 int AtoZ(const void *a, const void *b);
 void addmatch(useq_t*, useq_t*, int, int);
@@ -217,7 +218,7 @@ teardown(
    gconstpointer test_data
 )
 {
-   destroy_trie(f->trie, NULL);
+   destroy_trie(f->trie, DESTROY_NODES_YES, NULL);
 }
 
 
@@ -227,8 +228,97 @@ teardown(
 void
 test_base_1
 (void)
+// Test node creation and destruction.
 {
-   // Test trie creation and destruction.
+   const char cache[17] = {8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8};
+   for (char maxtau = 0 ; maxtau < 9 ; maxtau++) {
+      node_t *node = new_trienode(maxtau);
+      g_assert(node != NULL);
+      g_assert(node->cache != NULL);
+      g_assert_cmpint(node->path, ==, 0);
+      for (int i = 0 ; i < 6 ; i++) {
+         g_assert(node->child[i] == NULL);
+      }
+      for (int i = 0 ; i < 2*maxtau + 1 ; i++) {
+         g_assert(node->cache[i] == cache[i+(8-maxtau)]);
+      }
+      free(node);
+   }
+   return;
+}
+
+
+void
+test_base_2
+(void)
+// Test 'insert()'.
+{
+   const char maxtau = 3;
+   node_t *root = new_trienode(maxtau);
+   g_assert(root != NULL);
+
+   for (int i = 0 ; i < 6 ; i++) {
+      node_t *node = insert(root, i, maxtau);
+      g_assert(node != NULL);
+      for (int j = 0 ; j < 6 ; j++) {
+         g_assert(node->child[j] == NULL);
+      }
+      const char cache[] = {3,2,1,0,1,2,3};
+      for (int j = 0 ; j < 7 ; j++) {
+         g_assert(node->cache[j] == cache[j]);
+      }
+      g_assert_cmpint(node->path, ==, i);
+      g_assert(root->child[i] == node);
+   }
+
+   // Destroy manually.
+   for (int i = 0 ; i < 6 ; i++) free(root->child[i]);
+   free(root);
+
+   return;
+}
+
+
+void
+test_base_3
+(void)
+// Test 'insert_wo_malloc()'.
+{
+   const char maxtau = 3;
+   node_t *root = new_trienode(maxtau);
+   g_assert(root != NULL);
+
+   size_t cachesize = (2*maxtau + 1) * sizeof(char);
+   node_t *nodes = malloc(6 * (sizeof(node_t) + cachesize));
+   g_assert(nodes != NULL);
+
+   for (int i = 0 ; i < 6 ; i++) {
+      node_t *node = insert_wo_malloc(root, i, maxtau, nodes+i);
+      g_assert(node != NULL);
+      for (int j = 0 ; j < 6 ; j++) {
+         g_assert(node->child[j] == NULL);
+      }
+      const char cache[] = {3,2,1,0,1,2,3};
+      for (int j = 0 ; j < 7 ; j++) {
+         g_assert(node->cache[j] == cache[j]);
+      }
+      g_assert_cmpint(node->path, ==, i);
+      g_assert(root->child[i] == node);
+   }
+
+   free(root);
+   free(nodes);
+
+   return;
+}
+
+
+void
+test_base_4
+(void)
+// Test trie creation and destruction.
+{
+
    for (char maxtau = 0 ; maxtau < 9 ; maxtau++) {
    for (int height = 0 ; height < M ; height++) {
       trie_t *trie = new_trie(maxtau, height);
@@ -245,7 +335,55 @@ test_base_1
       for (int i = 1 ; i < M ; i++) {
          g_assert(info->pebbles[i]->items != NULL);
       }
-      destroy_trie(trie, NULL);
+
+      // Insert 20 random sequences.
+      for (int i = 0 ; i < 20 ; i++) {
+         char seq[M] = {0};
+         for (int j = 0 ; j < height ; j++) {
+            seq[j] = untranslate[(int)(5 * drand48())];
+         }
+         void **data = insert_string(trie, seq);
+         g_assert(data != NULL);
+         *data = data;
+      }
+      destroy_trie(trie, DESTROY_NODES_YES, NULL);
+      trie = NULL;
+   }
+   }
+
+   for (char maxtau = 0 ; maxtau < 9 ; maxtau++) {
+   for (int height = 0 ; height < M ; height++) {
+      trie_t *trie = new_trie(maxtau, height);
+      g_assert(trie != NULL);
+      g_assert(trie->root != NULL);
+      g_assert(trie->info != NULL);
+
+      g_assert_cmpint(get_maxtau(trie), ==, maxtau);
+      g_assert_cmpint(get_height(trie), ==, height);
+
+      // Make sure that 'info' is initialized properly.
+      info_t *info = trie->info;
+      g_assert(((node_t*) *info->pebbles[0]->items) == trie->root);
+      for (int i = 1 ; i < M ; i++) {
+         g_assert(info->pebbles[i]->items != NULL);
+      }
+
+      // Insert 20 random sequences without malloc.
+      size_t cachesize = (2*maxtau + 1) * sizeof(char);
+      node_t *nodes = malloc(20*height * (sizeof(node_t) + cachesize));
+      g_assert(nodes != NULL);
+      node_t *pos = nodes;
+      for (int i = 0 ; i < 20 ; i++) {
+         char seq[M] = {0};
+         for (int j = 0 ; j < height ; j++) {
+            seq[j] = untranslate[(int)(5 * drand48())];
+         }
+         void **data = insert_string_wo_malloc(trie, seq, &pos);
+         g_assert(data != NULL);
+         *data = data;
+      }
+      destroy_trie(trie, DESTROY_NODES_NO, NULL);
+      free(nodes);
       trie = NULL;
    }
    }
@@ -254,50 +392,9 @@ test_base_1
 
 
 void
-test_base_2
+test_base_5
 (void)
-{
-   const char init[17] = {8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8};
-   // Test node creation and destruction.
-   for (char maxtau = 0 ; maxtau < 9 ; maxtau++) {
-      node_t *node = new_trienode(maxtau);
-      g_assert(node != NULL);
-      g_assert(node->cache != NULL);
-      g_assert_cmpint(node->path, ==, 0);
-      for (int i = 0 ; i < 6 ; i++) {
-         g_assert(node->child[i] == NULL);
-      }
-      for (int i = 0 ; i < 2*maxtau + 1 ; i++) {
-         g_assert(node->cache[i] == init[i+(8-maxtau)]);
-      }
-      free(node);
-   }
-   return;
-}
-
-
-void
-test_base_3
-(void)
-{
-   trie_t *trie = new_trie(3, 20);
-   g_assert(trie != NULL);
-
-   node_t *root = trie->root;
-   for (int i = 0 ; i < 6 ; i++) {
-      node_t *node = insert(root, i, 3);
-      g_assert(node != NULL);
-      g_assert(root->child[i] == node);
-      g_assert_cmpint(node->path, ==, i);
-   }
-   destroy_trie(trie, NULL);
-   return;
-}
-
-
-void
-test_base_4
-(void)
+// Test 'insert_string()'.
 {
    trie_t *trie = new_trie(3, 20);
    g_assert(trie != NULL);
@@ -307,15 +404,16 @@ test_base_4
    *data = data;
    g_assert_cmpint(21, ==, count_nodes(trie));
 
-   destroy_trie(trie, NULL);
+   destroy_trie(trie, DESTROY_NODES_YES, NULL);
    return;
 
 }
 
 
 void
-test_base_5
+test_base_6
 (void)
+// Test 'new_gstack()' and 'push()'.
 {
    gstack_t *gstack = new_gstack();
    g_assert(gstack != NULL);
@@ -336,8 +434,9 @@ test_base_5
 
 
 void
-test_base_6
+test_base_7
 (void)
+// Test 'new_tower()'.
 {
    gstack_t **tower = new_tower(1);
    g_assert(tower != NULL);
@@ -680,7 +779,7 @@ test_mem_1(
    err = search(trie, "NNNNNNNN", 8, hits, 0, 8);
    g_assert_cmpint(err, ==, 0);
 
-   destroy_trie(trie, NULL);
+   destroy_trie(trie, DESTROY_NODES_YES, NULL);
    destroy_tower(hits);
    return;
 }
@@ -725,7 +824,7 @@ test_mem_2(
             *data = malloc(sizeof(char));
          }
       }
-      destroy_trie(trie, free);
+      destroy_trie(trie, DESTROY_NODES_YES, free);
    }
    unredirect_sderr();
    reset_alloc();
@@ -825,7 +924,7 @@ test_mem_4(
          g_assert_cmpint(check_trie_error_and_reset(), > , 0);
       }
       else {
-         destroy_trie(trie, NULL);
+         destroy_trie(trie, DESTROY_NODES_YES, NULL);
          trie = NULL;
       }
    }
@@ -1197,6 +1296,7 @@ main(
    g_test_add_func("/base/4", test_base_4);
    g_test_add_func("/base/5", test_base_5);
    g_test_add_func("/base/6", test_base_6);
+   g_test_add_func("/base/7", test_base_7);
    g_test_add("/search", fixture, NULL, setup, test_search, teardown);
    g_test_add("/errmsg", fixture, NULL, setup, test_errmsg, teardown);
    g_test_add("/mem/1", fixture, NULL, setup, test_mem_1, teardown);

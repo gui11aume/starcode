@@ -17,8 +17,9 @@ void poucet(node_t*, int, struct arg_t);
 void dash(node_t*, const int*, struct arg_t);
 // Trie creation and destruction.
 node_t *insert(node_t*, int, unsigned char);
+node_t *insert_wo_malloc(node_t *, int, unsigned char, void *);
 node_t *new_trienode(unsigned char);
-void destroy_nodes_recursively(node_t*, void(*)(void*), int, int);
+void destroy_from(node_t*, void(*)(void*), int, int, int);
 // Snippets.
 int recursive_count_nodes(node_t * node, int, int);
 
@@ -504,17 +505,101 @@ insert
 }
 
 
+void **
+insert_string_wo_malloc
+(
+         trie_t  * trie,
+   const char    * string,
+         node_t ** from_address
+)
+// TODO: document the function, explain that 'from_address' is
+// incremented.
+// SYNOPSIS:                                                              
+//                                                                        
+// RETURN:                                                                
+{
+
+   int i;
+
+   int nchar = strlen(string);
+   if (nchar > get_height(trie)) {
+      fprintf(stderr, "error: cannot insert string longer than %d\n",
+            get_height(trie));
+      ERROR = 526;
+      return NULL;
+   }
+   
+   unsigned char maxtau = get_maxtau(trie);
+
+   // Find existing path.
+   node_t *node = trie->root;
+   for (i = 0 ; i < nchar-1; i++) {
+      node_t *child;
+      int c = translate[(int) string[i]];
+      if ((child = (node_t *) node->child[c]) == NULL) {
+         break;
+      }
+      node = child;
+   }
+
+   // Append more nodes.
+   for ( ; i < nchar-1 ; i++) {
+      int c = translate[(int) string[i]];
+      node = insert_wo_malloc(node, c, maxtau, (*from_address)++);
+      if (node == NULL) {
+         fprintf(stderr, "error: could not insert string\n");
+         ERROR = 549;
+         return NULL;
+      }
+   }
+
+   return node->child + translate[(int) string[nchar-1]];
+
+}
+
+node_t *
+insert_wo_malloc
+(
+            node_t * parent,
+            int      position,
+   unsigned char     maxtau,
+            void   * at_address
+)
+// TODO: document the funciton.
+// SYNOPSIS:                                                              
+//                                                                        
+// PARAMETERS:                                                            
+//                                                                        
+// RETURN:                                                                
+// SIDE EFFECTS:
+{
+
+   node_t *node = (node_t *) at_address;
+   size_t cachesize = (2*maxtau + 1) * sizeof(char);
+
+   for(int i = 0; i < 6; i++) node->child[i] = NULL;
+   const char init[17] = {8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8};
+   memcpy(node->cache, init+(8-maxtau), cachesize);
+   node->path = (parent->path << 4) + position;
+   parent->child[position] = node;
+
+   return node;
+
+}
+
+
 void
 destroy_trie
 (
    trie_t *trie,
+   int free_nodes,
    void (*destruct)(void *)
 )
 // SYNOPSIS:                                                              
 //   Front end function to recycle the memory allocated to a trie. Node   
 //   data may or may not be recycled as well, depending on the destructor 
 //   passed as argument. This function is essentially a wrapper for       
-//   'destroy_nodes_downstream_of()', the only difference is that it      
+//   'destroy_nodes_()', the only difference is that it      
 //   destroys the meta-data of the trie first.                            
 //                                                                        
 // PARAMETERS:                                                            
@@ -531,17 +616,19 @@ destroy_trie
 {
    // Free the milesones.
    destroy_tower(trie->info->pebbles);
-   destroy_nodes_recursively(trie->root, destruct, get_height(trie), 0);
+   destroy_from(trie->root, destruct, free_nodes, get_height(trie), 0);
+   if (!free_nodes) free(trie->root);
    free(trie->info);
    free(trie);
 }
 
 
 void
-destroy_nodes_recursively
+destroy_from
 (
    node_t *node,
    void (*destruct)(void *),
+   int free_nodes,
    int maxdepth,
    int depth
 )
@@ -564,9 +651,9 @@ destroy_nodes_recursively
       }
       for (int i = 0 ; i < 6 ; i++) {
          node_t * child = (node_t *) node->child[i];
-         destroy_nodes_recursively(child, destruct, maxdepth, depth+1);
+         destroy_from(child, destruct, free_nodes, maxdepth, depth+1);
       }
-      free(node);
+      if (free_nodes) free(node);
    }
    return;
 }

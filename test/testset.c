@@ -405,13 +405,37 @@ test_base_5
    g_assert_cmpint(21, ==, count_nodes(trie));
 
    destroy_trie(trie, DESTROY_NODES_YES, NULL);
+}
+
+
+void
+test_base_6
+(void)
+// Test 'insert_string_wo_malloc()'.
+{
+   const char maxtau = 3;
+   trie_t *trie = new_trie(maxtau, 20);
+   g_assert(trie != NULL);
+
+   size_t cachesize = (2*maxtau + 1) * sizeof(char);
+   node_t *nodes = malloc(19 * (sizeof(node_t) + cachesize));
+   node_t *pos = nodes;
+   void **data = 
+      insert_string_wo_malloc(trie, "AAAAAAAAAAAAAAAAAAAA", &pos);
+   g_assert(data != NULL);
+   *data = data;
+   g_assert_cmpint(21, ==, count_nodes(trie));
+   g_assert_cmpint(19, ==, pos - nodes);
+
+   destroy_trie(trie, DESTROY_NODES_NO, NULL);
+
    return;
 
 }
 
 
 void
-test_base_6
+test_base_7
 (void)
 // Test 'new_gstack()' and 'push()'.
 {
@@ -434,7 +458,7 @@ test_base_6
 
 
 void
-test_base_7
+test_base_8
 (void)
 // Test 'new_tower()'.
 {
@@ -1297,6 +1321,7 @@ main(
    g_test_add_func("/base/5", test_base_5);
    g_test_add_func("/base/6", test_base_6);
    g_test_add_func("/base/7", test_base_7);
+   g_test_add_func("/base/8", test_base_8);
    g_test_add("/search", fixture, NULL, setup, test_search, teardown);
    g_test_add("/errmsg", fixture, NULL, setup, test_errmsg, teardown);
    g_test_add("/mem/1", fixture, NULL, setup, test_mem_1, teardown);

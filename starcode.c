@@ -17,7 +17,7 @@ void addmatch(useq_t*, useq_t*, int, int);
 void transfer_counts_and_update_canonicals(useq_t*);
 void unpad_useq (gstack_t*);
 int pad_useq(gstack_t*, int*);
-int AtoZ(const void *a, const void *b) { return strcmp(str(a), str(b)); }
+int AtoZ(const void *a, const void *b);
 int canonical_order(const void*, const void*);
 int count_order(const void *a, const void *b);
 void *do_query(void*);
@@ -27,7 +27,7 @@ void message_passing_clustering(gstack_t*, int);
 void sphere_clustering(gstack_t*, int);
 void * _mergesort(void *);
 int seqsort (void **, int, int (*)(const void*, const void*), int);
-
+long count_trie_nodes(useq_t **, int, int);
 
 FILE *OUTPUT = NULL;
 
@@ -51,7 +51,7 @@ starcode
    if (ntries % 2 == 0) abort();
    
    if (verbose) fprintf(stderr, "reading input files\n");
-    gstack_t *seqS = read_file(inputf);
+   gstack_t *seqS = read_file(inputf);
 
    if (verbose) fprintf(stderr, "preprocessing\n");
    // Count unique sequences.
@@ -154,6 +154,7 @@ do_query
    lookup_t * lut      = job->lut;
    int        tau      = job->tau;
    const int  clusters = job->clusters;
+   node_t * node_pos   = job->node_pos;
 
    // Create local hit stack.
    gstack_t **hits = new_tower(tau+1);
@@ -169,25 +170,13 @@ do_query
       // Do lookup.
       int do_search = lut_search(lut, query);
 
-      int trail = 0;
-      if (i < job->end) {
-         useq_t *next_query = (useq_t *) useqS->items[i+1];
-         // The 'while' condition is guaranteed to be false
-         // before the end of the 'char' arrays because all
-         // the queries have the same length and are different.
-         while (query->seq[trail] == next_query->seq[trail]) {
-            trail++;
-         }
-      }
-
-
       // Insert the new sequence in the lut and trie, but let
       // the last pointer to NULL so that the query does not
       // find itself upon search.
       void **data = NULL;
       if (job->build) {
          lut_insert(lut, query);
-         data = insert_string(trie, query->seq);
+         data = insert_string_wo_malloc(trie, query->seq, &node_pos);
          if (data == NULL || *data != NULL) {
             fprintf(stderr, "error: cannot build trie (%d)\n",
                   check_trie_error_and_reset());
@@ -196,6 +185,16 @@ do_query
       }
 
       if (do_search) {
+         int trail = 0;
+         if (i < job->end) {
+            useq_t *next_query = (useq_t *) useqS->items[i+1];
+            // The 'while' condition is guaranteed to be false
+            // before the end of the 'char' arrays because all
+            // the queries have the same length and are different.
+            while (query->seq[trail] == next_query->seq[trail]) {
+               trail++;
+            }
+         }
 
          // Compute start height.
          int start = 0;
@@ -331,11 +330,17 @@ plan_mt
    int *bounds = malloc((ntries+1) * sizeof(int));
    for (int i = 0 ; i < ntries+1 ; i++) bounds[i] = Q*i + min(i, R);
 
+   // Preallocated tries.
+   // Count with maxlen-1
+   long *nnodes = malloc(ntries * sizeof(long));
+   for (int i = 0; i < ntries; i++) nnodes[i] = count_trie_nodes((useq_t **)useqS->items, bounds[i], bounds[i+1]);
+
    // Create jobs for the tries.
    for (int i = 0 ; i < ntries; i++) {
       // Remember that 'ntries' is odd.
       int njobs = (ntries+1)/2;
-      trie_t *local_trie = new_trie(tau, height);
+      trie_t *local_trie  = new_trie(tau, height);
+      node_t *local_nodes = (node_t *) malloc(nnodes[i] * node_t_size(tau));
       mtjob_t *jobs = malloc(njobs * sizeof(mtjob_t));
       if (local_trie == NULL || jobs == NULL) abort();
 
@@ -361,6 +366,7 @@ plan_mt
          jobs[j].build    = only_if_first_job;
          jobs[j].useqS    = useqS;
          jobs[j].trie     = local_trie;
+         jobs[j].node_pos = local_nodes;
          jobs[j].lut      = local_lut;
          jobs[j].mutex    = mutex;
          jobs[j].monitor  = monitor;
@@ -382,14 +388,28 @@ plan_mt
    mtplan->monitor = monitor;
    mtplan->tries = mttries;
 
-   // DEBUG
-   lookup_t * lut = mttries[0].jobs[0].lut;
-   fprintf(stderr, "median = %d, offset = %d, number of kmers = %d. klen = {", medianlen, lut->offset, lut->kmers);
-   for (int i = 0; i < lut->kmers; i++) fprintf(stderr," %d", lut->klen[i]);
-   fprintf(stderr, "}\n");
-
    return mtplan;
 
+}
+
+long
+count_trie_nodes
+(
+ useq_t ** seqs,
+ int     start,
+ int     end
+)
+{
+   int  seqlen = strlen(seqs[start]->seq) - 1;
+   long count = seqlen;
+   for (int i = start+1; i < end; i++) {
+      char * a = seqs[i-1]->seq;
+      char * b  = seqs[i]->seq;
+      int prefix = 0;
+      while (a[prefix] == b[prefix]) prefix++;
+      count += seqlen - prefix;
+   }
+   return count;
 }
 
 
@@ -723,8 +743,6 @@ seq2useq
 }
 
 
-
-
 int
 pad_useq
 (
@@ -1030,4 +1048,20 @@ destroy_useq
    if (useq->matches != NULL) destroy_tower(useq->matches);
    free(useq->seq);
    free(useq);
+}
+
+
+int
+AtoZ
+(
+const void *ap, 
+const void *bp
+)
+{
+   char * a = (char *) ap;
+   char * b = (char *) bp;
+   int la = strlen(a);
+   int lb = strlen(b);
+   if (la == lb)  return strcmp(a,b);
+   return (la < lb ? -1 : 1);
 }

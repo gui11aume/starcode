@@ -11,6 +11,8 @@
 #define DESTROY_NODES_YES 1
 #define DESTROY_NODES_NO 0
 
+#define node_t_size(tau) ((2*tau+1)*sizeof(char) + sizeof(node_t))
+
 static const char BASES[8] = "ACGTN";
 
 struct gstack_t;

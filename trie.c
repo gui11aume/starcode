@@ -529,7 +529,7 @@ insert_string_wo_malloc
       return NULL;
    }
    
-   unsigned char maxtau = get_maxtau(trie);
+   const unsigned char maxtau = get_maxtau(trie);
 
    // Find existing path.
    node_t *node = trie->root;
@@ -545,7 +545,8 @@ insert_string_wo_malloc
    // Append more nodes.
    for ( ; i < nchar-1 ; i++) {
       int c = translate[(int) string[i]];
-      node = insert_wo_malloc(node, c, maxtau, (*from_address)++);
+      node = insert_wo_malloc(node, c, maxtau, *from_address);
+      *from_address = (node_t *)(((char *) (*from_address)) + node_t_size(maxtau));
       if (node == NULL) {
          fprintf(stderr, "error: could not insert string\n");
          ERROR = 549;

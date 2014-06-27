@@ -97,6 +97,7 @@ struct mtjob_t {
    int                trieid;
    gstack_t         * useqS;
    trie_t           * trie;
+   node_t           * node_pos;
    lookup_t         * lut;
    pthread_mutex_t  * mutex;
    pthread_cond_t   * monitor;

@@ -93,6 +93,8 @@ struct mtjob_t {
    int                tau;
    int                build;
    int		      clusters;
+   int                queryid;
+   int                trieid;
    gstack_t         * useqS;
    trie_t           * trie;
    lookup_t         * lut;

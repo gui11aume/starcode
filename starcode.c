@@ -100,7 +100,6 @@ run_plan
       // Cycle through the tries in turn.
       idx = (idx+1) % mtplan->ntries;
       mttrie_t *mttrie = mtplan->tries + idx;
-
       pthread_mutex_lock(mtplan->mutex);     
 
       // Check whether trie is idle and there are available threads.
@@ -165,11 +164,22 @@ do_query
    }
 
    useq_t * last_query = NULL;
-   int start;
    for (int i = job->start ; i <= job->end ; i++) {
       useq_t *query = (useq_t *) useqS->items[i];
       // Do lookup.
       int do_search = lut_search(lut, query);
+
+      int trail = 0;
+      if (i < job->end) {
+         useq_t *next_query = (useq_t *) useqS->items[i+1];
+         // The 'while' condition is guaranteed to be false
+         // before the end of the 'char' arrays because all
+         // the queries have the same length and are different.
+         while (query->seq[trail] == next_query->seq[trail]) {
+            trail++;
+         }
+      }
+
 
       // Insert the new sequence in the lut and trie, but let
       // the last pointer to NULL so that the query does not
@@ -186,19 +196,9 @@ do_query
       }
 
       if (do_search) {
-         int trail = 0;
-         if (i < job->end) {
-            useq_t *next_query = (useq_t *) useqS->items[i+1];
-            // The 'while' condition is guaranteed to be false
-            // before the end of the 'char' arrays because all
-            // the queries have the same length and are different.
-            while (query->seq[trail] == next_query->seq[trail]) {
-               trail++;
-            }
-         } 
 
          // Compute start height.
-         start = 0;
+         int start = 0;
          if (last_query != NULL) {
             while(query->seq[start] == last_query->seq[start]) start++;
          }
@@ -223,26 +223,33 @@ do_query
          // Only unique sequences, so start at d=1.
          for (int dist = 1 ; dist < tau+1 ; dist++) {
             for (int j = 0 ; j < hits[dist]->nitems ; j++) {
-               useq_t *match = (useq_t *) hits[dist]->items[j];
 
+               useq_t *match = (useq_t *) hits[dist]->items[j];
+               
                // Do not link hits when counts are equal.
                if (match->count == query->count) continue;
+               // We'll always use parent's mutex.
                useq_t *parent = match->count > query->count ? match : query;
-               useq_t *child = match->count > query->count ? query : match;
+               useq_t *child  = match->count > query->count ? query : match;
+               int mutexid;
                if (clusters == 0) {
                   // If clustering is done by message passing, do not link
                   // pair if counts are on the same order of magnitude.
                   int mincount = child->count;
                   int maxcount = parent->count;
                   if (maxcount < PARENT_TO_CHILD_FACTOR * mincount) continue;
-                  pthread_mutex_lock(job->mutex);
+                  // The children is modified, use the children mutex.
+                  mutexid = match->count > query->count ? job->queryid : job->trieid;
+                  pthread_mutex_lock(job->mutex + mutexid);
                   addmatch(child, parent, dist, tau);
-                  pthread_mutex_unlock(job->mutex);
+                  pthread_mutex_unlock(job->mutex + mutexid);
                }
                else {
-                  pthread_mutex_lock(job->mutex);
+                  // The parent is modified, use the parent mutex.
+                  mutexid = match->count > query->count ? job->trieid : job->queryid;
+                  pthread_mutex_lock(job->mutex + mutexid);
                   addmatch(parent, child, dist, tau);
-                  pthread_mutex_unlock(job->mutex);
+                  pthread_mutex_unlock(job->mutex + mutexid);
                }
             }
          }
@@ -259,6 +266,7 @@ do_query
    destroy_tower(hits);
 
    // Flag trie, update thread count and signal scheduler.
+   // Use the general mutex. (job->mutex[0])
    pthread_mutex_lock(job->mutex);
    *(job->active) -= 1;
    *(job->jobsdone) += 1;
@@ -307,10 +315,10 @@ plan_mt
    if (mtplan == NULL) abort();
 
    // Initialize mutex.
-   pthread_mutex_t *mutex = malloc(sizeof(pthread_mutex_t));
+   pthread_mutex_t *mutex = malloc((ntries + 1) * sizeof(pthread_mutex_t));
    pthread_cond_t *monitor = malloc(sizeof(pthread_cond_t));
    if (mutex == NULL || monitor == NULL) abort();
-   pthread_mutex_init(mutex,NULL);
+   for (int i = 0; i < ntries + 1; i++) pthread_mutex_init(mutex + i,NULL);
    pthread_cond_init(monitor,NULL);
 
    // Initialize 'mttries'.
@@ -359,6 +367,9 @@ plan_mt
          jobs[j].jobsdone = &(mtplan->jobsdone);
          jobs[j].trieflag = &(mttries[i].flag);
          jobs[j].active   = &(mtplan->active);
+         // Mutex ids. (mutex[0] is reserved for general mutex)
+         jobs[j].queryid  = idx + 1;
+         jobs[j].trieid   = i + 1;
       }
    }
 
@@ -370,6 +381,12 @@ plan_mt
    mtplan->mutex = mutex;
    mtplan->monitor = monitor;
    mtplan->tries = mttries;
+
+   // DEBUG
+   lookup_t * lut = mttries[0].jobs[0].lut;
+   fprintf(stderr, "median = %d, offset = %d, number of kmers = %d. klen = {", medianlen, lut->offset, lut->kmers);
+   for (int i = 0; i < lut->kmers; i++) fprintf(stderr," %d", lut->klen[i]);
+   fprintf(stderr, "}\n");
 
    return mtplan;
 

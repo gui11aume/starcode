@@ -233,7 +233,9 @@ test_base_1
    const char cache[17] = {8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8};
    for (char maxtau = 0 ; maxtau < 9 ; maxtau++) {
       node_t *node = new_trienode(maxtau);
+      // Check that creation succeeded.
       g_assert(node != NULL);
+      // Check initialization.
       g_assert(node->cache != NULL);
       g_assert_cmpint(node->path, ==, 0);
       for (int i = 0 ; i < 6 ; i++) {
@@ -242,6 +244,7 @@ test_base_1
       for (int i = 0 ; i < 2*maxtau + 1 ; i++) {
          g_assert(node->cache[i] == cache[i+(8-maxtau)]);
       }
+      // Check no memory corruption.
       free(node);
    }
    return;
@@ -263,9 +266,9 @@ test_base_2
       for (int j = 0 ; j < 6 ; j++) {
          g_assert(node->child[j] == NULL);
       }
-      const char cache[] = {3,2,1,0,1,2,3};
-      for (int j = 0 ; j < 7 ; j++) {
-         g_assert(node->cache[j] == cache[j]);
+      const char cache[17] = {8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8};
+      for (int i = 0 ; i < 2*maxtau + 1 ; i++) {
+         g_assert(node->cache[i] == cache[i+(8-maxtau)]);
       }
       g_assert_cmpint(node->path, ==, i);
       g_assert(root->child[i] == node);
@@ -298,9 +301,9 @@ test_base_3
       for (int j = 0 ; j < 6 ; j++) {
          g_assert(node->child[j] == NULL);
       }
-      const char cache[] = {3,2,1,0,1,2,3};
-      for (int j = 0 ; j < 7 ; j++) {
-         g_assert(node->cache[j] == cache[j]);
+      const char cache[17] = {8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8};
+      for (int i = 0 ; i < 2*maxtau + 1 ; i++) {
+         g_assert(node->cache[i] == cache[i+(8-maxtau)]);
       }
       g_assert_cmpint(node->path, ==, i);
       g_assert(root->child[i] == node);
@@ -397,7 +400,6 @@ test_base_5
 // Test 'insert_string()'.
 {
    trie_t *trie = new_trie(3, 20);
-   g_assert(trie != NULL);
 
    void **data = insert_string(trie, "AAAAAAAAAAAAAAAAAAAA");
    g_assert(data != NULL);
@@ -417,17 +419,44 @@ test_base_6
    trie_t *trie = new_trie(maxtau, 20);
    g_assert(trie != NULL);
 
-   size_t cachesize = (2*maxtau + 1) * sizeof(char);
-   node_t *nodes = malloc(19 * (sizeof(node_t) + cachesize));
+   //size_t cachesize = (2*maxtau + 1) * sizeof(char);
+   node_t *nodes = malloc(19 * (node_t_size(maxtau)));
    node_t *pos = nodes;
    void **data = 
       insert_string_wo_malloc(trie, "AAAAAAAAAAAAAAAAAAAA", &pos);
    g_assert(data != NULL);
    *data = data;
    g_assert_cmpint(21, ==, count_nodes(trie));
-   g_assert_cmpint(19, ==, pos - nodes);
+   // Check that the pointer has been incremented by 19 positions.
+   int nnodes = ((char *)pos - (char *)nodes) / node_t_size(maxtau);
+   g_assert_cmpint(19, ==, nnodes);
+
+   // Cache upon initialization.
+   const char cache[17] = {8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8};
+   // Successive 'paths' members of a line of A in the trie.
+   const int paths[20] = {0,1,17,273,4369,69905,1118481,17895697,
+      286331153,286331153,286331153,286331153,286331153,286331153,
+      286331153,286331153,286331153,286331153,286331153,286331153};
+
+   // Check the integrity of the nodes.
+   node_t *node = trie->root;
+   for (int i = 0 ; i < 20 ; i++) {
+      g_assert(node != NULL);
+      g_assert(node->cache != NULL);
+      g_assert_cmpint(node->path, ==, paths[i]);
+      g_assert(node->child[0] == NULL);
+      g_assert(node->child[1] != NULL);
+      for (int j = 2 ; j < 6 ; j++) {
+         g_assert(node->child[j] == NULL);
+      }
+      for (int j = 0 ; j < 2*maxtau + 1 ; j++) {
+         g_assert(node->cache[j] == cache[j+(8-maxtau)]);
+      }
+      node = node->child[1];
+   }
 
    destroy_trie(trie, DESTROY_NODES_NO, NULL);
+   free(nodes);
 
    return;
 
@@ -1041,11 +1070,11 @@ test_starcode_2
       ".*/@*Q/]]}32kNB#`qqv", "#`Hwp(&,z|bN~07CSID'",
    };
    const char *sorted_1[] = {
+      "tcKvz5JTm!h*X0mSTg",   "U Ct`3w8(#KAE+z;vh,",
       "#`Hwp(&,z|bN~07CSID'", ".*/@*Q/]]}32kNB#`qqv",
       ":3ILp'w?)f]4(a;mf%A9", "IRrLv<'*3S?UU<JF4S<,",
-      "RlEF',$6[}ouJQyWqqT#", "U Ct`3w8(#KAE+z;vh,",
-      "[S^jXvNS VP' cwg~_iq", "hcU+f!=`.Xs6[a,C7XpN",
-      "tW:0K&Mvtax<PP/qY6er", "tcKvz5JTm!h*X0mSTg",
+      "RlEF',$6[}ouJQyWqqT#", "[S^jXvNS VP' cwg~_iq",
+      "hcU+f!=`.Xs6[a,C7XpN", "tW:0K&Mvtax<PP/qY6er", 
    };
 
    seqsort((void **) to_sort_1, 10, AtoZ, 1);
@@ -1057,7 +1086,7 @@ test_starcode_2
       "repeated", "repeated", "repeated", "repeated", "repeated", "xyz"
    };
    char *sorted_2[] = {
-      NULL, NULL, NULL, NULL, "repeated", "xyz"
+      "xyz", NULL, NULL, NULL, NULL, "repeated",
    };
 
    seqsort((void **) to_sort_2, 6, AtoZ, 1);
@@ -1092,7 +1121,7 @@ test_starcode_3
 
    g_assert_cmpint(seqS->nitems, == , 8);
    g_assert_cmpint(useqS->nitems, == , 4);
-   int expected_counts[] = {2, 3, 2, 1};
+   int expected_counts[] = {1, 2, 3, 2};
    for (int i = 0 ; i < 4 ; i++) {
       useq_t *u = (useq_t *)useqS->items[i];
       g_assert(u->matches == NULL);

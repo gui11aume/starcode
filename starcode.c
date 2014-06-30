@@ -1065,3 +1065,26 @@ const void *bp
    if (la == lb)  return strcmp(a,b);
    return (la < lb ? -1 : 1);
 }
+
+int
+AtoZ_useq
+(
+ const void *ap,
+const void *bp
+ )
+{
+   useq_t * a = (useq_t *) a;
+   useq_t * b = (useq_t *) b;
+   int la = strlen(a->seq);
+   int lb = strlen(b->seq);
+   if (la == lb) {
+      int cmp = strcmp(a->seq, b->seq);
+      if (cmp == 0) {
+         a->count += b->count;
+         free(b->seq);
+         free(b);
+      }
+      return cmp;
+   }
+   return (la < lb ? -1 : 1);
+}

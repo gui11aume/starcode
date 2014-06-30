@@ -8,33 +8,103 @@
 
 \begin{document}
 
+\section{lookup search}
+The lookup table search algorithm is based on the fact that if a
+sequence is divided in $\tau+1$ non-overlapping subsequences and
+mutated with $\tau$ mismatches, at least one subsequence must remain
+unchanged for any mismatch combination. In other words,
+the distance between two sequences is lower bounded by the number of
+different subsequences between them. One can take advantage of this
+property to build a table containing all the $k$-mers that have been
+previously inserted in the trie. When a new sequence is to be queried,
+it is first divided in $\tau+1$ subsequences and all them are queried
+against the lookup table. If none of the subsequences are found, the
+minimum distance between the query sequence and all the sequences in
+the trie is at least $\tau+1$ and the trie-search can therefore be
+omitted. This technique is especially useful for long input sequences,
+in which the length of the subsequences ($k$) is big and the
+probability of finding a coinciding succession of $k$ nucleotides is
+only significant when the two sequences do actually belong to the same
+cluster. For the rest of the cases, the negative match is detected
+only at the computational cost of several table lookups compared to the
+enormous cost of measuring the Levenshtein distance between many long
+sequences. In our implementation, the length $k$ of the subsequences
+is computed in a way that $\tau$ nucleotides are left out. Hence, the
+original sequence is divided into $\tau+2$ subsequences, the last of
+them containing only $\tau$ nucleotides that will be later used to
+quickly detect up to $\tau$ insertions or deletions. The prospective
+length of the subsequences is
+\begin{equation}
+  k = \frac{L}{\tau+1}
+\end{equation}
+where $L$ is the total length of the sequence. The number of remaining
+nucleotides to fill the last subsequence is found as
+\begin{equation}
+  R = \tau - \big[ L\mod{(\tau+1)} \big]
+\end{equation}
+and finally the length of each subsequence is computed as
+\begin{equation}
+  k_i =
+  \left\{
+  \begin{array}{cl}
+    k-1 \qquad & i = 1\ldots R \\
+    k \qquad & i = R+1\ldots \tau+1
+    \end{array}
+    \right.
+\end{equation}
+The subsequences are inserted in the lookup table after splitting
+the original sequence in chunks of length $k_i$. Note that, since the
+coincidence with the original sequence must be exact both in position
+and content, the rate of false positives returned by the lookup method
+is greatly reduced if an independent table is used for each
+subsequence. In order to allow for insertions and deletions as candidate
+mismatches, the lookup search must also query for shifted versions of
+the $k$-mers. Assuming the worst case scenario in which only one of
+the subsequences is found and the mismatches are evenly distributed in
+the query sequence, the maximum number of cummulative
+insertions/deletions at the $i$-th subsequence is exactly $i-1$ ($i =
+1\ldots \tau+1$). Hence, the $i$-th subsequence has to be shifted and
+queried against the lookup table $2(i-1)+1$ times to cover all the
+range from $i-1$ insertions to $i-1$ deletions. The ($\tau+1$)-th
+subsequence will therefore be queried $2\tau+1$ times, corresponding
+to shifts from $\tau$ nucleotides on the right to $\tau$ nucleotides
+on the left, the latter requiring the $\tau$ extra nucleotides left
+during the computation of the subsequence lengths. 
+
 \begin{algorithm}
   \caption{Starcode algorithm}
   \label{alg:starcode}
   \begin{algorithmic}[1]
-    \State Define: $\tau$
-    \State \textbf{Initialize variables:} $seed$, $start = 0$,
-    $height$, $seq$, $trie$
-    \State \textbf{Initialize containers:} $hits$, $pebbles$
+    \State \textbf{Define:} $\tau$
+    \State \textbf{Variables:} $seed$, $start = 0$,
+    $height$, $seq$, $trie$, $lastseq$, $k$
+    \State \textbf{Containers:} $hits$, $pebbles$
     \State \textsc{read} sequence file
     \State $height \gets$ \textsc{determine} maximum sequence length
     \State \textsc{pad} sequences up to $height$
     \State \textsc{sort} sequences alphabetically
+    \State $k \gets$ \textsc{compute} lookup sequence length
+    \Comment{Eq. 3}
     \State $trie \gets$ \textsc{create} an empty trie of height $height$
     \State \textsc{insert} root node of $trie$ in $pebbles$ at depth 0
     \ForAll{sequences}
     \State $seq \gets$ \textsc{get} next sequence
+    \If{at least one $k$-mer of $seq$ is in the lookup table}
     \State $seed \gets$ \textsc{length} of shared prefix
-    between current and next $seq$
+    between current and next sequence
+    \State $start \gets$ \textsc{length} of shared prefix
+    between $seq$ and $lastseq$
     \State \textsc{clear} hits
     \State \textsc{clear} $pebbles$ at depth $>start$
     \ForAll{$pebbles$ at depth $start$}
     \State $node \gets$ \textsc{get} next node from $pebbles$
-    \State \textbf{call} \textsc{poucet}($node$, $seed$, $hits$)
+    \State \textbf{call} \textsc{poucet}($seq$, $node$, $seed$, $hits$)
     \EndFor
-    \State \textsc{insert} $seq$ path in $trie$
     \State \textsc{process} $hits$ and \textsc{link} matches to $seq$
-    \State $start \gets seed$
+    \State $lastseq \gets seq$
+    \EndIf
+    \State \textsc{insert} $seq$ path in $trie$
+    \State \textsc{insert} $seq$ $k$-mers into the lookup table
     \EndFor
   \end{algorithmic}
 \end{algorithm}
@@ -44,12 +114,13 @@
   \caption{Poucet search algorithm}
   \label{alg:poucet}
   \begin{algorithmic}[1]
-    \Procedure{poucet}{$node$, $seed$, $hits$}:
-    \State \textsc{compute} $node$-specific column values following NW algorithm
+    \Procedure{poucet}{$query$, $node$, $seed$, $hits$}:
+    \State \textsc{compute} $node$-specific column values following NW
+    algorithm \Comment{Fig.1}
     \ForAll{$child$ nodes in $node$}
-    \State \textsc{compute} $child$-specific row values following NW algorithm
-    \State \textsc{compute} center value using row and column
-    values
+    \State \textsc{compute} $child$-specific row values following NW
+    algorithm \Comment{Fig.1}
+    \State \textsc{compute} center value using row and column values \Comment{Fig.1}
     \If{center value $>\tau$} \Comment{Mismatches exceeded.}
     \State \textbf{continue} with next $child$
     \EndIf

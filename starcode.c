@@ -26,8 +26,9 @@ mtplan_t *plan_mt(int, int, int, int, gstack_t*, const int);
 void message_passing_clustering(gstack_t*, int);
 void sphere_clustering(gstack_t*, int);
 void * _mergesort(void *);
-int seqsort (void **, int, int (*)(const void*, const void*), int);
+int seqsort(void **, int, int (*)(const void*, const void*), int);
 long count_trie_nodes(useq_t **, int, int);
+int AtoZ_useq(const void *, const void *);
 
 FILE *OUTPUT = NULL;
 
@@ -51,21 +52,24 @@ starcode
    if (ntries % 2 == 0) abort();
    
    if (verbose) fprintf(stderr, "reading input files\n");
-   gstack_t *seqS = read_file(inputf);
+   gstack_t *useqS = read_file(inputf);
 
-   if (verbose) fprintf(stderr, "preprocessing\n");
-   // Count unique sequences.
-   gstack_t *useqS = seq2useq(seqS, maxthreads);
-   for (int i = 0 ; i < seqS->nitems ; i++) free(seqS->items[i]);
-   free(seqS);
+   // Sort and realloc.
+   int nuseq = seqsort(useqS->items, useqS->nitems, AtoZ_useq, maxthreads);
+   useqS = realloc(useqS, gstack_size(nuseq));
+   useqS->nitems = useqS->nslots = nuseq;
+
    // Pad sequences. (And return the median size)
-   int median;
-   int height = pad_useq(useqS, &median);
+   int med;
+   int height = pad_useq(useqS, &med);
+   
    // Make multithreading plan.
-   mtplan_t *mtplan = plan_mt(tau, height, median, ntries, useqS, clusters);
+   mtplan_t *mtplan = plan_mt(tau, height, med, ntries, useqS, clusters);
+
    // Run the query.
    run_plan(mtplan, verbose, maxthreads);
    if (verbose) fprintf(stderr, "starcode progress: 100.00%%\n");
+
    // Remove padding characters.
    unpad_useq(useqS);
 
@@ -566,7 +570,6 @@ seqsort
    free(buffer);
    
    return numels - args.repeats;
-
 }
 
 void *
@@ -610,57 +613,33 @@ _mergesort
       // Accumulate repeats
       sortargs->repeats = arg1.repeats + arg2.repeats;
 
+      int i = 0;
+      int j = 0;
+      int idx = 0;
+      int cmp = 0;
+      int repeats = 0;
+
       // Merge sets
-      int i = 0, j = 0, nulli = 0, nullj = 0, cmp = 0, repeats = 0;
-      for (int k = 0, idx = 0, n = 0; k < sortargs->size; k++) {
-         if (j == arg2.size) {
-            // Insert pending nulls, if any.
-            for (n = 0; n < nulli; n++)
-               buf[idx++] = NULL;
-            nulli = 0;
-            buf[idx++] = l[i++];
-         }
-         else if (i == arg1.size) {
-            // Insert pending nulls, if any.
-            for (n = 0; n < nullj; n++)
-               buf[idx++] = NULL;
-            nullj = 0;
-            buf[idx++] = r[j++];
-         }
-         else if (l[i] == NULL) {
-            nulli++;
-            i++;
-         }
-         else if (r[j] == NULL) {
-            nullj++;
-            j++;
-         }
+      while (i + j < sortargs->size) {
+         // Only NULLS at the end of the buffers.
+         if (l[i] == NULL && r[j] == NULL) break;
+         // Buffers exhausted.
+         if (j == arg2.size || r[j] == NULL)      buf[idx++] = l[i++];
+         else if (i == arg1.size || l[i] == NULL) buf[idx++] = r[j++];
          // Insert 'NULL' when comparison returns 0.
          else if ((cmp = sortargs->compar(l[i],r[j])) == 0) {
+            buf[idx++] = l[i++];
             j++;
             repeats++;
-            // Insert sum of repeats as NULL.
-            for (n = 0; n <= nulli + nullj; n++) {
-               buf[idx++] = NULL;
-            }
-            nulli = nullj = 0;
          } 
-         else if (cmp < 0) {
-            // Insert repeats as NULL.
-            for (n = 0; n < nulli; n++)
-               buf[idx++] = NULL;
-            nulli = 0;
-            buf[idx++] = l[i++];
-         }
-         else {
-            // Insert repeats as NULL.
-            for (n = 0; n < nullj; n++)
-               buf[idx++] = NULL;
-            nullj = 0;
-            buf[idx++] = r[j++];
-         }
+         // Sort.
+         else if (cmp < 0) buf[idx++] = l[i++];
+         else              buf[idx++] = r[j++];
       }
+
+      // Pad NULLS.
       sortargs->repeats += repeats;
+      for (int k = sortargs->size - sortargs->repeats; k < sortargs->size; k++) buf[k] = NULL;
    }
    
    return NULL;
@@ -678,14 +657,13 @@ read_file
    char copy[MAXBRCDLEN];
    ssize_t nread;
    size_t nchar = M;
-   gstack_t *seqS = new_gstack();
-   if (seqS == NULL) abort();
+   gstack_t *useqS = new_gstack();
+   if (useqS == NULL) abort();
    char *line = malloc(M * sizeof(char));
    if (line == NULL) abort();
    int count = 0;
 
-   // Read sequences from input file and store in an array. Assume
-   // that it contains one sequence per line and nothing else. 
+   // Read sequences from input file.
    while ((nread = getline(&line, &nchar, inputf)) != -1) {
       // Skip fasta header lines.
       if (line[0] == '>') continue;
@@ -699,22 +677,13 @@ read_file
          seq = copy;
       }
       if (strlen(seq) > MAXBRCDLEN) abort();
-      // TODO: This patch is a bit silly because it creates one
-      // sequence (as an array of 'char') for every count. This take
-      // time because of 'malloc()' and memory because the pointers are
-      // lost in 'seqsort()'. Ideally, the 'useq' should be created
-      // here, but the code of 'seqsort()' has to be updated to
-      // deal with this case.
-      for (int i = 0 ; i < count ; i++) {
-         // Copy and push to stack.
-         char *new = malloc((strlen(seq)+1) * sizeof(char));
-         if (new == NULL) abort();
-         strncpy(new, seq, strlen(seq)+1);
-         push(new, &seqS);
-      }
+      useq_t *new = new_useq(count, seq);
+      if (new == NULL) abort();
+      push(new, &useqS);
    }
+
    free(line);
-   return seqS;
+   return useqS;
 }
 
 
@@ -1066,15 +1035,16 @@ const void *bp
    return (la < lb ? -1 : 1);
 }
 
+
 int
 AtoZ_useq
 (
- const void *ap,
-const void *bp
- )
+   const void *ap,
+   const void *bp
+)
 {
-   useq_t * a = (useq_t *) a;
-   useq_t * b = (useq_t *) b;
+   useq_t *a = (useq_t *) ap;
+   useq_t *b = (useq_t *) bp;
    int la = strlen(a->seq);
    int lb = strlen(b->seq);
    if (la == lb) {

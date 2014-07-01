@@ -12,6 +12,7 @@
 #define DESTROY_NODES_NO 0
 
 #define node_t_size(tau) ((2*tau+1)*sizeof(char) + sizeof(node_t))
+#define gstack_size(elm) (2*sizeof(int) + elm * sizeof(void *))
 
 static const char BASES[8] = "ACGTN";
 

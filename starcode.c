@@ -54,16 +54,22 @@ starcode
    if (verbose) fprintf(stderr, "reading input files\n");
    gstack_t *useqS = read_file(inputf);
 
-   seqsort(useqS->items, useqS->nitems, AtoZ_useq, maxthreads);
-   
+   // Sort and realloc.
+   int nuseq = seqsort(useqS->items, useqS->nitems, AtoZ_useq, maxthreads);
+   useqS = realloc(useqS, gstack_size(nuseq));
+   useqS->nitems = useqS->nslots = nuseq;
+
    // Pad sequences. (And return the median size)
    int med;
    int height = pad_useq(useqS, &med);
+   
    // Make multithreading plan.
    mtplan_t *mtplan = plan_mt(tau, height, med, ntries, useqS, clusters);
+
    // Run the query.
    run_plan(mtplan, verbose, maxthreads);
    if (verbose) fprintf(stderr, "starcode progress: 100.00%%\n");
+
    // Remove padding characters.
    unpad_useq(useqS);
 
@@ -564,7 +570,6 @@ seqsort
    free(buffer);
    
    return numels - args.repeats;
-
 }
 
 void *
@@ -610,61 +615,31 @@ _mergesort
 
       int i = 0;
       int j = 0;
-      int nulli = 0;
-      int nullj = 0;
+      int idx = 0;
       int cmp = 0;
       int repeats = 0;
 
       // Merge sets
-      for (int k = 0, idx = 0, n = 0; k < sortargs->size; k++) {
-         if (j == arg2.size) {
-            // Insert pending nulls, if any.
-            for (n = 0; n < nulli; n++)
-               buf[idx++] = NULL;
-            nulli = 0;
-            buf[idx++] = l[i++];
-         }
-         else if (i == arg1.size) {
-            // Insert pending nulls, if any.
-            for (n = 0; n < nullj; n++)
-               buf[idx++] = NULL;
-            nullj = 0;
-            buf[idx++] = r[j++];
-         }
-         else if (l[i] == NULL) {
-            nulli++;
-            i++;
-         }
-         else if (r[j] == NULL) {
-            nullj++;
-            j++;
-         }
+      while (i + j < sortargs->size) {
+         // Only NULLS at the end of the buffers.
+         if (l[i] == NULL && r[j] == NULL) break;
+         // Buffers exhausted.
+         if (j == arg2.size || r[j] == NULL)      buf[idx++] = l[i++];
+         else if (i == arg1.size || l[i] == NULL) buf[idx++] = r[j++];
          // Insert 'NULL' when comparison returns 0.
          else if ((cmp = sortargs->compar(l[i],r[j])) == 0) {
+            buf[idx++] = l[i++];
             j++;
             repeats++;
-            // Insert sum of repeats as NULL.
-            for (n = 0; n <= nulli + nullj; n++) {
-               buf[idx++] = NULL;
-            }
-            nulli = nullj = 0;
          } 
-         else if (cmp < 0) {
-            // Insert repeats as NULL.
-            for (n = 0; n < nulli; n++)
-               buf[idx++] = NULL;
-            nulli = 0;
-            buf[idx++] = l[i++];
-         }
-         else {
-            // Insert repeats as NULL.
-            for (n = 0; n < nullj; n++)
-               buf[idx++] = NULL;
-            nullj = 0;
-            buf[idx++] = r[j++];
-         }
+         // Sort.
+         else if (cmp < 0) buf[idx++] = l[i++];
+         else              buf[idx++] = r[j++];
       }
+
+      // Pad NULLS.
       sortargs->repeats += repeats;
+      for (int k = sortargs->size - sortargs->repeats; k < sortargs->size; k++) buf[k] = NULL;
    }
    
    return NULL;

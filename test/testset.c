@@ -1062,14 +1062,16 @@ test_starcode_2
 (void)
 // Test 'seqsort()'.
 {
-   char *to_sort_1[] = {
+
+   // Case 1 (no repeat).
+   char *sequences_1[10] = {
       "IRrLv<'*3S?UU<JF4S<,", "tcKvz5JTm!h*X0mSTg",
       "tW:0K&Mvtax<PP/qY6er", "hcU+f!=`.Xs6[a,C7XpN",
       ":3ILp'w?)f]4(a;mf%A9", "RlEF',$6[}ouJQyWqqT#",
       "U Ct`3w8(#KAE+z;vh,",  "[S^jXvNS VP' cwg~_iq",
       ".*/@*Q/]]}32kNB#`qqv", "#`Hwp(&,z|bN~07CSID'",
    };
-   const char *sorted_1[] = {
+   const char *sorted_1[10] = {
       "tcKvz5JTm!h*X0mSTg",   "U Ct`3w8(#KAE+z;vh,",
       "#`Hwp(&,z|bN~07CSID'", ".*/@*Q/]]}32kNB#`qqv",
       ":3ILp'w?)f]4(a;mf%A9", "IRrLv<'*3S?UU<JF4S<,",
@@ -1077,21 +1079,40 @@ test_starcode_2
       "hcU+f!=`.Xs6[a,C7XpN", "tW:0K&Mvtax<PP/qY6er", 
    };
 
-   seqsort((void **) to_sort_1, 10, AtoZ, 1);
+   useq_t *to_sort_1[10];
    for (int i = 0 ; i < 10 ; i++) {
-      g_assert_cmpstr(to_sort_1[i], ==, sorted_1[i]);
+      to_sort_1[i] = new_useq(1, sequences_1[i]);
    }
 
-   char *to_sort_2[] = {
+   seqsort((void **) to_sort_1, 10, AtoZ, 1);
+   for (int i = 0 ; i < 10 ; i++) {
+      g_assert_cmpstr(to_sort_1[i]->seq, ==, sorted_1[i]);
+      g_assert_cmpint(to_sort_1[i]->count, ==, 1);
+      free(to_sort_1[i]);
+   }
+
+   // Case 2 (repeats).
+   char *sequences_2[6] = {
       "repeated", "repeated", "repeated", "repeated", "repeated", "xyz"
    };
-   char *sorted_2[] = {
-      "xyz", NULL, NULL, NULL, NULL, "repeated",
+   char *sorted_2[6] = {
+      "xyz", "repeated", NULL, NULL, NULL, NULL,
    };
+   int counts[2] = {1,5};
+
+   useq_t *to_sort_2[6];
+   for (int i = 0 ; i < 6 ; i++) {
+      to_sort_2[i] = new_useq(1, sequences_2[i]);
+   }
 
    seqsort((void **) to_sort_2, 6, AtoZ, 1);
-   for (int i = 0 ; i < 6 ; i++) {
-      g_assert_cmpstr(to_sort_2[i], ==, sorted_2[i]);
+   for (int i = 0 ; i < 2 ; i++) {
+      g_assert_cmpstr(to_sort_2[i]->seq, ==, sorted_2[i]);
+      g_assert_cmpint(to_sort_2[i]->count, ==, counts[i]);
+      free(to_sort_2[i]);
+   }
+   for (int i = 2 ; i < 6 ; i++) {
+      g_assert(to_sort_2[i] == NULL);
    }
 
    return;
@@ -1100,46 +1121,6 @@ test_starcode_2
 
 void
 test_starcode_3
-(void)
-// Test 'seq2useq()'.
-{
-   char *seq[] = {
-      "7znoW,M'>(7Ta~vd|5MW", "gP+'O:=&SB#YF|u<,Fc",
-      "7(=ql_eWg]<]DLd-ScIN", "L6_fIxB8y/2^$`WkKr&D",
-      "7znoW,M'>(7Ta~vd|5MW", "7znoW,M'>(7Ta~vd|5MW",
-      "7(=ql_eWg]<]DLd-ScIN", "L6_fIxB8y/2^$`WkKr&D",
-   };
-
-   gstack_t *seqS = new_gstack();
-   g_assert(seqS != NULL);
-
-   for (int i = 0 ; i < 8 ; i++) {
-      push(seq[i], &seqS);
-   }
-
-   gstack_t *useqS = seq2useq(seqS, 1);
-
-   g_assert_cmpint(seqS->nitems, == , 8);
-   g_assert_cmpint(useqS->nitems, == , 4);
-   int expected_counts[] = {1, 2, 3, 2};
-   for (int i = 0 ; i < 4 ; i++) {
-      useq_t *u = (useq_t *)useqS->items[i];
-      g_assert(u->matches == NULL);
-      g_assert_cmpint(u->count, == , expected_counts[i]);
-   }
-
-   for (int i = 0 ; i < useqS->nitems ; i++) {
-      destroy_useq(useqS->items[i]);
-   }
-   free(seqS);
-   free(useqS);
-
-   return;
-}
-
-
-void
-test_starcode_4
 (void)
 // Test 'transfer_counts_and_update_canonicals'.
 {
@@ -1200,7 +1181,7 @@ test_starcode_4
 
 
 void
-test_starcode_5
+test_starcode_4
 (void)
 // Test 'canonical_order'.
 {
@@ -1361,7 +1342,6 @@ main(
    g_test_add_func("/starcode/2", test_starcode_2);
    g_test_add_func("/starcode/3", test_starcode_3);
    g_test_add_func("/starcode/4", test_starcode_4);
-   g_test_add_func("/starcode/5", test_starcode_5);
    if (g_test_perf()) {
       g_test_add_func("/starcode/run", test_run);
    }

@@ -33,19 +33,18 @@ struct cluster_t {
    double radius;          // distance to most distant ball + its radius
 };
 
-ball_t ** create_ball_list(char * filename);
-ball_t ** new_ball(int n_children);
-double norm(double coord_x, double coord_y);
-double electric(ball_t * ball1, ball_t * ball2, double dist);
-double elastic(double dist);
-void compute_force(ball_t * ball1, ball_t * ball2, int force_type);
-double move_ball(ball_t * ball, double kt);
-int compar(const void * elem1, const void * elem2);
-cluster_t ** create_cluster_list(int n_balls, ball_t ** ball_list);
-void spiralize_displacements(int n_clusters, cluster_t ** cluster_list);
-void move_clusters(int n_balls, int n_clusters,
-                   ball_t ** ball_list, cluster_t ** cluster_list);
-void measure_space(int n_balls, int * max_size, ball_t ** ball_list);
-void draw_cairo_env(cairo_t * cr, int n_balls, ball_t ** ball_list, int last);
-void draw_edges(cairo_t * cr, ball_t * ball, int last);
-void draw_circles(cairo_t * cr, ball_t * ball);
+//ball_t ** create_ball_list(char * filename);
+//ball_t ** new_ball(int n_children);
+double norm(double, double);
+double electric(ball_t *, ball_t *, double);
+double elastic(double);
+void compute_force(ball_t *, ball_t *, int);
+double move_ball(ball_t *, double);
+int compar(const void *, const void *);
+cluster_t ** create_cluster_list(int, ball_t **, int *);
+void spiralize_displacements(int, cluster_t **, int *);
+void move_clusters(int, int, ball_t **, cluster_t **);
+void measure_space(int, int *, ball_t **);
+void draw_cairo_env(cairo_t *, int, ball_t **);
+void draw_edges(cairo_t *, ball_t *);
+void draw_circles(cairo_t *, ball_t *);

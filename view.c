@@ -4,27 +4,27 @@
 #include <time.h>
 #include <errno.h>
 #include <cairo.h>
-//#include <execinfo.h>
-//#include <signal.h>
-//#include <unistd.h>
+#include <execinfo.h>
+#include <signal.h>
+#include <unistd.h>
 #include "view.h"
 
-//void SIGSEGV_handler(int sig) {
-//   void *array[10];
-//   size_t size;
-//
-//   // get void*'s for all entries on the stack
-//   size = backtrace(array, 10);
-//            
-//   // print out all the frames to stderr
-//   fprintf(stderr, "Error: signal %d:\n", sig);
-//   backtrace_symbols_fd(array, size, STDERR_FILENO);
-//   exit(1);
-//}
+void SIGSEGV_handler(int sig) {
+   void *array[10];
+   size_t size;
+
+   // get void*'s for all entries on the stack
+   size = backtrace(array, 10);
+            
+   // print out all the frames to stderr
+   fprintf(stderr, "Error: signal %d:\n", sig);
+   backtrace_symbols_fd(array, size, STDERR_FILENO);
+   exit(1);
+}
 
 int main(int argc, const char *argv[])
 {
-   //signal(SIGSEGV, SIGSEGV_handler);
+   signal(SIGSEGV, SIGSEGV_handler);
    // Create list of ball pointers.
    //FILE * inputf = fopen("example_starcode_output.txt", "r");
    //int n_balls;
@@ -90,15 +90,7 @@ int main(int argc, const char *argv[])
    for (int i = 0; i < n_balls; i++) {
       ball_list[i]->position[0] = rand() * RAND_FACTOR * ASPECT;
       ball_list[i]->position[1] = rand() * RAND_FACTOR;
-//printf("x/y initial pos: %e/%e\n", ball_list[i]->position[0], ball_list[i]->position[1]);
    }
-
-cairo_surface_t * surface = cairo_image_surface_create(
-      CAIRO_FORMAT_ARGB32, canvas_size[0], canvas_size[1]);
-cairo_t * cr = cairo_create(surface);
-cairo_set_source_rgb(cr, 1, 1, 1);
-cairo_paint(cr);
-draw_cairo_env(cr, n_balls, ball_list, 0);
 
    // Initialize and run physics loop.
    double temperature = 1.0;
@@ -146,7 +138,7 @@ int temp_iter = 1;
 //temperature = 1.0/temp_iter;
 temp_iter++;
 //printf("temperature before iteration %d: %e\n", temp_iter, temperature);
-draw_cairo_env(cr, n_balls, ball_list, 0);
+//draw_cairo_env(cr, n_balls, ball_list, 0);
    }
 
    // Define clusters and bubble-plot them.
@@ -156,7 +148,7 @@ draw_cairo_env(cr, n_balls, ball_list, 0);
    qsort(cluster_list, n_clusters, sizeof(ball_t *), compar);
    // Iterate over the new list and do bubble plot
    // The bubble stuff defines cluster->displacement!
-   spiralize_displacements(n_clusters, cluster_list);
+   spiralize_displacements(n_clusters, cluster_list, canvas_size);
    move_clusters(n_balls, n_clusters, ball_list, cluster_list);
 
    // Draw all balls and bonds.
@@ -164,10 +156,13 @@ draw_cairo_env(cr, n_balls, ball_list, 0);
    measure_space(n_balls, max_size, ball_list);
    //int rel_size[2];
    //for (int i = 0; i < 2; i++) { rel_size[i] = canvas_size[i] / max_size[i]; }
-   //cairo_surface_t * surface = cairo_image_surface_create(
-   //      CAIRO_FORMAT_ARGB32, canvas_size[0], canvas_size[1]);
-   //cairo_t * cr = cairo_create(surface);
-   draw_cairo_env(cr, n_balls, ball_list, 1);
+   cairo_surface_t * surface = cairo_image_surface_create(
+         CAIRO_FORMAT_ARGB32, canvas_size[0], canvas_size[1]);
+   cairo_t * cr = cairo_create(surface);
+   cairo_set_source_rgb(cr, 1, 1, 1);
+   cairo_paint(cr);
+
+   draw_cairo_env(cr, n_balls, ball_list);
    cairo_surface_write_to_png(surface, "example_starcode_image.png");
 
    return 0;
@@ -196,20 +191,20 @@ draw_cairo_env(cr, n_balls, ball_list, 0);
 //
 //}
 
-ball_t *
-new_ball
-(
-   int n_children
-)
-{
-   ball_t * ball = malloc(BALL_SIZE(n_children));
-   //if (ball == NULL) {
-   //   fprintf(stderr, "Error in ball malloc: %s\n", strerror(errno));
-   //}
-   // TODO: fill ball with info.
-
-   return ball;
-}
+//ball_t *
+//new_ball
+//(
+//   int n_children
+//)
+//{
+//   ball_t * ball = malloc(BALL_SIZE(n_children));
+//   //if (ball == NULL) {
+//   //   fprintf(stderr, "Error in ball malloc: %s\n", strerror(errno));
+//   //}
+//   // TODO: fill ball with info.
+//
+//   return ball;
+//}
 
 double
 norm
@@ -311,16 +306,17 @@ create_cluster_list
    int     * n_clusters
 )
 {
-   int n_clusters = 0;
+   *n_clusters = 0;
    int list_size  = 1000;
    cluster_t ** cluster_list = malloc(list_size * sizeof(cluster_t *));
    // Define clusters root identity and position.
    for (int i = 0; i < n_balls; i++) {
       if (ball_list[i] == ball_list[i]->root) {
-         cluster_list[*n_clusters] = ball_list[i];
+         cluster_list[*n_clusters] = malloc(sizeof(cluster_t));
+         cluster_list[*n_clusters]->root = ball_list[i]->root;
          cluster_list[*n_clusters]->position[0] = ball_list[i]->position[0];
          cluster_list[*n_clusters]->position[1] = ball_list[i]->position[1];
-         *n_clusters++;
+         (*n_clusters)++;
          if (*n_clusters >= list_size) {
             list_size *= 2;
             cluster_list =
@@ -332,13 +328,13 @@ create_cluster_list
    for (int i = 0; i < *n_clusters; i++) {
       int cluster_size = 0;
       // This initial position is just the position of the root ball.
-      double x_pos = cluster_list[i];//->position[0];
-      double y_pos = cluster_list[i];//->position[1];
-      double  min_pos[2] = { x_pos, y_pos };
-      double  max_pos[2] = { x_pos, y_pos };
+      //double x_pos = cluster_list[i];//->position[0];
+      //double y_pos = cluster_list[i];//->position[1];
+      //double  min_pos[2] = { x_pos, y_pos };
+      //double  max_pos[2] = { x_pos, y_pos };
       double mean_pos[2] = { 0.0, 0.0 };
-      for (int j = 0; j < n_balls, j++) {
-         if (cluster_list[i] == ball_list[j]->root) {
+      for (int j = 0; j < n_balls; j++) {
+         if (cluster_list[i]->root == ball_list[j]->root) {
             mean_pos[0] += ball_list[j]->position[0];
             mean_pos[1] += ball_list[j]->position[1];
             cluster_size++;
@@ -350,11 +346,11 @@ create_cluster_list
       // Compute the radius.
       cluster_list[i]->radius = 0.0;
       double radius = 0.0;
-      for (int j = 0; j < n_balls, j++) {
+      for (int j = 0; j < n_balls; j++) {
          ball_t * ball = ball_list[j];
-         if (cluster_list[i] == ball->root) {
-            double x_dist = fabs(mean_pos[0] - ball->position[0]);
-            double y_dist = fabs(mean_pos[1] - ball->position[1]);
+         if (cluster_list[i]->root == ball->root) {
+            double x_dist = cluster_list[i]->position[0] - ball->position[0];
+            double y_dist = cluster_list[i]->position[1] - ball->position[1];
             double radius = norm(x_dist, y_dist) + sqrt(ball->size / PI);
             if (radius > cluster_list[i]->radius) {
                cluster_list[i]->radius = radius;
@@ -370,32 +366,44 @@ void
 spiralize_displacements
 (
    int n_clusters, 
-   cluster_t ** cluster_list
+   cluster_t ** cluster_list,
+   int * canvas_size
 )
 {
+   double center[2] = { canvas_size[0] / 2.0, canvas_size[1] / 2.0 };
    double step = 0.01; // Step along the spiral and padding between clusters.
-   for (int i = 0; i < n_clusters; i++) {
+   // Place the first cluster in the center of the canvas.
+   cluster_list[0]->displacement[0] = center[0] - cluster_list[0]->position[0];
+   cluster_list[0]->displacement[1] = center[1] - cluster_list[0]->position[1];
+   cluster_list[0]->position[0] = center[0];
+   cluster_list[0]->position[1] = center[1];
+   for (int i = 1; i < n_clusters; i++) {
       cluster_t * clust1 = cluster_list[i];
+      double x_pos;
+      double y_pos;
       double distance = 0.0; // Distance from center, along a spiral line.
       double phase = 2 * PI * rand() / RAND_MAX;
-      int dropped = 0;
-      while (!dropped) {
-         double x_pos = distance * cos(distance + phase); 
-         double y_pos = distance * sin(distance + phase); 
+      int overlap = 1;
+      while (overlap) {
+         overlap = 0;
+         x_pos = center[0] + distance * cos(distance + phase); 
+         y_pos = center[1] + distance * sin(distance + phase); 
          for (int j = 0; j < i; j++) {
             cluster_t * clust2 = cluster_list[j];
-            double x_dist = clust1->position[0] - clust2->position[0];
-            double y_dist = clust1->position[1] - clust2->position[1];
+            double x_dist = x_pos - clust2->position[0];
+            double y_dist = y_pos - clust2->position[1];
             double radii = clust1->radius + clust2->radius;
-            if (norm(x_dist, y_dist) - radii > step) {
-               clust1->displacement[0] = x_pos;
-               clust1->displacement[1] = y_pos;
-               dropped = 1;
+            if (norm(x_dist, y_dist) - radii < step) {
+               overlap = 1;
+               distance += step;
                break;
             }
          }
-         distance += step;
       }
+      clust1->displacement[0] = x_pos - clust1->position[0];
+      clust1->displacement[1] = y_pos - clust1->position[1];
+      clust1->position[0] = x_pos;
+      clust1->position[1] = y_pos;
    }
 }
 
@@ -410,7 +418,7 @@ move_clusters
 {
    for (int i = 0; i < n_balls; i++) {
       for (int j = 0; j < n_clusters; j++) {
-         if (ball_list[i]->root == cluster_list[j]) {
+         if (ball_list[i]->root == cluster_list[j]->root) {
             ball_list[i]->position[0] += cluster_list[j]->displacement[0];
             ball_list[i]->position[1] += cluster_list[j]->displacement[1];
          }
@@ -442,8 +450,7 @@ void
 draw_edges
 (
    cairo_t * cr,
-   ball_t  * ball,
-int last
+   ball_t  * ball
 )
 {
    double x_pos = ball->position[0];// * rel_size[0];
@@ -453,7 +460,6 @@ int last
       double child_y_pos = ball->children[j]->position[1];// * rel_size[1];
       cairo_set_line_width(cr, 1);
       cairo_set_source_rgb(cr, 0, 0, 0);
-if (last) {cairo_set_source_rgb(cr, 1, 0, 0);}
       cairo_move_to(cr, x_pos, y_pos);
       cairo_line_to(cr, child_x_pos, child_y_pos);
       cairo_stroke(cr);
@@ -487,8 +493,7 @@ draw_cairo_env
 (
    cairo_t * cr,
    int       n_balls,
-   ball_t ** ball_list,
-int last
+   ball_t ** ball_list
 )
 {
    // Paint the background.
@@ -497,7 +502,7 @@ int last
    for (int i = 0; i < n_balls; i++) {
       ball_t * ball = ball_list[i];
       // And then the graphs.
-      draw_edges(cr, ball, last);
+      draw_edges(cr, ball);
       draw_circles(cr, ball);
    }
 }

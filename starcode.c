@@ -10,14 +10,12 @@ int lut_search(lookup_t *, useq_t *);
 void lut_insert(lookup_t *, useq_t *);
 int seq2id(char *, int);
 useq_t *new_useq(int, char*);
-gstack_t *seq2useq(gstack_t*, int);
 gstack_t *read_file(FILE*);
 void destroy_useq(useq_t*);
 void addmatch(useq_t*, useq_t*, int, int);
 void transfer_counts_and_update_canonicals(useq_t*);
 void unpad_useq (gstack_t*);
 int pad_useq(gstack_t*, int*);
-int AtoZ(const void *a, const void *b);
 int canonical_order(const void*, const void*);
 int count_order(const void *a, const void *b);
 void *do_query(void*);
@@ -28,7 +26,7 @@ void sphere_clustering(gstack_t*, int);
 void * _mergesort(void *);
 int seqsort(void **, int, int (*)(const void*, const void*), int);
 long count_trie_nodes(useq_t **, int, int);
-int AtoZ_useq(const void *, const void *);
+int AtoZ(const void *, const void *);
 
 FILE *OUTPUT = NULL;
 
@@ -55,7 +53,7 @@ starcode
    gstack_t *useqS = read_file(inputf);
 
    // Sort and realloc.
-   int nuseq = seqsort(useqS->items, useqS->nitems, AtoZ_useq, maxthreads);
+   int nuseq = seqsort(useqS->items, useqS->nitems, AtoZ, maxthreads);
    useqS = realloc(useqS, gstack_size(nuseq));
    useqS->nitems = useqS->nslots = nuseq;
 
@@ -687,31 +685,6 @@ read_file
 }
 
 
-gstack_t *
-seq2useq
-(
-   gstack_t *seqS,
-   int     maxthreads
-)
-{
-   // Sort sequences, count and compact them.
-   seqsort(seqS->items, seqS->nitems, AtoZ, maxthreads);
-   gstack_t *useqS = new_gstack();
-   if (useqS == NULL) abort();
-   
-   int ucount = 0;
-   for (int i = 0 ; i < seqS->nitems; i++) {
-      ucount++;
-      // Repeats have been set to 'NULL' during sort.
-      if (seqS->items[i] != NULL) {
-         push(new_useq(ucount, (char *) seqS->items[i]), &useqS);
-         ucount = 0;
-      }
-   }
-   return useqS;
-}
-
-
 int
 pad_useq
 (
@@ -1022,22 +995,6 @@ destroy_useq
 
 int
 AtoZ
-(
-const void *ap, 
-const void *bp
-)
-{
-   char * a = (char *) ap;
-   char * b = (char *) bp;
-   int la = strlen(a);
-   int lb = strlen(b);
-   if (la == lb)  return strcmp(a,b);
-   return (la < lb ? -1 : 1);
-}
-
-
-int
-AtoZ_useq
 (
    const void *ap,
    const void *bp

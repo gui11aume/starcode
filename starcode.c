@@ -37,28 +37,30 @@ starcode
    FILE *outputf,
    const int tau,
    const int verbose,
-   const int maxthreads,
+         int maxthreads,
    const int clusters
 )
 {
    OUTPUT = outputf;
 
-   // Get number of tries.
-   const int ntries = 3 * maxthreads + (maxthreads % 2 == 0);
-   // XXX The number of tries must be odd otherwise the     XXX
-   // XXX scheduler will make mistakes. So, just in case... XXX
-   if (ntries % 2 == 0) abort();
-   
    if (verbose) fprintf(stderr, "reading input files\n");
    gstack_t *useqS = read_file(inputf);
 
-   // Sort and realloc.
-   int nuseq = seqsort(useqS->items, useqS->nitems, AtoZ, maxthreads);
-   useqS = realloc(useqS, gstack_size(nuseq));
-   useqS->nitems = useqS->nslots = nuseq;
+   // Sort and reduce.
+   useqS->nitems = seqsort(useqS->items, useqS->nitems, AtoZ, maxthreads);
 
+   // Get number of tries.
+   int ntries = 3 * maxthreads + (maxthreads % 2 == 0);
+   if (useqS->nitems < ntries) {
+      ntries = 1;
+      maxthreads = 1;
+   }
+   // XXX The number of tries must be odd otherwise the     XXX
+   // XXX scheduler will make mistakes. So, just in case... XXX
+   if (ntries % 2 == 0) abort();
+ 
    // Pad sequences. (And return the median size)
-   int med;
+   int med = -1;
    int height = pad_useq(useqS, &med);
    
    // Make multithreading plan.
@@ -226,9 +228,6 @@ do_query
             for (int j = 0 ; j < hits[dist]->nitems ; j++) {
 
                useq_t *match = (useq_t *) hits[dist]->items[j];
-               
-               // Do not link hits when counts are equal.
-               if (match->count == query->count) continue;
                // We'll always use parent's mutex.
                useq_t *parent = match->count > query->count ? match : query;
                useq_t *child  = match->count > query->count ? query : match;

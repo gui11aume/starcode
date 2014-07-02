@@ -389,8 +389,8 @@ Table~\ref{tab:soft-options}.
     Bowtie2 2.1.0 & \texttt{-f -a -p 20 --no-hd --very-sensitive}\\ \hline
         BWA indexer & \texttt{bwa index -a is}\\ \hline
     BWA 0.7.9a & \texttt{mem -t 20 -a -k1 -B0} \\ \hline
-    GEM indexer & \texttt{gem-indexer -T 20} \\ \hline
-    GEM 1.423 & \texttt{-e3 -s -T 20 --granularity 100000}\\ \hline
+    GEM indexer & \texttt{gem-indexer -T 12} \\ \hline
+    GEM 1.423 & \texttt{-e3 -s4 -T12 --granularity 100000}\\ \hline
     \emph{sequential R} & \texttt{method='lv', maxDist=2}\\ \hline
 \end{tabular}
 }
@@ -406,41 +406,45 @@ function of the \texttt{stringdist} package.
 
 \section{Results}
 \subsection{Benchmark against sequence clustering algorithms}
-Sequence clustering is routinely used to curate databases of non redundant
-nucleotide or protein sequences. We benchmarked starcode against the two popular
-sequence clustering algorithms CD-HIT \citep{pmid23060610} and USEARCH 
-\citep{pmid20709691}.
+Sequence clustering is routinely used to curate databases of non
+redundant nucleotide or protein sequences. We benchmarked starcode
+against the two popular sequence clustering algorithms CD-HIT
+\citep{pmid23060610} and USEARCH \citep{pmid20709691}.
 
-We generated 1 million random 40-mers that were duplicated 47 times. For each
-40-mer, we inserted 3 addional mutant sequences to the pool by sampling again
-3 nucleotides
-at random positions. The probability that such a mutant sequence is within a
-distance 3 of any other 40-mer is of the order of $10^{-12}$ and can be neglected.
-Each cluster thus consists of 50 sequences, of which 3 have a distance at most
-3 from the canonical representant.
+We generated 1 million random 40-mers that were duplicated 47 times.
+For each 40-mer, we inserted 3 addional mutant sequences to the pool
+by sampling again 3 nucleotides at random positions. The probability
+that such a mutant sequence is within a distance 3 of any other
+40-mer is of the order of $10^{-12}$ and can be neglected. Each
+cluster thus consists of 50 sequences, of which 3 have a Levenshtein
+distance 3 from the canonical representant.
 
-Using 20 cores, starcode clustered the shuffled 50 million sequences in 4 minutes
-without a single error (the output consisted of 1 million clusters of size 50).
-We submitted the unique sequences of the dataset to CD-HIT and USEARCH. The
-results are summarized in Figure~\ref{fig:04}a and \ref{fig:04}b. The running
-times of CD-HIT and USEARCH
-were 59 and 64 minutes respectively, and they identified 2,362,352 and 2,739,954
-clusters respectively. Both algorithms rely on heuristics, fact that explains why the
-number of clusters is off target. These results clearly demonstrate that starcode
-outperforms other clustering algorithms in speed and accuracy on this particular task.
+Using 12 cores, starcode clustered the shuffled 50 million sequences
+in 4 minutes and 32 seconds without a single error (the output
+consisted of 1 million clusters of size 50).  The running times
+of CD-HIT and USEARCH were [59] and [64] minutes respectively, and they
+identified 2,362,352 and 2,739,954 clusters respectively. The results
+are summarized in Figure~\ref{fig:04}. Both algorithms rely on
+heuristics, explaining why the number of clusters is off target. These
+results clearly demonstrate that starcode outperforms other clustering
+algorithms in speed and accuracy to cluster random sequences.
+
+We also compared starcode on the biological benchmark dataset proposed
+by \cite{pmid23060610}.
 
 \begin{figure}[!tpb]%figure5
 \centerline{\includegraphics{Fig4.pdf}}
-\caption{Benchmark of starcode against sequence clustering algorithms and short
-read mappers. \textbf{a} Running time compared to CD-HIT and UCLUST on the
-dataset described in the text. \textbf{b} Error rate compared to CD-HIT and UCLUST,
-expressed as the percentage of clusters failing to be merged. \textbf{c} Running
-time compared to Bowtie2, BWA and GEM on this dataset. The running time is
-decomposed in extraction of unique sequences (purple), Burrows-Wheeler indexing
-(yellow), and query proper (white). The extraction was performed with the Linux
-sort command, so the time is the same in every case. \textbf{d} Error rate compared
-to Bowtie2, BWA and GEM, expressed as the proportion of matches with a single hit.
-This is an underestimate of the true error rate.}
+\caption{Benchmark of starcode against sequence clustering algorithms
+and short read mappers. \textbf{a} Running time compared to CD-HIT and
+UCLUST on the dataset described in the text. \textbf{b} Error rate
+compared to CD-HIT and UCLUST, expressed as the percentage of clusters
+failing to be merged. \textbf{c} Running time compared to Bowtie2, BWA
+and GEM on this dataset. The running time is decomposed in extraction
+of unique sequences (purple), Burrows-Wheeler indexing (yellow), and
+query proper (white). The extraction was performed with the Linux sort
+command, so the time is the same in every case. \textbf{d} Error rate
+compared to Bowtie2, BWA and GEM, expressed as the proportion of matches
+with a single hit. This is an underestimate of the true error rate.}
 \label{fig:04}
 \end{figure}
 

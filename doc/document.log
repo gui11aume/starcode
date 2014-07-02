@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2014.4.27)  1 JUL 2014 19:41
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2014.4.27)  2 JUL 2014 11:52
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -481,27 +481,22 @@ Underfull \hbox (badness 1939) in paragraph at lines 409--413
 
 
 Underfull \hbox (badness 1365) in paragraph at lines 422--431
-[]\OT1/ptm/m/n/9 Using 20 cores, starcode clustered the shuffled 50 million
- []
-
-
-Underfull \hbox (badness 1701) in paragraph at lines 422--431
-\OT1/ptm/m/n/9 of 1 million clusters of size 50). We submitted the unique
+[]\OT1/ptm/m/n/9 Using 12 cores, starcode clustered the shuffled 50 million
  []
 
 <Fig4.pdf, id=120, 241.84352pt x 270.29985pt>
 File: Fig4.pdf Graphic file (type pdf)
  <use Fig4.pdf>
-Package pdftex.def Info: Fig4.pdf used on input line 433.
+Package pdftex.def Info: Fig4.pdf used on input line 436.
 (pdftex.def)             Requested size: 241.84293pt x 270.29918pt.
 
-Underfull \hbox (badness 1122) in paragraph at lines 443--443
+Underfull \hbox (badness 1122) in paragraph at lines 447--447
 \OT1/ptm/m/n/8 on the dataset described in the text. \OT1/ptm/b/n/8 b \OT1/ptm/
 m/n/8 Error rate compared to CD-
  []
 
 
-Underfull \hbox (badness 1226) in paragraph at lines 449--457
+Underfull \hbox (badness 1226) in paragraph at lines 453--461
 \OT1/ptm/m/n/9 A potential strategy to cluster short sequences is to use last
  []
 
@@ -522,54 +517,54 @@ Overfull \hbox (261.0pt too wide) has occurred while \output is active
  []
 
 [4 <./Fig4.pdf>]
-Underfull \hbox (badness 1142) in paragraph at lines 478--487
+Underfull \hbox (badness 1142) in paragraph at lines 482--491
 \OT1/ptm/m/n/9 algorithms to cluster similar sequences. Briefly, the principle
  []
 
 
-Underfull \hbox (badness 1178) in paragraph at lines 488--502
+Underfull \hbox (badness 1178) in paragraph at lines 492--506
 \OT1/ptm/m/n/9 identified 24.1 million (91%) barcode-containing reads out of
  []
 
 
-Underfull \hbox (badness 1769) in paragraph at lines 488--502
+Underfull \hbox (badness 1769) in paragraph at lines 492--506
 \OT1/ptm/m/n/9 starcode produced exactly the same output as the sequential
  []
 
 
-Underfull \hbox (badness 1648) in paragraph at lines 503--516
+Underfull \hbox (badness 1648) in paragraph at lines 507--520
 []\OT1/ptm/m/n/9 The performance of the sequential algorithm relies on the
  []
 
 
-Underfull \hbox (badness 3503) in paragraph at lines 518--528
+Underfull \hbox (badness 3503) in paragraph at lines 522--532
 \OT1/ptm/m/n/9 Sequence motifs are thought to play an important role in
  []
 
 
-Underfull \hbox (badness 1253) in paragraph at lines 518--528
+Underfull \hbox (badness 1253) in paragraph at lines 522--532
 \OT1/ptm/m/n/9 targeting them to the sites where they act. Identifying those
  []
 
 Missing character: There is no   in font ptmr7t!
 
-Underfull \hbox (badness 1406) in paragraph at lines 541--548
+Underfull \hbox (badness 1406) in paragraph at lines 545--552
 \OT1/ptm/m/n/9 two signatures of chromatin proteins called Red and Yellow,
  []
 
 
-Underfull \hbox (badness 2856) in paragraph at lines 549--560
+Underfull \hbox (badness 2856) in paragraph at lines 553--564
 []\OT1/ptm/m/n/9 The total coverage of Red and Yellow chromatin in the
  []
 
 
-Underfull \hbox (badness 3579) in paragraph at lines 549--560
+Underfull \hbox (badness 3579) in paragraph at lines 553--564
 \OT1/ptm/m/it/9 Drosophila \OT1/ptm/m/n/9 genome is 10.7 Mb and 21.3 Mb respect
 ively,
  []
 
 
-Underfull \hbox (badness 7851) in paragraph at lines 549--560
+Underfull \hbox (badness 7851) in paragraph at lines 553--564
 \OT1/ptm/m/n/9 corresponding to 21.5 million and 42.5 million 18-mers,
  []
 
@@ -582,22 +577,22 @@ Overfull \hbox (261.0pt too wide) has occurred while \output is active
 Overfull \vbox (1.0pt too high) has occurred while \output is active []
 
  [5]
-Underfull \hbox (badness 2478) in paragraph at lines 574--584
+Underfull \hbox (badness 2478) in paragraph at lines 578--588
 \OT1/ptm/m/n/9 clustering problems, such as identifying enriched k-mers in
  []
 
 
-Underfull \hbox (badness 1147) in paragraph at lines 574--584
+Underfull \hbox (badness 1147) in paragraph at lines 578--588
 \OT1/ptm/m/n/9 genomes and in experimental data. Here we have given two
  []
 
 
-Underfull \hbox (badness 1184) in paragraph at lines 585--593
+Underfull \hbox (badness 1184) in paragraph at lines 589--597
 []\OT1/ptm/m/n/9 The current version of starcode has been mildly optimized
  []
 
 
-Underfull \hbox (badness 1221) in paragraph at lines 594--611
+Underfull \hbox (badness 1221) in paragraph at lines 598--615
 \OT1/ptm/m/n/9 the speed of starcode. More generally, storing computational
  []
 
@@ -605,23 +600,23 @@ Underfull \hbox (badness 1221) in paragraph at lines 594--611
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Underfull \hbox (badness 2903) in paragraph at lines 630--636
+Underfull \hbox (badness 2903) in paragraph at lines 634--640
  \OT1/ptm/m/it/9 Funding[][] \OT1/ptm/m/n/9 The research leading to these resul
 ts has received
  []
 
 
-Underfull \hbox (badness 1983) in paragraph at lines 630--636
+Underfull \hbox (badness 1983) in paragraph at lines 634--640
 \OT1/ptm/m/n/9 and Knowledge) and the Spanish Ministry of Economy and
  []
 
 
-Underfull \hbox (badness 2903) in paragraph at lines 630--636
+Underfull \hbox (badness 2903) in paragraph at lines 634--640
 \OT1/ptm/m/n/9 (SEV-2012-0208). P.C. fellowship is partly financed by the
  []
 
 
-Underfull \hbox (badness 1502) in paragraph at lines 630--636
+Underfull \hbox (badness 1502) in paragraph at lines 634--640
 \OT1/ptm/m/n/9 Subprogram: predoctoral fellowships for the training of PhD
  []
 
@@ -729,7 +724,7 @@ lvetic/uhvr8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/helvetic/uhvro
 8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/sh
 are/texlive/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></usr/share/texlive/tex
 mf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on document.pdf (7 pages, 1279134 bytes).
+Output written on document.pdf (7 pages, 1279452 bytes).
 PDF statistics:
  220 PDF objects out of 1000 (max. 8388607)
  115 compressed objects within 2 object streams

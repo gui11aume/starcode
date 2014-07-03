@@ -32,7 +32,7 @@ setups. The high error rate of modern sequencers calls for additional
 post-processing techniques capable of detecting and reverting the misreads.
 However, in the absence of a reference population, the problem amounts to
 performing a pairwise comparison of all the barcodes, which is unfeasible for
-excessive computationally complexity.
+excessive computational complexity.
 
 \section{Results:}
 Here we address this problem and describe an exact algorithm to determine which
@@ -217,45 +217,46 @@ $k$ with the current query.}
 \end{figure}
 
 \subsection{Lookup search}
-If the Levenshtein distance between two sequences of length $L$ is
-less then or equal to $\tau$, then there must exist a perfect
-match of length at least $k = L / (\tau+1)$, assuming for the time being
-that $k$ is an integer.
-We take advantage of this property to build a lookup table containing
-all such $k$-mers from sequences inserted in the trie. When
-a new sequence is queried, subsequences are first extracted from it
-and queried against the lookup table. If none of the subsequences
-are found, the minimum distance between the query and all the
-sequences in the trie is at least $\tau+1$, and the trie search can
-therefore be omitted. This lookup is particulary useful for long query
-sequences (see \ref{scalability}). In this case $k$ is large, so the
-probability of an exact match between subsequences of length $k$ is small.
-The absence of match is detected at the computational cost of several
-table lookups, compared to the higher cost of measuring the Levenshtein
-distance between long sequences.
+If the Levenshtein distance of two sequences of length $L$ is
+less than or equal to $\tau$, there must exist a perfect match between
+them of at least $k =\lfloor L / (\tau+1)\rfloor$ nucleotides. We take
+advantage of this property to build a lookup table containing all such
+$k$-mers of the sequences already present in the trie. When a new
+sequence is queried, all its subsequences are extracted and queried
+against the lookup table. If none of the subsequences are found, the
+minimum distance between the query and all the sequences in the trie
+is necessarily greater than $\tau$, and the trie search can therefore
+be omitted. This lookup is particulary useful for long query sequences
+(see \ref{scalability}), where $k$ is large and the probability
+of an exact match between subsequences is small unless they are
+actually related, i.e. they belong to the same cluster. With this
+method, the absence of match is detected at the computational cost of
+several table lookups, compared to the higher cost of measuring the
+Levenshtein distance between long sequences.
 
-In general $L / (\tau+1)$ is not an integer. To deal
+In general, however, $L / (\tau+1)$ is not an integer. To deal
 with this complication, we divide the query into $\tau+2$ subsequences.
-The first $k+1$ are called words and have target length
-$(L-\tau) / (\tau+1)$. The last subsequence is called the tail and has
-length $\tau$ for reasons explained below. The length of the words is
-computed by integer division, and the remainder $R$ is distributed
-equally among the last $R$ words. As a result, the words have a length
-that differs by at most 1, with a total length equal to $L-\tau$.
+The first $k+1$ are called \emph{words} and have a target length
+$(L-\tau) / (\tau+1)$. The last subsequence is called \emph{tail} and has
+length $\tau$. The length of the words is computed by integer
+division, and the remainder $R$ is distributed equally among the last
+$R$ words. As a result, the words have a length that differs by at
+most 1, with an aggregated length equal to $L-\tau$.
 
-A word at the beginning of the query is not a match for the same
-word at the end of a sequence in the trie. For this reason, we query
-the words against $k+1$ distinct lookup tables. In order to allow
-insertions and deletions, the lookup search must also query shifted
-versions of the words. In the worst case, only one word is found and the
-mismatches are evenly distributed in the query sequence. The maximum
-number of cumulative insertions/deletions at the $i$-th word
-is $i-1$. Hence, the $i$-th word has to be shifted and queried against
-the lookup table $2(i-1)+1$ times to cover all the possible cases.
-The last word will therefore be queried $2\tau+1$ times, including
-$\tau$ shifts on the right and $\tau$ shifts on the left. For the latter
-we use the $\tau$ nucleotides stored in the tail.
-
+Since two exact words at different positions in the sequence shall not
+represent a lookup match, we store and query the words against $k+1$
+distinct lookup tables. In order to allow insertions and deletions, 
+the lookup search must also query shifted versions of each word. In
+the worst matching case, only one word is found and the mismatches are
+evenly distributed in the query sequence. In such case, the maximum 
+number of cumulative insertions/deletions at the $i$-th word is
+$i-1$. Hence, the $i$-th word has to be shifted and queried against
+the lookup table $2(i-1)+1$ times to cover all the possible
+cases. Hence, the last word will be queried $2\tau+1$ times, including
+$\tau$ shifts on the right and $\tau$ shifts on the left. For the
+latter shift we make use of the $\tau$ nucleotides stored in the
+tail. The total number of lookups per sequence for a given $\tau$ is
+$(\tau+1)^2$.
 
 \subsection{Seek and construct}
 To reduce the size of the search space, we use a dynamic ``seek and construct''
@@ -296,7 +297,8 @@ Algorithms~\ref{alg:starcode} and \ref{alg:poucet}.
     \State \textsc{clear} $pebbles$ at depth $>start$
     \ForAll{$pebbles$ at depth $start$}
     \State $node \gets$ \textsc{get} next node from $pebbles$
-    \State \textbf{call} \textsc{poucet}($seq$, $node$, $seed$, $hits$)
+    \State \textbf{call} \textsc{poucet}($seq$, $node$, $seed$,
+    $hits$, $pebbles$)
     \EndFor
     \State \textsc{process} $hits$ and \textsc{link} matches to $seq$
     \State $lastseq \gets seq$
@@ -311,13 +313,13 @@ Algorithms~\ref{alg:starcode} and \ref{alg:poucet}.
   \caption{Poucet search algorithm}
   \label{alg:poucet}
   \begin{algorithmic}[1]
-    \Procedure{poucet}{$query$, $node$, $seed$, $hits$}:
-    \State \textsc{compute} $node$-specific column values following NW
-    algorithm \Comment{Fig.1}
+    \Procedure{poucet}{$query$, $node$, $seed$, $hits$, $pebbles$}:
+    \State \textsc{compute} $node$-specific column following NW
+    \Comment{Fig.1}
     \ForAll{$child$ nodes in $node$}
-    \State \textsc{compute} $child$-specific row values following NW
-    algorithm \Comment{Fig.1}
-    \State \textsc{compute} center value using row and column values \Comment{Fig.1}
+    \State \textsc{compute} $child$-specific row following NW
+    \Comment{Fig.1}
+    \State \textsc{compute} center value using row and column \Comment{Fig.1}
     \If{center value $>\tau$} \Comment{Mismatches exceeded.}
     \State \textbf{continue} with next $child$
     \EndIf
@@ -326,9 +328,9 @@ Algorithms~\ref{alg:starcode} and \ref{alg:poucet}.
     \State \textbf{continue} with next $child$
     \EndIf
     \If{$node$ depth $\leq seed$}
-    \State \textsc{save} $node$ in pebbles at current depth
+    \State \textsc{save} $node$ in $pebbles$ at current depth
     \EndIf
-    \State \textbf{call} poucet($child$, $seed$, $hits$)
+    \State \textbf{call} poucet($query$, $child$, $seed$, $hits$, $pebbles$)
     \EndFor
     \EndProcedure
   \end{algorithmic}
@@ -337,42 +339,119 @@ Algorithms~\ref{alg:starcode} and \ref{alg:poucet}.
 
 \subsection{Parallelization}
 To parallelize the search, queries are separated into contiguous blocks after
-sorting. The matching algorithm proceeds in two phases. During the first phase,
-an independent trie is created and filled with the sequences
-of one block using the seek and construct process described above. In the second
-phase, blocks of sequences are queried against but not inserted into the tries
-built in the first phase. If the
-queries are segregated into $N$ blocks, the first phase consists of $N$ seek and
-construct jobs, and the second consists of $N(N-1)/2$ query jobs. Since the jobs
-show little dependence on each other, the matching algorithm can be efficiently
-parallelized provided $N$ is larger than the number of independent threads.
-
+sorting. The matching algorithm proceeds in two phases. During the
+first phase, an independent trie is created and filled with the
+sequences of its associated block using the seek and construct process
+described above. In the second phase, all the other blocks of
+sequences are queried against but not inserted into each trie built in
+the first phase. If the queries are segregated into $N$ blocks, the
+first phase consists of $N$ seek and construct jobs, whereas the second
+consists of $N(N-1)/2$ query jobs. Since the jobs show little
+dependence on each other, the matching algorithm can be efficiently
+parallelized provided $N$ is larger than the number of independent
+threads.
 \subsection{Clustering}
 Starcode implements a multi-purpose clustering algorithm called ``sphere
-clustering'', and a message passing algorithm \citep{mackay} tailored for the
-task of clustering random barcodes. In sphere clustering, barcodes are sorted
-by frequency of occurrence and each barcode, starting from the most frequent,
-can claim its $d$-neighbors that were not already claimed. This is the method
-used by \cite{pmid23953119}.
+clustering'' \citep{pmid23953119}, and a message passing algorithm
+\citep{mackay} tailored for the task of clustering random barcodes. In
+sphere clustering, barcodes are sorted by frequency of occurrence and
+each barcode, starting from the most frequent, can claim its
+$d$-neighbors that were not already claimed. 
 
-In message passing clustering, read counts are distributed equally among the
-closest neighbors of each barcode if they are at least 5 times more frequent.
-The remaining sequences at the end of the process are considered
-canonical, and their associated count is the estimated cluster size. A barcode
-is assigned to a cluster if all its read counts are eventually given to the
-corresponding canonical barcode. The barcodes for which the read counts are
-split between different canonical barcodes are not assigned to any cluster. The
-reason for imposing a factor 5 or larger in order to transfer the read counts
-is that barcodes with similar frequencies are not likely derived from each other
-through sequencing errors. More likely they are either unrelated, or they both
-derive from another more abundant barcode.
+In message passing clustering, read counts are distributed equally
+among the closest neighbors of each barcode only if they are at least
+5 times more frequent. The remaining sequences at the end of the
+process are considered canonical, and their associated count is the
+estimated cluster size. A barcode is assigned to a cluster if all its
+read counts are eventually given to the corresponding canonical
+barcode. The barcodes for which the read counts are split between
+different canonical barcodes are not assigned to any cluster. The
+reason for imposing a factor 5 or larger in order to transfer the read
+counts is that barcodes with similar frequencies are not likely
+derived from each other through sequencing errors. More likely they
+are either unrelated, or they both derive from another more abundant
+barcode. 
 
-\subsection{Benchmark options}
+\end{methods}
 
-The benchmark dataset is described in the Results section. All software were
-set to run with 20 parallel threads on a 20-core Intel Xeon processor. The
-execution options for each software are summarized in
-Table~\ref{tab:soft-options}.
+\section{Results}
+
+\subsection{Scalability}
+\label{scalability}
+In Figure~\ref{fig:X} we present an evaluation of the performance and
+scalability of starcode as a function of many critical parameters. The
+scalability tests were performed using an **artificial set of random
+sequences**. The sequence length and the number of input sequences
+varies depending on the test. The standard configuration consists of a
+set of **X** sequences of length **Y** running on **Z** threads and a
+cluster distance of **D**. To test the scalability of starcode as a
+function of a single parameter, only the selected value is modified
+whereas the others are kept constant. 
+
+In Figure~\ref{fig:X}a we show the running time as a function of the
+selected Levenshtein distance for the clusters. The evolution with the
+increasing distance shows the common exponential trend. Note, however,
+that for distances below 3 the running time remains constant. This is
+due to the fact that the average sequence distance of the input
+sequences lies above this threshold. Consequently, the constant part
+is clearly dependent on the diversity of the input set and when the
+average distance between sequences is reached, the running time scales
+exponentially.
+
+In Figure~\ref{fig:X}b we measure the running time of starcode as a
+function of the number of input sequences $n$. Both axes are in
+logarithmic scale, drawing an evident linear evolution. Based on this
+result, we conclude that the running time of starcode is approximately
+$O(n^{1.7})$.
+
+To prove the effectiveness of the parallel processing, we ran starcode
+over the same dataset using different number of threads. As shown in
+Figure~\ref{fig:X}c, the algorithm is fully parallel as the relative
+performance increases linearly up to 4 threads. The curve bending
+produced thereafter is an artifact of having insufficient memory
+bandwidth to satisfy the increased demand of memory accesses and it is
+due to hardware limitations.
+
+Finally, in Figure~\ref{fig:X}d we investigate the execution time
+with varying sequence lengths. It increases initially due to the
+ineffectiveness of the lookup table and the limited diversity of short
+sequences, i.e. short sequences are less diverse, yielding a bigger
+clustering rate. At a certain length, the lookup search algorithm
+starts to be effective and boosts the performance since most of the
+queries are resolved without the need for trie-search.
+
+\begin{figure}[!tpb]%figurex
+\centerline{\includegraphics[scale=0.47]{scalability.pdf}}
+\caption{Scalability. a. Running time as a function of the clustering
+  distance. b. Logarithm of the running time versus the logarithm of
+  the number of sequences to be clustered. c. Relative performance increase for
+  different number of parallel threads. d. Running time versus length
+  of the input sequences.
+}\label{fig:X}
+\end{figure}
+
+
+\subsection{Benchmark against sequence clustering algorithms}
+Sequence clustering is routinely used to curate databases of non
+redundant nucleotide or protein sequences. We benchmarked starcode
+against the two popular sequence clustering algorithms CD-HIT
+\citep{pmid23060610} and USEARCH \citep{pmid20709691}.
+
+We generated 1 million random 40-mers that were duplicated 47 times.
+For each 40-mer, we inserted 3 addional mutant sequences to the pool
+by sampling again 3 nucleotides at random positions. The probability
+that such a mutant sequence is within a distance 3 of any other
+40-mer is of the order of $10^{-12}$ and can be neglected. Each
+cluster thus consists of 50 sequences, of which 3 have a Levenshtein
+distance 3 from the canonical representant.
+
+All software were set to run on a 6-core single-processor Intel Xeon
+E5-2620 system with **64~GB** of DDR3-RAM at 1333~Mhz. The execution
+options for each software are summarized in
+Table~\ref{tab:soft-options}. Denoted as \emph{sequential R} is the
+sequential algorithm of \cite{pmid23953119} which is implemented in R
+and relies on the \texttt{stringdist} function of the
+\texttt{stringdist} package.
 
 \begin{table}[h]
 \centering
@@ -395,49 +474,7 @@ Table~\ref{tab:soft-options}.
 \label{tab:soft-options}
 \end{table}
 
-
-Denoted as \emph{sequential R} is the sequential algorithm of
-\cite{pmid23953119} which is implemented in R and relied on the \texttt{stringdist}
-function of the \texttt{stringdist} package.
-
-\end{methods}
-
-\section{Results}
-\subsection{Scalability}
-\label{scalability}
-Write some crap here.
-
-\begin{figure}[!tpb]%figurex
-\centerline{\includegraphics[scale=0.47]{scalability.pdf}}
-\caption{Scalability. Top left: the running time of starcode is
-approximlately $O(n^{1.7})$, where $n$ is the number of sequences to
-cluster. Top right: the running time is very sensitive to the maximum
-Levenshtein distance used in custering.  Bottom left: the running time
-as a function of the length of the sequences has a complex behavior. It
-increases initially but then decreases for long sequences because the
-lookup search becomes more effective. Bottom right: the scaling of the
-relative performance is sub-linear as the number of threads increases.
-The algorithm is fully parallel, but the memory bandwidth becomes
-limiting on the tested hardware.
-}\label{fig:X}
-\end{figure}
-
-
-\subsection{Benchmark against sequence clustering algorithms}
-Sequence clustering is routinely used to curate databases of non
-redundant nucleotide or protein sequences. We benchmarked starcode
-against the two popular sequence clustering algorithms CD-HIT
-\citep{pmid23060610} and USEARCH \citep{pmid20709691}.
-
-We generated 1 million random 40-mers that were duplicated 47 times.
-For each 40-mer, we inserted 3 addional mutant sequences to the pool
-by sampling again 3 nucleotides at random positions. The probability
-that such a mutant sequence is within a distance 3 of any other
-40-mer is of the order of $10^{-12}$ and can be neglected. Each
-cluster thus consists of 50 sequences, of which 3 have a Levenshtein
-distance 3 from the canonical representant.
-
-Using 12 cores, starcode clustered the shuffled 50 million sequences
+Using **12** cores, starcode clustered the shuffled 50 million sequences
 in 5 minutes and 17 seconds without a single error (the output
 consisted of 1 million clusters of size 50).  The running times
 of CD-HIT and USEARCH were [59] and [64] minutes respectively, and they
@@ -445,7 +482,7 @@ identified 2,362,352 and 2,739,954 clusters respectively. The results
 are summarized in Figure~\ref{fig:benchmark}. Both algorithms rely on
 heuristics, explaining why the number of clusters is off target. These
 results clearly demonstrate that starcode outperforms other clustering
-algorithms in speed and accuracy to cluster random sequences.
+algorithms both in speed and accuracy with random input sequences.
 
 We also compared starcode on the biological benchmark dataset proposed
 by \cite{pmid23060610}.

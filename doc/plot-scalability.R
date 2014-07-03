@@ -1,0 +1,21 @@
+# Data
+X1 = c(0,1,2,3,4,5)
+Y1 = c(0.465, 0.631, 0.776, 19.072, 2*60+20.767, 9*60+13.506)
+X2 = 10000*c(1,2,4,8,16,32,64)
+Y2 =c(0.294, 0.966, 3.374, 11.849, 39.074, 60+55.348, 4*60+55.366)
+X3 = c(1,2,4,6,8,12)
+Y3 = c(40*60+9, 20*60+20, 10*60+41, 7*60+43, 6*60+2, 4*60+32)
+X4 = 10*c(1,2,3,4,5,6,7,8)
+Y4 = c(22.072, 25.714, 26.361, 19.865, 5.114, 4.959, 5.591, 6.257)
+# Plot
+pdf("/mnt/shared/src/C/starcode/doc/scalability.pdf")
+par(mfrow=c(2,2))
+plot(log(X2),log(Y2), type='b', xlab="Log number of sequences", ylab="Log Running time (seconds)", cex.lab=1.3)
+abline(lm(log(Y2)~log(X2)), col=2)
+text(x=13, y=5.65, "-16.7+1.7x", adj=1)
+plot(X1,Y1, type='b', xlab="Levenshtein distance", ylab="Running time (seconds)", cex.lab=1.3)
+plot(X4,Y4, type='b', ylim=c(0,30), xlab="Sequence length", ylab="Running time (seconds)", cex.lab=1.3)
+plot(X3,Y3[1]/Y3, type='b', ylim=c(1,12), xlim=c(1,12), xlab="Number of threads", ylab="Relative performance", cex.lab=1.3)
+abline(0,1, col=2)
+dev.off()
+

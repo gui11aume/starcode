@@ -99,13 +99,13 @@ datasets from bacterial or even metazoan genomes.
 \subsection{Inexact string matching using tries}
 The matching method of starcode is based on a variation of the Needleman-Wunsch
 (NW) algorithm \citep{pmid5420325}. In the original algorithm
-(Figure~\ref{fig:01}a), the Levenshtein distance between two sequences is found
+(Figure~\ref{fig:NW}a), the Levenshtein distance between two sequences is found
 by applying a recurrence relation throughout a matrix of $mn$ terms, where $m$
 and $n$ are the respective sequence lengths. The complexity of this dynamic
 programming approach is $O(mn)$. 
 
-\begin{figure}[!tpb]%figure1
-\centerline{\includegraphics{Fig1.pdf}}
+\begin{figure}[!tpb]
+\centerline{\includegraphics{NW.pdf}}
 \caption{Needleman-Wunsch (NW) alignment. \textbf{a}
   Alignment of GTTGCA and GATCCA using
 the NW alignment matrix. The margins (purple) are initialized and the cells of
@@ -125,7 +125,7 @@ with the difference that it is interrupted if the value of a diagonal cell (bold
 borders) is larger than 2. The values in purple cells are not always the same as
 their equivalent in a (purple arrow), but the values in the yellow cells are
 nevertheless identical. The values of the white cells are never computed, which
-contributes to making the algorithm less complex.}\label{fig:01}
+contributes to making the algorithm less complex.}\label{fig:NW}
 \end{figure}
 
 In many instances, the only information of interest is to find out whether the
@@ -133,7 +133,7 @@ sequences are $d$-neighbors (separated by a distance less than or equal to a
 threshold $d$).  In that case, the complexity then reduces to
 $O(d \min(m,n))$ as described below \citep{ukkonen}. Instead
 of initializing the margins of the matrix and computing all the
-terms, the matrix is initialized as shown on Figure~\ref{fig:01}b and only the
+terms, the matrix is initialized as shown on Figure~\ref{fig:NW}b and only the
 terms around
 the diagonal are computed. If the computation of a diagonal term yields a value
 greater than $d$, the distance is known to be greater than $d$ and the process
@@ -143,7 +143,7 @@ between the sequences, as in the NW algorithm.
 This method can be used for inexact matching of sequences against a reference
 set indexed as prefix tree, also known as a trie \citep{ukkonen}. The terms of the
 matrix are updated row-wise as a depth-first search traverses the trie from the
-root, as illustrated in Figure~\ref{fig:02}. Every time a node is visited, the row
+root, as illustrated in Figure~\ref{fig:trie}. Every time a node is visited, the row
 corresponding to its depth is recomputed. If the threshold value $d$ is exceeded
 for a diagonal term, the Levenshtein distance for all the downstream sequences is
 also necessarily greater than $d$. Therefore, no more hits are to be discovered
@@ -154,11 +154,11 @@ $d$-neighbor of the query. This method is efficient because it eliminates large
 areas of the search space, and because the NW alignment of the query with each
 prefix of the database is computed only once.
 
-\begin{figure}[!tpb]%figure2
-\centerline{\includegraphics{Fig2.pdf}}
+\begin{figure}[!tpb]
+\centerline{\includegraphics{trie.pdf}}
 \caption{Trie query with NW alignment. Each sequence of the index is a path in
 the trie. The query GTTGCA is written at the top of a NW matrix, which is
-initialized as shown on Figure~\ref{fig:01}b. The trie is traversed by a
+initialized as shown on Figure~\ref{fig:NW}b. The trie is traversed by a
 depth-first search (red path) from the root. At each depth, the node added to
 the path is written on the left of the NW matrix and the row is computed.
 Checkpoints from 1 to 4 (circled red numbers) show the state of the NW matrix
@@ -167,7 +167,7 @@ as the search proceeds. The node labelled 3 is a leaf and thus corresponds to a
 and the last rows of the NW are erased. The search path then goes to node labelled
 4, in which case the newly computed diagonal cell exceeds the threshold (circled
 in red). Even if this node has children, they are not visited (red crosses).}
-\label{fig:02}
+\label{fig:trie}
 \end{figure}
 
 
@@ -189,7 +189,7 @@ computed using characters that belong to the previous query. Since they also dep
 on the terms computed at lower depth, the search cannot restart at depth $k$. This
 issue is solved by storing in each node a combination of row and column terms that
 form an angle shape, looking
-like a horizontally flipped L character as shown on Figure~\ref{fig:03}. This way, the
+like a horizontally flipped L character as shown on Figure~\ref{fig:poucet}. This way, the
 computation intermediates stored in a node of depth $k$ depend only on the previous
 characters of the query. Using this technique, the search can effectively restart
 at a depth equal to the length of the shared prefix with the previous query, thereby
@@ -200,10 +200,10 @@ brothers to find their way home, which is reminiscent of the way queries pave
  the way for the next in this algorithm. We therefore called this search
 algorithm ``poucet''.
 
-\begin{figure}[!tpb]%figure3
-\centerline{\includegraphics{Fig3.pdf}}
+\begin{figure}[!tpb]
+\centerline{\includegraphics{poucet.pdf}}
 \caption{Poucet search algorithm. The algorithm proceeds with the same principles
-as shown on Figure~\ref{fig:02} with the difference that the NW matrix is not
+as shown on Figure~\ref{fig:trie} with the difference that the NW matrix is not
 updated row-wise, but along horizontally flipped L shapes. As the depth-first
 search proceeds, these values are stored in the nodes of the trie. Only the nodes
 at the top contain initialized values; for the other nodes, the values at the
@@ -213,7 +213,7 @@ only once (purple arrow). The values in the grey cells will be computed as the
 search path (red) visits the node. Storing the intermediates in the nodes allows
 the next query to restart at depth $k$ if it shares a common prefix of length
 $k$ with the current query.}
-\label{fig:03}
+\label{fig:poucet}
 \end{figure}
 
 \subsection{Lookup search}
@@ -226,14 +226,13 @@ all such $k$-mers from sequences inserted in the trie. When
 a new sequence is queried, subsequences are first extracted from it
 and queried against the lookup table. If none of the subsequences
 are found, the minimum distance between the query and all the
-sequences in the trie is at least $\tau+1$, and the trie-search can
+sequences in the trie is at least $\tau+1$, and the trie search can
 therefore be omitted. This lookup is particulary useful for long query
-sequences because in this case $k$ is large. The probability of an
-exact match between subsequences of length $k$ is small and the
-trie-search will be avoided for many such queries. The absence of match
-is detected at the computational cost of several table lookups, compared
-to the higher cost of measuring the Levenshtein distance between long
-sequences.
+sequences (see \ref{scalability}). In this case $k$ is large, so the
+probability of an exact match between subsequences of length $k$ is small.
+The absence of match is detected at the computational cost of several
+table lookups, compared to the higher cost of measuring the Levenshtein
+distance between long sequences.
 
 In general $L / (\tau+1)$ is not an integer. To deal
 with this complication, we divide the query into $\tau+2$ subsequences.
@@ -268,7 +267,6 @@ B is not yet inserted, A yields no hit. It is then inserted in the trie. At the
 time B is processed, A is a hit for the query and the match A-B is discovered.
 This approach guarantees that every hit is discovered, while maintaining the
 trie as ``thin'' as possible, thereby reducing the search time.
-%The whole matching process is summarized in the pseudocode shown Figure~\ref{fig:04}
 The whole matching process is summarized in the pseudocode shown in
 Algorithms~\ref{alg:starcode} and \ref{alg:poucet}.
 
@@ -405,6 +403,26 @@ function of the \texttt{stringdist} package.
 \end{methods}
 
 \section{Results}
+\subsection{Scalability}
+\label{scalability}
+Write some crap here.
+
+\begin{figure}[!tpb]%figurex
+\centerline{\includegraphics[scale=0.47]{scalability.pdf}}
+\caption{Scalability. Top left: the running time of starcode is
+approximlately $O(n^{1.7})$, where $n$ is the number of sequences to
+cluster. Top right: the running time is very sensitive to the maximum
+Levenshtein distance used in custering.  Bottom left: the running time
+as a function of the length of the sequences has a complex behavior. It
+increases initially but then decreases for long sequences because the
+lookup search becomes more effective. Bottom right: the scaling of the
+relative performance is sub-linear as the number of threads increases.
+The algorithm is fully parallel, but the memory bandwidth becomes
+limiting on the tested hardware.
+}\label{fig:X}
+\end{figure}
+
+
 \subsection{Benchmark against sequence clustering algorithms}
 Sequence clustering is routinely used to curate databases of non
 redundant nucleotide or protein sequences. We benchmarked starcode
@@ -420,11 +438,11 @@ cluster thus consists of 50 sequences, of which 3 have a Levenshtein
 distance 3 from the canonical representant.
 
 Using 12 cores, starcode clustered the shuffled 50 million sequences
-in 4 minutes and 32 seconds without a single error (the output
+in 5 minutes and 17 seconds without a single error (the output
 consisted of 1 million clusters of size 50).  The running times
 of CD-HIT and USEARCH were [59] and [64] minutes respectively, and they
 identified 2,362,352 and 2,739,954 clusters respectively. The results
-are summarized in Figure~\ref{fig:04}. Both algorithms rely on
+are summarized in Figure~\ref{fig:benchmark}. Both algorithms rely on
 heuristics, explaining why the number of clusters is off target. These
 results clearly demonstrate that starcode outperforms other clustering
 algorithms in speed and accuracy to cluster random sequences.
@@ -432,8 +450,8 @@ algorithms in speed and accuracy to cluster random sequences.
 We also compared starcode on the biological benchmark dataset proposed
 by \cite{pmid23060610}.
 
-\begin{figure}[!tpb]%figure5
-\centerline{\includegraphics{Fig4.pdf}}
+\begin{figure}[!tpb]
+\centerline{\includegraphics{benchmark.pdf}}
 \caption{Benchmark of starcode against sequence clustering algorithms
 and short read mappers. \textbf{a} Running time compared to CD-HIT and
 UCLUST on the dataset described in the text. \textbf{b} Error rate
@@ -445,7 +463,7 @@ query proper (white). The extraction was performed with the Linux sort
 command, so the time is the same in every case. \textbf{d} Error rate
 compared to Bowtie2, BWA and GEM, expressed as the proportion of matches
 with a single hit. This is an underestimate of the true error rate.}
-\label{fig:04}
+\label{fig:benchmark}
 \end{figure}
 
 
@@ -461,22 +479,24 @@ matching problem.
 
 For this test, we used the same dataset described above, in which every
 sequence has at least 2 distinct matches at a distance 3 (mutant sequences
-from the same cluster may be at a distance up to 6). This means that we
+from the same cluster may be at a distance up to 6 from each other). This
+means that we
 can use matches with a single hit (themselves) as a lower bound on the inaccuracy.
 We used unique sequences to build an index and queried the index with the same
-sequences. Figure~\ref{fig:04}c shows the running time of starcode along with the
+sequences. Figure~\ref{fig:benchmark}c shows the running time of starcode along with the
 decomposition of the running time for the three mappers. Note that the time to
 extract unique sequences is always the same because we used the Linux
-\texttt{sort -u} command in every case. It appears that the running time of
-starcode is about the same as the time required by BWA (the fastest aligner in
-this test) to index and run the query proper. Figure~\ref{fig:04}d shows the
-lower bound on
-the error rate, as estimated by the proportion of single hits. BWA was found to
-be the most accurate aligner with a lower bound of 19\% errors. This measure
-is indeed an underestimate of the true error rate, but given that starcode makes no
-mistake on this dataset, a more accurate measure is not necessary. In conclusion,
-starcode runs slightly faster than short read mappers when all steps are taken
-into account, and clearly outperforms them in precision on this particular problem.
+\texttt{sort -u} command in every case. The running time of
+starcode is slightly lower than short read mappers when all steps ares
+taken into account.  Figure~\ref{fig:benchmark}d shows the lower bound on
+the error rate, as estimated by the proportion of single hits. BWA was
+found to be the most accurate aligner with a lower bound of 31\% sequences.
+with a single match. This measure is an underestimate of the true error
+rate, but given that starcode is an exact algorithm, a more accurate
+measure is not necessary. In conclusion, starcode can compete with the
+short read aligners on the matching problem, and it provides a precision
+that none of the other tools can offer.
+
 
 \subsection{Clustering TRIP barcodes}
 In the course of setting up the TRIP technology in our laboratory
@@ -536,32 +556,27 @@ with a frequent 12 bp sequence known as DNA uptake sequence \citep{pmid10673000}
 extracted the 12-mers from both orientations of  the 2.19 Mb genome, yielding
 4.39 million 12-mers, consisting of 2.77 million unique sequences. Clustering
 the 12-mers with starcode within a Levenshtein distance of 2 took less
-than 3 minutes with 20 cores. We identified the known DNA uptake sequence of
-\textit{Neisseria meningitidis} (ATGCCGTCTGAA) as the most abundant 12-mer, comprising
-1,466 exact matches and 4,625 inexact matches. This result testifies to the
-fact that starcode can be used to identify biologically relevant motifs in
-bacterial genomes.
+than 45 seconds with 12 cores. We identified the known DNA uptake sequence of
+\textit{Neisseria meningitidis} (ATGCCGTCTGAA) as the most abundant 12-mer.
+This result testifies to the fact that starcode can be used to identify biologically
+relevant motifs in bacterial genomes.
 
-To test starcode on the scale of a metazoan genome, we used a \textit{Drosophila}
-dataset from \cite{pmid20888037}. The study describes two
-signatures of chromatin proteins called Red and Yellow, both corresponding
-to transcribed regions of the genome. The distinction is based on epigenomic
-features only, which prompted us to identify sequence features that could
-discriminate Red \textit{versus} Yellow regions. To this end, we used starcode to
-cluster 18-mers from both regions.
-
-The total coverage of Red and Yellow chromatin in the \textit{Drosophila} genome is
-10.7 Mb and 21.3 Mb respectively, corresponding to 21.5 million and 42.5 million
-18-mers, respectively. We used starcode to identify clusters of 18-mers within
-a Levenshtein distance of 3 (the running time was approximately 35 minutes for
-Red and 70 minutes for Yellow chromatin using 20 threads). The most discriminating
-18-mer was (GA)$_9$, which showed a 4.8 fold enrichment in Red \textit{versus} Yellow
-chromatin.
-We counted 832 exact matches and 6,749 inexact matches over 3,880 distinct
-18-mers in Red chromatin, showing that a larger portion of the signal comes
-from inexact matches. Taken together, these results show that starcode can be
-used to cluster short k-mers from metazoan-scale datasets.
-
+To test starcode on another application, we used the RNA-protein
+interaction data produced by RNAcompete \citep{pmid19561594}. The mammalian
+splicing factor SRSF1 is known to bind RNA GA-rich motifs, but there is
+some disagreement about the motif that it recognizes \citep{pmid23562324}.
+For each replicate, we replaced the RNAcompete signals by their rank and
+extracted the 10-mers from the microarray probes. The 10-mers were given
+a score equal to the rank of the probe they belong, and enriched motifs
+were found using the sphere clustering of starcode with max Levenshtein
+distance 2. The score of the most enriched 10-mer is thus the sum of the
+ranks of all 10-mers within this distance. Clustering the 6.3 million
+extracted 10-mers with 12 cores took about 20 seconds for each replicate.
+The most enriched 10-mers were AGGACACGGA, AGGACACGGA, AGGACGGAGG,
+AGGACGGAGG, AGGACACGGA and AGGATACAGG. Except for the last replicate, the
+motifs consist of AGGAC and GGA, with a spacer of variable length. This
+suggests that the binding of SRSF1 to RNA is flexible, which explains the
+poor agreement between the motifs derived from 6-mers or 7-mers.
 
 \section{Discussion and conclusion}
 Through the parallel poucet search algorithm, starcode implements an exact
@@ -579,12 +594,6 @@ The speed of starcode also makes it proficient at more general clustering
 problems, such as identifying enriched k-mers in genomes and in experimental
 data. Here we have given two examples of such applications. In the first, we
 recover a known enriched 12-mer in the genome of \textit{Neisseria meningitidis}.
-In the second, we identify a sequence feature that discriminates genomic
-regions found in two different chromatin types in \textit{Drosophila}. GA
-repeats are known to be bound \textit{in vivo} by the protein GAF
-\citep{pmid12601174}, which suggests
-that this transcription factor is instrumental in setting the distinction
-between Red and Yellow chromatin.
 
 The current version of starcode has been mildly optimized for memory
 consumption. The memory footprint depends on the number of sequences to

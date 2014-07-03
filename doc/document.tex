@@ -227,7 +227,7 @@ against the lookup table. If none of the subsequences are found, the
 minimum distance between the query and all the sequences in the trie
 is necessarily greater than $\tau$, and the trie search can therefore
 be omitted. This lookup is particulary useful for long query sequences
-(see \ref{scalability}), where $k$ is large and the probability
+(see \ref{performance}), where $k$ is large and the probability
 of an exact match between subsequences is small unless they are
 actually related, i.e. they belong to the same cluster. With this
 method, the absence of match is detected at the computational cost of
@@ -376,58 +376,46 @@ barcode.
 
 \section{Results}
 
-\subsection{Scalability}
-\label{scalability}
-In Figure~\ref{fig:X} we present an evaluation of the performance and
-scalability of starcode as a function of many critical parameters. The
-scalability tests were performed using an **artificial set of random
-sequences**. The sequence length and the number of input sequences
-varies depending on the test. The standard configuration consists of a
-set of **X** sequences of length **Y** running on **Z** threads and a
-cluster distance of **D**. To test the scalability of starcode as a
-function of a single parameter, only the selected value is modified
-whereas the others are kept constant. 
+\subsection{Performance}
+\label{performance}
+We measured basic performance and scalability metrics of starcode on a
+dataset of pseudo random sequences (Figure~\ref{fig:perf}). The standard
+configuration consists of a set of 1,000,000 sequences of length 40 running
+on 1 thread and with a maximum Levenshtein distance of 3. To test the
+scalability as a function of a single parameter, only the parameter under
+study was modified whereas the others were kept constant. 
 
-In Figure~\ref{fig:X}a we show the running time as a function of the
-selected Levenshtein distance for the clusters. The evolution with the
-increasing distance shows the common exponential trend. Note, however,
-that for distances below 3 the running time remains constant. This is
-due to the fact that the average sequence distance of the input
-sequences lies above this threshold. Consequently, the constant part
-is clearly dependent on the diversity of the input set and when the
-average distance between sequences is reached, the running time scales
-exponentially.
+Figure~\ref{fig:perf}a shows the running time of starcode as a
+function of the number of input sequences $n$. In double logarithmic scale
+the trend is a straight line with slope 1.7, which suggests that the
+running time complexity of starcode is approximately $O(n^{1.7})$.
+Figure~\ref{fig:perf}b shows that the running time gros exponentially
+as a function of the maximum Levenshtein distance used for clustering.
+This is a common feature of exact algorithms based on trie search. As
+this parameter increases, the poucet search bails out at a deeper
+average depth in a trie that fans out exponentially.
+The running time first increases as a function of the sequence length,
+but then plummets and stays low (Figure~\ref{fig:perf}c).
+Beyond a certain length, the lookup search algorithm starts to be
+efficient, and most of the queries are resolved without the need for
+trie-search.
+Finally, in we show the scalability of starcode with increasing
+number of treahds in Figure~\ref{fig:perf}d. The search algorithm is fully
+parallel and the relative performance increases linearly up to 8 threads.
+The bending observed thereafter has two sources. The first is 
+that the input reading and clustering steps are brief but not parallel,
+the second is that there is insufficient memory bandwidth to satisfy
+the increased demand of memory accesses and  due to hardware limitations.
 
-In Figure~\ref{fig:X}b we measure the running time of starcode as a
-function of the number of input sequences $n$. Both axes are in
-logarithmic scale, drawing an evident linear evolution. Based on this
-result, we conclude that the running time of starcode is approximately
-$O(n^{1.7})$.
-
-To prove the effectiveness of the parallel processing, we ran starcode
-over the same dataset using different number of threads. As shown in
-Figure~\ref{fig:X}c, the algorithm is fully parallel as the relative
-performance increases linearly up to 4 threads. The curve bending
-produced thereafter is an artifact of having insufficient memory
-bandwidth to satisfy the increased demand of memory accesses and it is
-due to hardware limitations.
-
-Finally, in Figure~\ref{fig:X}d we investigate the execution time
-with varying sequence lengths. It increases initially due to the
-ineffectiveness of the lookup table and the limited diversity of short
-sequences, i.e. short sequences are less diverse, yielding a bigger
-clustering rate. At a certain length, the lookup search algorithm
-starts to be effective and boosts the performance since most of the
-queries are resolved without the need for trie-search.
 
 \begin{figure}[!tpb]%figurex
 \centerline{\includegraphics[scale=0.47]{scalability.pdf}}
-\caption{Scalability. a. Running time as a function of the clustering
-  distance. b. Logarithm of the running time versus the logarithm of
-  the number of sequences to be clustered. c. Relative performance increase for
-  different number of parallel threads. d. Running time versus length
-  of the input sequences.
-}\label{fig:X}
+\caption{Scalability. a. Logarithm of the running time versus the
+logarithm of the number of sequences to be clustered. b. Running time as
+a function of the clustering distance. c. Running time versus length of
+the input sequences. d. Relative performance increase for different number
+of parallel threads. 
+}\label{fig:perf}
 \end{figure}
 
 
@@ -437,21 +425,27 @@ redundant nucleotide or protein sequences. We benchmarked starcode
 against the two popular sequence clustering algorithms CD-HIT
 \citep{pmid23060610} and USEARCH \citep{pmid20709691}.
 
-We generated 1 million random 40-mers that were duplicated 47 times.
-For each 40-mer, we inserted 3 addional mutant sequences to the pool
+We generated 1 million random 40-mers duplicated 47 times. For each
+40-mer, we also inserted 3 addional mutant sequences to the pool
 by sampling again 3 nucleotides at random positions. The probability
 that such a mutant sequence is within a distance 3 of any other
 40-mer is of the order of $10^{-12}$ and can be neglected. Each
 cluster thus consists of 50 sequences, of which 3 have a Levenshtein
-distance 3 from the canonical representant.
+distance 3 from the centroid of the cluster (the canonical
+representant).
 
 All software were set to run on a 6-core single-processor Intel Xeon
-E5-2620 system with **64~GB** of DDR3-RAM at 1333~Mhz. The execution
+E5-2620 system with 50~GB of DDR3-RAM at 1333~Mhz. The execution
 options for each software are summarized in
-Table~\ref{tab:soft-options}. Denoted as \emph{sequential R} is the
-sequential algorithm of \cite{pmid23953119} which is implemented in R
-and relies on the \texttt{stringdist} function of the
-\texttt{stringdist} package.
+Table~\ref{tab:soft-options}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%             WHERE TO PUT THIS NOW??                               %
+%Denoted as \emph{sequential R} is the
+%sequential algorithm of \cite{pmid23953119} which is implemented in R
+%and relies on the \texttt{stringdist} function of the
+%\texttt{stringdist} package.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{table}[h]
 \centering
@@ -474,9 +468,29 @@ and relies on the \texttt{stringdist} function of the
 \label{tab:soft-options}
 \end{table}
 
-Using **12** cores, starcode clustered the shuffled 50 million sequences
-in 5 minutes and 17 seconds without a single error (the output
-consisted of 1 million clusters of size 50).  The running times
+Using 12 cores, starcode clustered the shuffled 50 million sequences
+in 5 minutes and 3 seconds without a single error (the output
+consisted of 1 million clusters of size 50). There is no obvious
+way to compare exact algorithms with heuristic algorithms such as
+CD-HIT and USEARCH. We decided to allocate the heuristics 6 minutes
+on the same dataset ($\approx$ 20\% additional time) and use the
+parameters giving the best accurary under this constraint.
+However, we could not find a combination of
+parameters such that either of them could terminate in less than
+6 minutes. To simplify the task, we extracted the unique sequences
+from the input file, bringing it down to 4,000,000 and followed
+the same rationale. We could not find any set of parameters such
+that USEARCH could process this input in less than 6 minutes,
+but CD-HIT could perform the task when run as shown in
+Table~\ref{tab:soft-options}.
+
+
+
+we decided to 
+allocating them 6 minutes with the same computer resources 
+USEARCH could not be
+run on the same input because
+The running times
 of CD-HIT and USEARCH were [59] and [64] minutes respectively, and they
 identified 2,362,352 and 2,739,954 clusters respectively. The results
 are summarized in Figure~\ref{fig:benchmark}. Both algorithms rely on
@@ -491,8 +505,8 @@ by \cite{pmid23060610}.
 \centerline{\includegraphics{benchmark.pdf}}
 \caption{Benchmark of starcode against sequence clustering algorithms
 and short read mappers. \textbf{a} Running time compared to CD-HIT and
-UCLUST on the dataset described in the text. \textbf{b} Error rate
-compared to CD-HIT and UCLUST, expressed as the percentage of clusters
+USEARCH on the dataset described in the text. \textbf{b} Error rate
+compared to CD-HIT and USEARCH, expressed as the percentage of clusters
 failing to be merged. \textbf{c} Running time compared to Bowtie2, BWA
 and GEM on this dataset. The running time is decomposed in extraction
 of unique sequences (purple), Burrows-Wheeler indexing (yellow), and
@@ -585,7 +599,8 @@ at different sites, hence they are better identified by inexact matching.
 This problem becomes computationally difficult for long motifs (above 12-13
 nucleotides) because of the combinatorial scaling. But as motifs become
 longer, the problem of identifying abundant inexact matches becomes similar
-to barcode clustering.
+to barcode clustering. We reasoned that starcode could also be used for the
+task of identifying biologically meaningful sequence motifs.
 
 We set up a test based on the meningitis-causing agent
 \textit{Neisseria meningitidis}. The genome of this bacterium is
@@ -604,18 +619,20 @@ To test starcode on another application, we used the RNA-protein
 interaction data produced by RNAcompete \citep{pmid19561594}. The mammalian
 splicing factor SRSF1 is known to bind RNA GA-rich motifs, but there is
 some disagreement about the motif that it recognizes \citep{pmid23562324}.
-For each replicate, we replaced the RNAcompete signals by their rank and
+For each SRSF1 replicate of the RNAcompete dataset,
+we replaced the RNAcompete signals by their rank and
 extracted the 10-mers from the microarray probes. The 10-mers were given
 a score equal to the rank of the probe they belong, and enriched motifs
-were found using the sphere clustering of starcode with max Levenshtein
-distance 2. The score of the most enriched 10-mer is thus the sum of the
-ranks of all 10-mers within this distance. Clustering the 6.3 million
-extracted 10-mers with 12 cores took about 20 seconds for each replicate.
-The most enriched 10-mers were AGGACACGGA, AGGACACGGA, AGGACGGAGG,
-AGGACGGAGG, AGGACACGGA and AGGATACAGG. Except for the last replicate, the
-motifs consist of AGGAC and GGA, with a spacer of variable length. This
-suggests that the binding of SRSF1 to RNA is flexible, which explains the
-poor agreement between the motifs derived from 6-mers or 7-mers.
+were found using the sphere clustering of starcode with maximum
+Levenshtein distance 2. The score of the most enriched 10-mer is thus the
+sum of the ranks of all 10-mers within this distance. Clustering the 6.3
+million extracted 10-mers with 12 cores took about 20 seconds for each
+replicate.  The most enriched 10-mers were AGGACACGGA, AGGACACGGA,
+AGGACGGAGG, AGGACGGAGG, AGGACACGGA and AGGATACAGG. Except for the last
+replicate, the motifs consist of AGGAC and GGA, with a spacer of variable
+length. This suggests that the binding of SRSF1 to RNA may be flexible,
+which would explain the disagreement between the motifs derived from 6-mers
+or 7-mers.
 
 \section{Discussion and conclusion}
 Through the parallel poucet search algorithm, starcode implements an exact

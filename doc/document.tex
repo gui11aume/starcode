@@ -588,14 +588,16 @@ longer, the problem of identifying abundant inexact matches becomes similar
 to barcode clustering.
 
 We set up a test based on the meningitis-causing agent
-\textit{Neisseria meningitidis}. The genome of this bacterium is interspersed
-with a frequent 12 bp sequence known as DNA uptake sequence \citep{pmid10673000}. We
-extracted the 12-mers from both orientations of  the 2.19 Mb genome, yielding
-4.39 million 12-mers, consisting of 2.77 million unique sequences. Clustering
-the 12-mers with starcode within a Levenshtein distance of 2 took less
-than 45 seconds with 12 cores. We identified the known DNA uptake sequence of
-\textit{Neisseria meningitidis} (ATGCCGTCTGAA) as the most abundant 12-mer.
-This result testifies to the fact that starcode can be used to identify biologically
+\textit{Neisseria meningitidis}. The genome of this bacterium is
+interspersed with a frequent 12 bp sequence known as DNA uptake
+sequence \citep{pmid10673000}. We extracted the 12-mers from both
+orientations of  the 2.19 Mb genome, yielding 4.39 million 12-mers,
+consisting of 2.77 million unique sequences. Clustering the 12-mers
+with starcode within a Levenshtein distance of 2 took less than 45
+seconds with 12 cores. We identified the known DNA uptake sequence
+of \textit{Neisseria meningitidis} (ATGCCGTCTGAA) as the most abundant
+12-mer, with 1466 exact and 2096 inexact hits. This result testifies
+to the fact that starcode can be used to identify biologically
 relevant motifs in bacterial genomes.
 
 To test starcode on another application, we used the RNA-protein

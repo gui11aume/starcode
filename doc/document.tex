@@ -389,7 +389,7 @@ Figure~\ref{fig:perf}a shows the running time of starcode as a
 function of the number of input sequences $n$. In double logarithmic scale
 the trend is a straight line with slope 1.7, which suggests that the
 running time complexity of starcode is approximately $O(n^{1.7})$.
-Figure~\ref{fig:perf}b shows that the running time gros exponentially
+Figure~\ref{fig:perf}b shows that the running time grows exponentially
 as a function of the maximum Levenshtein distance used for clustering.
 This is a common feature of exact algorithms based on trie search. As
 this parameter increases, the poucet search bails out at a deeper
@@ -399,13 +399,13 @@ but then plummets and stays low (Figure~\ref{fig:perf}c).
 Beyond a certain length, the lookup search algorithm starts to be
 efficient, and most of the queries are resolved without the need for
 trie-search.
-Finally, in we show the scalability of starcode with increasing
+Finally, we show the scalability of starcode with increasing
 number of treahds in Figure~\ref{fig:perf}d. The search algorithm is fully
 parallel and the relative performance increases linearly up to 8 threads.
 The bending observed thereafter has two sources. The first is 
 that the input reading and clustering steps are brief but not parallel,
-the second is that there is insufficient memory bandwidth to satisfy
-the increased demand of memory accesses and  due to hardware limitations.
+the second is due to hardware limitations, i.e. there is insufficient
+memory bandwidth to satisfy the increased demand of memory accesses.
 
 
 \begin{figure}[!tpb]%figurex

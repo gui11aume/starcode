@@ -9,6 +9,11 @@ Akhtar, W., de~Jong, J., Pindyurin, A.~V., Pagie, L., Meuleman, W., de~Ridder,
   integrated in parallel.}
 \newblock {\em {Cell}\/}, {\bf 154}(4), 914--27.
 
+\bibitem[Daubner {\em et~al.}(2013)Daubner, Cléry, and Allain]{pmid23253355}
+Daubner, G.~M., Cléry, A., and Allain, F. H.-T. (2013).
+\newblock {RRM-RNA recognition: NMR or crystallography…and new findings.}
+\newblock {\em {Curr. Opin. Struct. Biol.}}, {\bf 23}(1), 100--8.
+
 \bibitem[Dohm {\em et~al.}(2008)Dohm, Lottaz, Borodina, and
   Himmelbauer]{pmid18660515}
 Dohm, J.~C., Lottaz, C., Borodina, T., and Himmelbauer, H. (2008).
@@ -114,6 +119,11 @@ Pandit, S., Zhou, Y., Shiue, L., Coutinho-Mansfield, G., Li, H., Qiu, J.,
   in regulated splicing.}
 \newblock {\em {Mol. Cell}\/}, {\bf 50}(2), 223--35.
 
+\bibitem[{R Core Team}(2014){R Core Team}]{R}
+{R Core Team} (2014).
+\newblock {\em R: A Language and Environment for Statistical Computing\/}.
+\newblock R Foundation for Statistical Computing, Vienna, Austria.
+
 \bibitem[Ray {\em et~al.}(2009)Ray, Kazan, Chan, Castillo, Chaudhry, Talukder,
   Blencowe, Morris, and Hughes]{pmid19561594}
 Ray, D., Kazan, H., Chan, E.~T., Castillo, L.~P., Chaudhry, S., Talukder, S.,
@@ -140,12 +150,5 @@ Smith, H.~O., Gwinn, M.~L., and Salzberg, S.~L. (1999).
 Ukkonen, E. (1995).
 \newblock On-line construction of suffix trees.
 \newblock {\em Algorithmica\/}, {\bf 14}(3), 249--260.
-
-\bibitem[van Steensel {\em et~al.}(2003)van Steensel, Delrow, and
-  Bussemaker]{pmid12601174}
-van Steensel, B., Delrow, J., and Bussemaker, H.~J. (2003).
-\newblock {Genomewide analysis of Drosophila GAGA factor target genes reveals
-  context-dependent DNA binding.}
-\newblock {\em {Proc. Natl. Acad. Sci. U.S.A.}}, {\bf 100}(5), 2580--5.
 
 \end{thebibliography}

@@ -8,13 +8,14 @@
 \begin{document}
 \firstpage{1}
 
-\title[Exact sequence clustering with starcode]{Starcode: an exact algorithm for
-sequence clustering}
+\title[Exact sequence clustering with starcode]{Starcode: an exact
+algorithm for sequence clustering}
 \author[Valera Zorita \textit{et~al}]{Eduard Valera Zorita\,$^{1,2}$, Pol
-Cusc\'o\,$^{1,2}$ and Guillaume Filion\,$^{1,2}$\footnote{to whom correspondence
-should be addressed}}
-\address{$^{1}$Genome Architecture, Gene Regulation, Stem Cells and Cancer Programme,
-Centre for Genomic Regulation (CRG), Dr. Aiguader 88, 08003 Barcelona, Spain.\\
+Cusc\'o\,$^{1,2}$ and Guillaume Filion\,$^{1,2}$\footnote{to whom
+correspondence should be addressed}}
+\address{$^{1}$Genome Architecture, Gene Regulation, Stem Cells and
+Cancer Programme, Centre for Genomic Regulation (CRG), Dr. Aiguader 88,
+08003 Barcelona, Spain.\\
 $^{2}$Universitat Pompeu Fabra (UPF), Barcelona, Spain.}
 
 \history{Received on XXXXX; revised on XXXXX; accepted on XXXXX}
@@ -25,24 +26,26 @@ $^{2}$Universitat Pompeu Fabra (UPF), Barcelona, Spain.}
 
 \begin{abstract}
 \section{Motivation:}
-The increasing throughput of sequencing technologies offers new applications
-and challenges for computational biology. One such application is the use of
-random barcodes to trace and quantify transcripts or lineages in experimentals
-setups. The high error rate of modern sequencers calls for additional
-post-processing techniques capable of detecting and reverting the misreads.
-However, in the absence of a reference population, the problem amounts to
-performing a pairwise comparison of all the barcodes, which is unfeasible for
-excessive computational complexity.
+The increasing throughput of sequencing technologies offers new
+applications and challenges for computational biology. One such
+application is the use of random barcodes to trace and quantify
+transcripts or lineages in experimental setups. The high error
+rate of modern sequencers calls for additional post-processing
+techniques capable of detecting and reverting the misreads.
+However, in the absence of a reference population, the problem
+amounts to performing a pairwise comparison of all the barcodes,
+which is unfeasible for excessive computationally complexity.
 
 \section{Results:}
-Here we address this problem and describe an exact algorithm to determine which
-pairs of sequences lie within a given Levenshtein distance. The matched pairs
-are merged into clusters represented by a canonical sequence. The effiency of
-starcode is attributable to the poucet search, a novel  implementation of the
-Needleman-Wunsch algorithm performed on the nodes of a trie. Parallelization
-achieves linear scaling of performance on multi-core machines. On the task of
-clustering random barcodes, starcode outperforms short read mappers and sequence
-clustering algorithms in both speed and precision.
+Here we address this problem and describe an exact algorithm to
+determine which pairs of sequences lie within a given Levenshtein
+distance. The matched pairs are merged into clusters represented
+by a canonical sequence. The effiency of starcode is attributable
+to the poucet search, a novel  implementation of the Needleman-Wunsch
+algorithm performed on the nodes of a trie. On the task of clustering
+random barcodes, starcode outperforms sequence clustering algorithms
+in both speed and precision. We further show that starcode can also
+be used to identify enriched motifs in DNA and RNA sequences.
 
 \section{Availability and implementation:}
 The C source code is available at http://github.com/gui11aume/starcode.
@@ -70,8 +73,8 @@ is available. When the sequences are random or drawn from an unknown
 reference, clustering is the best option to tell real from spurious reads. One
 such case is the use of random barcodes to track cells or transcripts
 \citep{pmid18809713, pmid23953119}. Sequencing errors will create erroneous
-barcodes that have to be reverted to the original sequence. Hands on experience
-with real datasets show that this step becomes limiting when
+barcodes that have to be reverted to the original sequence. Hands on
+experience with real datasets shows that this step becomes limiting when
 the number of unique sequences is high. In search for a solution to this problem, we
 realized that heuristic approaches rely on assumptions that may not hold
 as technologies evolve. We therefore set out to find an exact algorithm.
@@ -87,11 +90,12 @@ alphabetically sorted sequences allowed us to avoid unnecessary recomputations
 and gain speed. This is the rationale behind the poucet search algorithm at the
 heart of the matching step.
 
-Here we describe the starcode algorithm and we benchmark it against existing
-software that perform related tasks. We show that starcode is both faster and
-more precise than the alternatives, achieving perfect clustering on ideal datasets.
-We further show that starcode is a good candidate to cluster k-mers from large
-datasets from bacterial or even metazoan genomes.
+Here we describe the starcode algorithm and we benchmark it against
+existing software that perform related tasks. We show that starcode is
+both faster and more precise than the alternatives, achieving perfect
+clustering on ideal datasets. We further show that starcode can be used
+to identify enriched motifs in large datasets such as bacterial genomes
+or protein-DNA/protein-RNA interaction experiments.
 
 
 \begin{methods}
@@ -107,66 +111,70 @@ programming approach is $O(mn)$.
 \begin{figure}[!tpb]
 \centerline{\includegraphics{NW.pdf}}
 \caption{Needleman-Wunsch (NW) alignment. \textbf{a}
-  Alignment of GTTGCA and GATCCA using
-the NW alignment matrix. The margins (purple) are initialized and the cells of
-the matrix (yellow) are computed from left to right and from top to bottom by
-the following
-dynamic programming algorithm. The value in each cell is computed from the values
-of the neighboring top, left and top-left cells. Denoting $a$, $b$ and $c$ these
-respective terms, the value in the cell of coordinates $(i,j)$ is computed as
-$\min(a+1, b+1, c)$ if the $i$-th letter from the first sequence is identical to
-the $j$-th letter from the second, or $\min(a+1, b+1, c+1)$ if the letters are
-different. The Levenshtein distance
-between the two sequences is found in the bottom right cell. \textbf{b}
-Lower complexity algorithm to
-determine whether GTTGCA and GATCCA are 2-neighbors. The values in purple cells
-are set during initialization. The dynamic programming algorithm proceeds as above,
-with the difference that it is interrupted if the value of a diagonal cell (bold
-borders) is larger than 2. The values in purple cells are not always the same as
-their equivalent in a (purple arrow), but the values in the yellow cells are
-nevertheless identical. The values of the white cells are never computed, which
-contributes to making the algorithm less complex.}\label{fig:NW}
+Alignment of GTTGCA and GATCCA using the NW alignment matrix. The
+margins (purple) are initialized and the cells of the matrix (yellow)
+are computed from left to right and from top to bottom by the following
+dynamic programming algorithm. The value in each cell is computed from
+the values of the neighboring top, left and top-left cells. Denoting
+$a$, $b$ and $c$ these respective terms, the value in the cell of
+coordinates $(i,j)$ is computed as $\min(a+1, b+1, c)$ if the $i$-th
+letter from the first sequence is identical to the $j$-th letter from
+the second, or $\min(a+1, b+1, c+1)$ if the letters are different. The
+Levenshtein distance between the two sequences is found in the bottom
+right cell. \textbf{b} Lower complexity algorithm to determine whether
+GTTGCA and GATCCA are 2-neighbors. The values in purple cells are set
+during initialization. The dynamic programming algorithm proceeds as
+above, with the difference that it is interrupted if the value of a
+diagonal cell (bold borders) is larger than 2. The values in purple
+cells are not always the same as their equivalent in \textbf{a} (purple
+arrow), but the values in the yellow cells are nevertheless identical.
+The values of the white cells are never computed, which contributes to
+making the algorithm less complex.}\label{fig:NW}
 \end{figure}
 
-In many instances, the only information of interest is to find out whether the
-sequences are $d$-neighbors (separated by a distance less than or equal to a
-threshold $d$).  In that case, the complexity then reduces to
-$O(d \min(m,n))$ as described below \citep{ukkonen}. Instead
-of initializing the margins of the matrix and computing all the
-terms, the matrix is initialized as shown on Figure~\ref{fig:NW}b and only the
-terms around
-the diagonal are computed. If the computation of a diagonal term yields a value
-greater than $d$, the distance is known to be greater than $d$ and the process
-is halted. Otherwise, the bottom-right term indicates the actual distance
-between the sequences, as in the NW algorithm.
+In many instances, the only information of interest is to find out
+whether the sequences are $d$-neighbors (separated by a distance less
+than or equal to a threshold $d$).  In that case, the complexity then
+reduces to $O(d \min(m,n))$ as described below \citep{ukkonen}. Instead
+of initializing the margins of the matrix and computing all the terms,
+the matrix is initialized as shown on Figure~\ref{fig:NW}b and only the
+terms around the diagonal are computed. If the computation of a
+diagonal term yields a value greater than $d$, the distance is known to
+be greater than $d$ and the process is halted. Otherwise, the
+bottom-right term indicates the actual distance between the sequences,
+as in the NW algorithm.
 
-This method can be used for inexact matching of sequences against a reference
-set indexed as prefix tree, also known as a trie \citep{ukkonen}. The terms of the
-matrix are updated row-wise as a depth-first search traverses the trie from the
-root, as illustrated in Figure~\ref{fig:trie}. Every time a node is visited, the row
-corresponding to its depth is recomputed. If the threshold value $d$ is exceeded
-for a diagonal term, the Levenshtein distance for all the downstream sequences is
-also necessarily greater than $d$. Therefore, no more hits are to be discovered
-in this path and the depth-first search backtracks to the parent node. When the
-process halts, every tail node
-(corresponding to a sequence of the database) on the path of this search is a
-$d$-neighbor of the query. This method is efficient because it eliminates large
-areas of the search space, and because the NW alignment of the query with each
-prefix of the database is computed only once.
+This method can be used for inexact matching of sequences against a
+reference set indexed as a prefix tree, also known as a trie
+\citep{ukkonen}. The terms of the matrix are updated row-wise as a
+depth-first search traverses the trie from the root, as illustrated
+in Figure~\ref{fig:trie}. Every time a node is visited, the row
+corresponding to its depth is recomputed. If the threshold value $d$
+is exceeded for a diagonal term, the Levenshtein distance for all the
+downstream sequences is also necessarily greater than $d$. Therefore,
+no more hits are to be discovered in this path and the depth-first
+search backtracks to the parent node. When the process halts, every
+tail node (corresponding to a sequence of the database) on the path
+of this search is a $d$-neighbor of the query. This method is
+efficient because it eliminates large areas of the search space, and
+because the NW alignment of the query with each prefix of the database
+is computed only once.
 
 \begin{figure}[!tpb]
 \centerline{\includegraphics{trie.pdf}}
-\caption{Trie query with NW alignment. Each sequence of the index is a path in
-the trie. The query GTTGCA is written at the top of a NW matrix, which is
-initialized as shown on Figure~\ref{fig:NW}b. The trie is traversed by a
-depth-first search (red path) from the root. At each depth, the node added to
-the path is written on the left of the NW matrix and the row is computed.
-Checkpoints from 1 to 4 (circled red numbers) show the state of the NW matrix
-as the search proceeds. The node labelled 3 is a leaf and thus corresponds to a
-2-neighbor of the query. The search path then backtracks to the node labelled 2
-and the last rows of the NW are erased. The search path then goes to node labelled
-4, in which case the newly computed diagonal cell exceeds the threshold (circled
-in red). Even if this node has children, they are not visited (red crosses).}
+\caption{Trie query with NW alignment. Each sequence of the index is a
+path in the trie. The query GTTGCA is written at the top of a NW matrix,
+which is initialized as shown on Figure~\ref{fig:NW}b. The trie is
+traversed by a depth-first search (red path) from the root. At each
+depth, the node added to the path is written on the left of the NW
+matrix and the row is computed. Checkpoints from 1 to 4 (circled red
+numbers) show the state of the NW matrix as the search proceeds. The
+node labeled 3 is a leaf and thus corresponds to a 2-neighbor of the
+query. The search path then backtracks to the node labeled 2
+and the last rows of the NW are erased. The search path then goes to
+the node labeled 4, in which case the newly computed diagonal cell
+exceeds the threshold (circled in red). Even if this node has children,
+they are not visited (red crosses).}
 \label{fig:trie}
 \end{figure}
 
@@ -252,11 +260,10 @@ evenly distributed in the query sequence. In such case, the maximum
 number of cumulative insertions/deletions at the $i$-th word is
 $i-1$. Hence, the $i$-th word has to be shifted and queried against
 the lookup table $2(i-1)+1$ times to cover all the possible
-cases. Hence, the last word will be queried $2\tau+1$ times, including
+cases. The last word will be queried $2\tau+1$ times, including
 $\tau$ shifts on the right and $\tau$ shifts on the left. For the
 latter shift we make use of the $\tau$ nucleotides stored in the
-tail. The total number of lookups per sequence for a given $\tau$ is
-$(\tau+1)^2$.
+tail. The total number of lookups per sequence is $(\tau+1)^2$.
 
 \subsection{Seek and construct}
 To reduce the size of the search space, we use a dynamic ``seek and construct''
@@ -389,23 +396,23 @@ Figure~\ref{fig:perf}a shows the running time of starcode as a
 function of the number of input sequences $n$. In double logarithmic scale
 the trend is a straight line with slope 1.7, which suggests that the
 running time complexity of starcode is approximately $O(n^{1.7})$.
-Figure~\ref{fig:perf}b shows that the running time gros exponentially
+Figure~\ref{fig:perf}b shows that the running time grows exponentially
 as a function of the maximum Levenshtein distance used for clustering.
 This is a common feature of exact algorithms based on trie search. As
 this parameter increases, the poucet search bails out at a deeper
 average depth in a trie that fans out exponentially.
-The running time first increases as a function of the sequence length,
+As a function of the sequence length, the running time first increases 
 but then plummets and stays low (Figure~\ref{fig:perf}c).
 Beyond a certain length, the lookup search algorithm starts to be
 efficient, and most of the queries are resolved without the need for
 trie-search.
-Finally, in we show the scalability of starcode with increasing
-number of treahds in Figure~\ref{fig:perf}d. The search algorithm is fully
+Finally, we show the scalability of starcode with increasing
+number of threads in Figure~\ref{fig:perf}d. The search algorithm is fully
 parallel and the relative performance increases linearly up to 8 threads.
 The bending observed thereafter has two sources. The first is 
 that the input reading and clustering steps are brief but not parallel,
 the second is that there is insufficient memory bandwidth to satisfy
-the increased demand of memory accesses and  due to hardware limitations.
+the increased demand of memory accesses due to hardware limitations.
 
 
 \begin{figure}[!tpb]%figurex
@@ -426,181 +433,195 @@ against the two popular sequence clustering algorithms CD-HIT
 \citep{pmid23060610} and USEARCH \citep{pmid20709691}.
 
 We generated 1 million random 40-mers duplicated 47 times. For each
-40-mer, we also inserted 3 addional mutant sequences to the pool
+40-mer, we also inserted 3 additional mutant sequences to the pool
 by sampling again 3 nucleotides at random positions. The probability
 that such a mutant sequence is within a distance 3 of any other
 40-mer is of the order of $10^{-12}$ and can be neglected. Each
 cluster thus consists of 50 sequences, of which 3 have a Levenshtein
-distance 3 from the centroid of the cluster (the canonical
-representant).
+distance 3 from the canonical representant (referred to as the centroid
+in clustering terms).
 
 All software were set to run on a 6-core single-processor Intel Xeon
-E5-2620 system with 50~GB of DDR3-RAM at 1333~Mhz. The execution
-options for each software are summarized in
-Table~\ref{tab:soft-options}.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%             WHERE TO PUT THIS NOW??                               %
-%Denoted as \emph{sequential R} is the
-%sequential algorithm of \cite{pmid23953119} which is implemented in R
-%and relies on the \texttt{stringdist} function of the
-%\texttt{stringdist} package.
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\begin{table}[h]
-\centering
-\caption{Software execution parameters}
-\resizebox{\columnwidth}{!}{
-\begin{tabular}{|l|l|}
-    \hline
-    starcode & \texttt{-t 20}\\ \hline
-    CD-HIT 4.6.1 & \texttt{-c 0.925 -T 20 -M 0}\\ \hline
-    USEARCH 7.0.1090  & \texttt{-threads 20 -cluster\_fast -id 0.925}\\ \hline
-        Bowtie2 indexer & \texttt{bowtie2-build --quiet}\\ \hline
-    Bowtie2 2.1.0 & \texttt{-f -a -p 20 --no-hd --very-sensitive}\\ \hline
-        BWA indexer & \texttt{bwa index -a is}\\ \hline
-    BWA 0.7.9a & \texttt{mem -t 20 -a -k1 -B0} \\ \hline
-    GEM indexer & \texttt{gem-indexer -T 12} \\ \hline
-    GEM 1.423 & \texttt{-e3 -s4 -T12 --granularity 100000}\\ \hline
-    \emph{sequential R} & \texttt{method='lv', maxDist=2}\\ \hline
-\end{tabular}
-}
-\label{tab:soft-options}
-\end{table}
-
-Using 12 cores, starcode clustered the shuffled 50 million sequences
+E5-2620 system with 48~GB of DDR3-RAM at 1333~Mhz.
+Using 12 threads, starcode clustered the shuffled 50 million sequences
 in 5 minutes and 3 seconds without a single error (the output
 consisted of 1 million clusters of size 50). There is no obvious
 way to compare exact algorithms with heuristic algorithms such as
 CD-HIT and USEARCH. We decided to allocate the heuristics 6 minutes
-on the same dataset ($\approx$ 20\% additional time) and use the
+on the same dataset (20\% additional time) and use the
 parameters giving the best accurary under this constraint.
 However, we could not find a combination of
 parameters such that either of them could terminate in less than
 6 minutes. To simplify the task, we extracted the unique sequences
-from the input file, bringing it down to 4,000,000 and followed
+from the input file, bringing the number down to 4,000,000 and followed
 the same rationale. We could not find any set of parameters such
-that USEARCH could process this input in less than 6 minutes,
-but CD-HIT could perform the task when run as shown in
-Table~\ref{tab:soft-options}.
+that USEARCH could process this input in less than 6 minutes
+(because of poor multi-threading performance), but CD-HIT could
+perform the task when run as shown in Table~\ref{tab:params1}.
+In such conditions, it identified 2,798,656 clusters, indicating that
+the clustering was not nearly complete.
 
+\begin{table}[h]
+\centering
+\caption{Software execution parameters (benchmark 1)}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{|l|l|}
+    \hline
+    starcode & \texttt{-d3 -t12 -s}\\ \hline
+    CD-HIT 4.6.1 & \texttt{cd-hit-est -n 7 -c .925 -T 12 -M 0 -r 0 -A 40}\\ \hline
+\end{tabular}
+}
+\label{tab:params1}
+\end{table}
 
+We next benchmarked starcode on the biological dataset used by
+\cite{pmid23060610}. Because USEARCH imposes a memory limit on the
+size of the input file, we clustered the forward reads on 95\%
+identity from one lane only (reference ERR011089), adding up to
+4,189,859 reads, each 75 nucleotides long. Using 12 threads, starcode
+identified 4,111,111 clusters in 6 minute 19 seconds. Allocating up to
+7 minutes 30 seconds to CD-HIT and USEARCH, we selected the parameters
+giving highest accuracy. In such conditions (see Table~\ref{tab:params2})
+CD-HIT identified 4,126,352 clusters while USEARCH could not be run in
+the allocated time. These results indicate that starcode achieves good
+performance on clustering high throughput sequencing reads.
 
-we decided to 
-allocating them 6 minutes with the same computer resources 
-USEARCH could not be
-run on the same input because
-The running times
-of CD-HIT and USEARCH were [59] and [64] minutes respectively, and they
-identified 2,362,352 and 2,739,954 clusters respectively. The results
-are summarized in Figure~\ref{fig:benchmark}. Both algorithms rely on
-heuristics, explaining why the number of clusters is off target. These
-results clearly demonstrate that starcode outperforms other clustering
-algorithms both in speed and accuracy with random input sequences.
+\begin{table}[h]
+\centering
+\caption{Software execution parameters (benchmark 2)}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{|l|l|}
+    \hline
+    starcode & \texttt{-d4 -t12 -s}\\ \hline
+    CD-HIT 4.6.1 & \texttt{cd-hit-est -n 8 -c .95 -T 12 -M 0 -r 0 -A 75}\\ \hline
+\end{tabular}
+}
+\label{tab:params2}
+\end{table}
 
-We also compared starcode on the biological benchmark dataset proposed
-by \cite{pmid23060610}.
 
 \begin{figure}[!tpb]
 \centerline{\includegraphics{benchmark.pdf}}
-\caption{Benchmark of starcode against sequence clustering algorithms
-and short read mappers. \textbf{a} Running time compared to CD-HIT and
-USEARCH on the dataset described in the text. \textbf{b} Error rate
-compared to CD-HIT and USEARCH, expressed as the percentage of clusters
-failing to be merged. \textbf{c} Running time compared to Bowtie2, BWA
-and GEM on this dataset. The running time is decomposed in extraction
-of unique sequences (purple), Burrows-Wheeler indexing (yellow), and
-query proper (white). The extraction was performed with the Linux sort
-command, so the time is the same in every case. \textbf{d} Error rate
-compared to Bowtie2, BWA and GEM, expressed as the proportion of matches
-with a single hit. This is an underestimate of the true error rate.}
+\caption{Benchmark of starcode against short read mappers.
+\textbf{a} Running time compared to Bowtie2, BWA and GEM on the
+dataset described in the text. The running time is decomposed as
+extraction of unique sequences (purple), Burrows-Wheeler indexing
+(yellow) and query proper (white). The extraction was performed with
+the Linux \texttt{sort} command, so the time is the same in every
+case. \textbf{d} Error rate compared to Bowtie2, BWA and GEM,
+expressed as the proportion of matches with a single hit. This is an
+underestimate of the true error rate.}
 \label{fig:benchmark}
 \end{figure}
 
 
 \subsection{Benchmark against short read mappers}
-A potential strategy to cluster short sequences is to use last generation short
-read mappers to match a set of sequences against itself. Once matches are
-available, several community detection algorithms can be used to identify the
-clusters. We benchmarked starcode against the short read mappers Bowtie2
-\citep{pmid22388286}, BWA \citep{pmid19451168} and GEM \citep{pmid23103880}.
-Because short read
-mappers do not perform clustering, we only evaluated their performance on the
-matching problem.
+A potential strategy to cluster short sequences is to use
+Burrows-Wheeler transform-based short read mappers to match a set of
+sequences against itself. Once matches are available, several community
+detection algorithms can be used to identify the clusters. We 
+benchmarked starcode against the short read mappers Bowtie2
+\citep{pmid22388286}, BWA \citep{pmid19451168} and GEM
+\citep{pmid23103880}. Short read mappers do not perform clustering, so
+we only evaluated their performance on the matching problem.
 
-For this test, we used the same dataset described above, in which every
-sequence has at least 2 distinct matches at a distance 3 (mutant sequences
-from the same cluster may be at a distance up to 6 from each other). This
-means that we
-can use matches with a single hit (themselves) as a lower bound on the inaccuracy.
-We used unique sequences to build an index and queried the index with the same
-sequences. Figure~\ref{fig:benchmark}c shows the running time of starcode along with the
-decomposition of the running time for the three mappers. Note that the time to
-extract unique sequences is always the same because we used the Linux
-\texttt{sort -u} command in every case. The running time of
-starcode is slightly lower than short read mappers when all steps ares
-taken into account.  Figure~\ref{fig:benchmark}d shows the lower bound on
-the error rate, as estimated by the proportion of single hits. BWA was
-found to be the most accurate aligner with a lower bound of 31\% sequences.
-with a single match. This measure is an underestimate of the true error
-rate, but given that starcode is an exact algorithm, a more accurate
-measure is not necessary. In conclusion, starcode can compete with the
+For this test, we used the first dataset described above, in which
+every sequence has at least 2 distinct matches at a distance 3 (mutant
+sequences from the same cluster may be at a distance up to 6 from each
+other, but their distance to the centroid is always 3). This means that
+we can use matches with a single hit (every read trivially matches
+itself) as a lower bound on the inaccuracy. We used the 4,000,000 unique
+40-mers to build an index that was later queried with the same 40-mers
+using parameters shown in Table~\ref{tab:srm}.
+
+\begin{table}[h]
+\centering
+\caption{Software execution parameters (benchmark 3)}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{|l|l|}
+    \hline
+    Bowtie2 indexer & \texttt{bowtie2-build --quiet}\\ \hline
+    Bowtie2 2.1.0 & \texttt{-f -a -p 12 --no-hd --very-sensitive}\\ \hline
+    BWA indexer & \texttt{bwa index -a is}\\ \hline
+    BWA 0.7.9a & \texttt{mem -t 12 -a -k1 -B0} \\ \hline
+    GEM indexer & \texttt{gem-indexer -T 12} \\ \hline
+    GEM 1.423 & \texttt{-e3 -s4 -T12 --granularity 100000}\\ \hline
+\end{tabular}
+}
+\label{tab:srm}
+\end{table}
+
+Figure~\ref{fig:benchmark}a shows the running time of starcode along
+with the decomposition of the running time for the three mappers. Note
+that the time to extract unique sequences is always the same because
+we used the Linux \texttt{sort -u} command in every case. The running
+time of starcode is slightly lower than short read mappers when all
+steps ares taken into account. Figure~\ref{fig:benchmark}b shows the
+lower bound on the error rate, as estimated by the proportion of single
+hits. BWA was found to be the most accurate aligner with a lower bound
+of 31\% sequences with a single match. This measure is an underestimate
+of the true error rate, but given that starcode is an exact algorithm,
+a more accurate measure is not necessary: starcode can compete with the
 short read aligners on the matching problem, and it provides a precision
 that none of the other tools can offer.
 
-
 \subsection{Clustering TRIP barcodes}
 In the course of setting up the TRIP technology in our laboratory
-\citep{pmid23953119}, we
-realized the need to develop efficient algorithms to cluster similar sequences.
-Briefly, the principle of TRIP (Thousands of Reporters Integrated in Parallel)
-is to tag reporter transcripts with random barcodes and measure the abundance
-of barcodes in the RNA as a proxy for gene expression. There is no reference to
-match aberrant barcodes against, because the tagging sequences are unknown.
-Instead, barcodes are matched against each other and clustered by similarity to
-infer canonical sequences.
+\citep{pmid23953119}, we realized the need to develop efficient
+algorithms to cluster similar sequences. Briefly, the principle of TRIP
+(Thousands of Reporters Integrated in Parallel) is to tag reporter
+transcripts with random barcodes and measure the abundance of barcodes
+in the RNA as a proxy for gene expression. There is no reference to
+match aberrant barcodes against, because the tagging sequences are
+unknown. Instead, barcodes are matched against each other and clustered
+by similarity to infer canonical sequences.
 
 We tested the efficiency of starcode on the TRIP dataset from
-\cite{pmid23953119}. In the experiment labelled mPGKA, we identified
-24.1 million (91\%) barcode-containing reads out of 26.6 million, consisting
-of approximately 223,000 and 220,000 unique barcode sequences for PCR replicates
-1 and 2, respectively. Following the authors, we kept only the barcodes with
-at least 5 counts and performed clustering as described: ``First we sorted
-barcodes according to their counts. Then, for each barcode (starting from the
-most frequent one), we identified and removed all its mutant versions, defined
-as barcodes within a Hamming distance of 2.'' This method is here on referred
-to as the ``sequential algorithm''. When replacing the Hamming distance by the
-Levenshtein distance, starcode produced exactly the same output as the sequential
+\cite{pmid23953119}. In the experiment labeled mPGKA, we identified
+24.1 million (91\%) barcode-containing reads out of 26.6 million,
+consisting of approximately 223,000 and 220,000 unique barcode sequences
+for PCR replicates 1 and 2, respectively. Following the authors, we kept
+only the barcodes with at least 5 counts and performed clustering as
+described: ``First we sorted barcodes according to their counts. Then,
+for each barcode (starting from the most frequent one), we identified
+and removed all its mutant versions, defined as barcodes within a Hamming
+distance of 2.'' We implemented this method, here on referred to as the
+``sequential algorithm'' with the function call
+\texttt{stringDist(method='lv', maxDist=2)} from R the package
+\texttt{stringDist} \citep{R}.  When replacing the Hamming distance by
+the Levenshtein
+distance, starcode produced exactly the same output as the sequential
 algorithm. The running time of starcode averaged over the replicates was
-2.90 seconds, \textit{versus} more than 3 minutes 40 seconds, which represents a
-75-fold speedup.
+2.90 seconds, \textit{versus} more than 3 minutes 40 seconds, which
+represents a 75-fold speedup.
 
-The performance of the sequential algorithm relies on the arbitrary exclusion
-of reads with less than 5 counts, the main purpose of which is to reduce the
-computational burden. When all barcodes were kept, the average running time of
-starcode was 10.27 seconds, \textit{versus} $>$ 6 hours for the sequential
-algorithm. Using the Hamming distance, as the authors originally suggested,
-decreased the average running time of the sequential algorithm to about 3 hours
-and 30 minutes (and
+The performance of the sequential algorithm relies on the arbitrary
+exclusion of reads with less than 5 counts, the main purpose of which
+is to reduce the computational burden. When all barcodes were kept,
+the average running time of starcode was 10.27 seconds, \textit{versus}
+$>$ 6 hours for the sequential algorithm. Using the Hamming distance,
+as the authors originally suggested, decreased the average running time
+of the sequential algorithm to about 3 hours and 30 minutes (and
 the output differed from that of starcode). Note that in all the cases
-mentioned above, starcode was run with a single core to compare the algorithms
-based on similar computer resources. In conclusion, the barcode clustering
-problem can be simplified by various tricks, but starcode brings down the
-running time to nearly instantaneous, and thereby obviates the need for such
-arbitrary heuristics.
+mentioned above, starcode was run with a single core to compare the
+algorithms based on similar computer resources. In conclusion, the
+barcode clustering problem can be simplified by various tricks, but
+starcode brings down the running time to nearly instantaneous, and
+thereby obviates the need for such arbitrary heuristics.
 
 \subsection{Identifying enriched sequence motifs}
-Sequence motifs are thought to play an important role in DNA metabolism. Key
-regulators, such as transcription factors, nucleosomes and non coding RNAs have
-sequence preferences targeting them to the sites where they act. Identifying
-those sequences is a way to pinpoint the regulators and the mechanisms they
-are involved in. However, the sequence motifs are not strictly identical
-at different sites, hence they are better identified by inexact matching.
-This problem becomes computationally difficult for long motifs (above 12-13
-nucleotides) because of the combinatorial scaling. But as motifs become
-longer, the problem of identifying abundant inexact matches becomes similar
-to barcode clustering. We reasoned that starcode could also be used for the
-task of identifying biologically meaningful sequence motifs.
+Sequence motifs are thought to play an important role in DNA metabolism.
+Key regulators, such as transcription factors, nucleosomes and non
+coding RNAs have sequence preferences targeting them to the sites where
+they act. Identifying those sequences is a way to pinpoint the
+regulators and the mechanisms they are involved in. However, the
+sequence motifs are not strictly identical at different sites, hence
+they are better identified by inexact matching. This problem becomes
+computationally difficult for long motifs (above 12-13 nucleotides)
+because of the combinatorial scaling. But as motifs become longer, the
+problem of identifying abundant inexact matches becomes similar to
+barcode clustering. We reasoned that starcode could also be used for
+the task of identifying biologically meaningful sequence motifs.
 
 We set up a test based on the meningitis-causing agent
 \textit{Neisseria meningitidis}. The genome of this bacterium is
@@ -609,79 +630,81 @@ sequence \citep{pmid10673000}. We extracted the 12-mers from both
 orientations of  the 2.19 Mb genome, yielding 4.39 million 12-mers,
 consisting of 2.77 million unique sequences. Clustering the 12-mers
 with starcode within a Levenshtein distance of 2 took less than 45
-seconds with 12 cores. We identified the known DNA uptake sequence
+seconds with 12 threads. We identified the known DNA uptake sequence
 of \textit{Neisseria meningitidis} (ATGCCGTCTGAA) as the most abundant
 12-mer, with 1466 exact and 2096 inexact hits. This result testifies
 to the fact that starcode can be used to identify biologically
 relevant motifs in bacterial genomes.
 
 To test starcode on another application, we used the RNA-protein
-interaction data produced by RNAcompete \citep{pmid19561594}. The mammalian
-splicing factor SRSF1 is known to bind RNA GA-rich motifs, but there is
-some disagreement about the motif that it recognizes \citep{pmid23562324}.
-For each SRSF1 replicate of the RNAcompete dataset,
-we replaced the RNAcompete signals by their rank and
-extracted the 10-mers from the microarray probes. The 10-mers were given
-a score equal to the rank of the probe they belong, and enriched motifs
-were found using the sphere clustering of starcode with maximum
-Levenshtein distance 2. The score of the most enriched 10-mer is thus the
-sum of the ranks of all 10-mers within this distance. Clustering the 6.3
-million extracted 10-mers with 12 cores took about 20 seconds for each
-replicate.  The most enriched 10-mers were AGGACACGGA, AGGACACGGA,
-AGGACGGAGG, AGGACGGAGG, AGGACACGGA and AGGATACAGG. Except for the last
-replicate, the motifs consist of AGGAC and GGA, with a spacer of variable
-length. This suggests that the binding of SRSF1 to RNA may be flexible,
-which would explain the disagreement between the motifs derived from 6-mers
-or 7-mers.
+interaction data produced by RNAcompete \citep{pmid19561594}. The
+mammalian splicing factor SRSF1 is known to bind RNA GA-rich motifs,
+but there is some disagreement about the motif that it recognizes
+\citep{pmid23562324}. For each replicate of the human SRSF1 in the
+RNAcompete dataset, we replaced the microarray signals by their rank
+and extracted the 10-mers from the microarray probes. The 10-mers were
+given a score equal to the rank of the probe they belong, and enriched
+motifs were found using the sphere clustering of starcode with maximum
+Levenshtein distance 2. The score of the most enriched 10-mer is thus
+the sum of the ranks of all 10-mers within this distance. Clustering
+the 6.3 million extracted 10-mers with 12 threads took about 20 seconds
+for each replicate.  The most enriched 10-mers were AGGACACGGA,
+AGGACACGGA, AGGACGGAGG, AGGACGGAGG, AGGACACGGA and AGGATACAGG. Except
+for the last replicate, the motifs consist of AGGAC and GGA, with a
+spacer of variable length. This suggests that the binding of SRSF1 to
+RNA may involve a spacer sequence, which would explain the disagreement
+between the motifs derived from 6-mers or 7-mers.
 
 \section{Discussion and conclusion}
-Through the parallel poucet search algorithm, starcode implements an exact
-sequence clustering algorithm that is even faster than widely used heuristics.
-By design, starcode is tailored to process high throughput sequencing data on
-multi-core platforms. Our benchmark shows that starcode is superior in speed
-and accuracy compared to other methods on the problem of clustering short random
-sequences. Part of the reason is that such task is stretching the tested
-software far from their initial design. Sequence clustering algorithms are
-meant to cluster long biological sequences, while short read mappers are
-meant to map reads on potentially large genomes. In this respect, starcode
-fills a need arising from the development of barcoding technologies.
+Through the parallel poucet search algorithm, starcode implements an
+exact sequence clustering algorithm that can be faster than popular
+heuristics. By design, starcode is tailored to process high throughput
+sequencing data on multi-core platforms. Our benchmark shows that
+starcode achieves perfect clustering on short random sequences in less
+time than what is considered acceptable for heuristic searches. We also
+show that starcode outperforms next generation read mappers in this
+context. The software tools used for this benchmark are usually not
+used for barcode or random sequence clustering. In this respect,
+starcode fills a need arising from the development of barcoding
+technologies.
 
-The speed of starcode also makes it proficient at more general clustering
-problems, such as identifying enriched k-mers in genomes and in experimental
-data. Here we have given two examples of such applications. In the first, we
-recover a known enriched 12-mer in the genome of \textit{Neisseria meningitidis}.
+The speed of starcode also makes it useful for other clustering
+tasks, such as identifying enriched motifs in microbial genomes and
+in experimental data. Here we have given two examples of such
+applications. In the first, we recover a known enriched 12-mer in the
+genome of \textit{Neisseria meningitidis}. In the second, we recover
+the motif of the human RNA binding protein SRSF1 and notice that it
+seems to consist of two halves separated by a linker. This hypothesis
+is consistent with the fact that SRSF1 binds RNA through two
+consecutive RNA Recognition Motifs (RRM) that are known to bind
+3-4 nucleotides in a row\citep{pmid23253355}. The Levenshtein distance,
+which incorporates insertions and deletions is more likely to capture
+bi-partite binding motifs than position weight matrix representations.
+The use of a clustering method to tackle this problem is unusual, but it 
+it illustrates the potential advantages of distance-based approaches.
 
-The current version of starcode has been mildly optimized for memory
-consumption. The memory footprint depends on the number of sequences to
-cluster (because the sequences of the input set are loaded in memory as a
-group of tries) and on the mean number of matches per sequence. Every match
-has to be stored until the clustering phase, which may represent a large
-memory overhead. As counterintuitive as it may seem, long queries will usually
-impose a lower memory footprint because the matches between sequences are less
-frequent.
+The current version of starcode has been primarily optimized for speed.
+The memory footprint depends on the number of sequences to cluster
+(because the sequences of the input set are loaded in memory as a set of
+of tries) and on the mean number of matches per sequence. Every match is
+stored in memory until the clustering phase, which may represent a large
+overhead if the dataset is dense. As counterintuitive as it may seem,
+long queries will usually impose a lower memory footprint because the
+matches between the sequences are more sparse. We have shown that the
+running time will also be shorter thanks to the lookup table
+search (Figure~\ref{fig:perf}c).
 
-The speed of starcode could also benefit other applications, such as searching
-shared subsequences during genome assembly. However, starcode supports only global
-and not local alignment. A workaround is to compare k-mers as we have done
-in the examples above, but this approach is expected to be memory demanding.
-Even though extending the starcode algorithm to support clustering of protein
-sequences is straightforward, it is not expected to meet the performance level
-of the presented algorithm. On the one hand, there are more letters in the protein
-alphabet, so the shared prefix between consecutive queries is inherently
-shorter on average, which defeats the poucet search. On the other hand, if
-a threshold distance of the order of 1 per 10 nucleotides is sufficient to
-identify similar DNA sequences, a distance of 1 per 10 residues is
-unrealistically low for protein sequences, and this parameter critically
-determines the speed of starcode. More generally, storing computational
-intermediates for shared prefixes could find some applications in other
-algorithms such as short read mappers. The idea of the poucet search seems
-simple in retrospect, but it is a powerful way to tap into the data
-structuration provided by string sorting.
-
-
-
-
-
+Perhaps the most surprising element of this study is that an exact
+algorithm can compete with extremely fast heuristics. This will no
+longer be true when clustering divergent sequences because the Levenshtein
+distance will have to be increased, leading to exponentially longer
+running times (Figure~\ref{fig:perf}b). However, for the imporant
+practical case that the divergence is driven by sequencing errors,
+starcode illustrates that there is still room for algorithmic innovations
+that can outperform heuristics. The idea of the poucet search seems
+simple in retrospect, yet it is a powerful way to tap into the data
+structuration provided by string sorting. This principle could find some
+applications in algorithms used in various fields.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -693,7 +716,8 @@ structuration provided by string sorting.
 
 
 \section*{Acknowledgement}
-We would like to thank...
+We would like to thank Maria Chatzou for her precious feedback on the
+preliminary version of this manuscript.
 
 \paragraph{Funding\textcolon}
 The research leading to these results has received funding from the

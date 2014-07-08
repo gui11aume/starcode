@@ -28,12 +28,12 @@ motif recovery, barcode clustering, sequencing error recovery, etc.
 II. Source file list
 --------------------
 
-* ** main-starcode.c **        Starcode main file (parameter parsing).
-* ** starcode.c **             Main starcode algorithm.
-* ** starcode.h **             Main starcode algorithm header file.
-* ** trie.c **                 Trie search and construction functions.
-* ** trie.h **                 Trie functions header file.
-* ** Makefile **               Make instruction file.
+* **main-starcode.c**        Starcode main file (parameter parsing).
+* **starcode.c**             Main starcode algorithm.
+* **starcode.h**             Main starcode algorithm header file.
+* **trie.c**                 Trie search and construction functions.
+* **trie.h**                 Trie functions header file.
+* **Makefile**               Make instruction file.
 
 
 III. Compilation and installation
@@ -67,34 +67,34 @@ List of arguments:
 
   > starcode [-vs] [-d#] [-t#] [-i] INPUT_FILE [-o OUTPUT_FILE]
   
-  ** -v or --verbose **
+  **-v or --verbose**
 
      Verbose. Prints verbose information to the standard error channel.
 
-  ** -i or --input ** * file *
+  **-i or --input** *file*
 
      Specifies input file.
 
-  ** -o or --output ** * file *
+  **-o or --output** *file*
 
      Specifies output file. When not set, standard output is used instead.
 
-  ** -d or --distance ** * distance *
+  **-d or --distance** *distance*
 
      Defines the maximum Levenshtein distance for clustering.
      Default is 3.
 
-  ** -t or --threads ** * threads *
+  **-t or --threads** *threads*
 
      Defines the maximum number of parallel threads.
      Default is 1.
 
-  ** -s or --spheres **
+  **-s or --spheres**
 
      When specified, sphere clustering algorithm is performed in the
      clustering phase, instead of the default message passing algorithm.
 
-  ** -h or --help **
+  **-h or --help**
 
      Prints usage information.
    

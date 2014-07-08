@@ -24,34 +24,6 @@
 */
 
 #include "starcode.h"
-#include "trie.h"
-
-#define str(a) (char *)(a)
-#define min(a,b) (((a) < (b)) ? (a) : (b))
-#define max(a,b) (((a) > (b)) ? (a) : (b))
-
-lookup_t *new_lookup(int, int, int, int);
-int lut_search(lookup_t *, useq_t *);
-void lut_insert(lookup_t *, useq_t *);
-int seq2id(char *, int);
-useq_t *new_useq(int, char*);
-gstack_t *read_file(FILE*);
-void destroy_useq(useq_t*);
-void addmatch(useq_t*, useq_t*, int, int);
-void transfer_counts_and_update_canonicals(useq_t*);
-void unpad_useq (gstack_t*);
-int pad_useq(gstack_t*, int*);
-int canonical_order(const void*, const void*);
-int count_order(const void *a, const void *b);
-void *do_query(void*);
-void run_plan(mtplan_t*, int, int);
-mtplan_t *plan_mt(int, int, int, int, gstack_t*, const int);
-void message_passing_clustering(gstack_t*, int);
-void sphere_clustering(gstack_t*, int);
-void * _mergesort(void *);
-int seqsort(void **, int, int (*)(const void*, const void*), int);
-long count_trie_nodes(useq_t **, int, int);
-int AtoZ(const void *, const void *);
 
 FILE *OUTPUT = NULL;
 
@@ -188,8 +160,7 @@ do_query
    // Create local hit stack.
    gstack_t **hits = new_tower(tau+1);
    if (hits == NULL) {
-      fprintf(stderr, "error: cannot create hit stack (%d).\n",
-            check_trie_error_and_reset());
+      fprintf(stderr, "error creating hit stack (do_query): %s\n", strerror(errno));
       abort();
    }
 
@@ -207,8 +178,7 @@ do_query
          lut_insert(lut, query);
          data = insert_string_wo_malloc(trie, query->seq, &node_pos);
          if (data == NULL || *data != NULL) {
-            fprintf(stderr, "error: cannot build trie (%d).\n",
-                  check_trie_error_and_reset());
+            fprintf(stderr, "error building trie (do_query): %s.\n", strerror(errno));
             abort();
          }
       }
@@ -235,7 +205,7 @@ do_query
          for (int j = 0 ; hits[j] != TOWER_TOP ; j++) hits[j]->nitems = 0;
          int err = search(trie, query->seq, tau, hits, start, trail);
          if (err) {
-            fprintf(stderr, "error: cannot complete query (%d)\n", err);
+            fprintf(stderr, "search error (do_query): %d\n", err);
             abort();
          }
 
@@ -338,7 +308,7 @@ plan_mt
    // Initialize plan.
    mtplan_t *mtplan = malloc(sizeof(mtplan_t));
    if (mtplan == NULL) {
-      fprintf(stderr, "error allocating mt_plan: %s\n",strerror(errno));
+      fprintf(stderr, "error allocating mt_plan (plan_mt): %s\n",strerror(errno));
       abort();
    }
 
@@ -346,7 +316,7 @@ plan_mt
    pthread_mutex_t *mutex = malloc((ntries + 1) * sizeof(pthread_mutex_t));
    pthread_cond_t *monitor = malloc(sizeof(pthread_cond_t));
    if (mutex == NULL || monitor == NULL) {
-      fprintf(stderr, "error allocating mutex: %s\n",strerror(errno));
+      fprintf(stderr, "error allocating mutex (plan_mt): %s\n",strerror(errno));
       abort();
    }
    for (int i = 0; i < ntries + 1; i++) pthread_mutex_init(mutex + i,NULL);
@@ -355,7 +325,7 @@ plan_mt
    // Initialize 'mttries'.
    mttrie_t *mttries = malloc(ntries * sizeof(mttrie_t));
    if (mttries == NULL) {
-      fprintf(stderr, "error allocating mttries: %s\n", strerror(errno));
+      fprintf(stderr, "error allocating mttrie_t (plan_mt): %s\n", strerror(errno));
       abort();
    }
 
@@ -378,7 +348,7 @@ plan_mt
       node_t *local_nodes = (node_t *) malloc(nnodes[i] * node_t_size(tau));
       mtjob_t *jobs = malloc(njobs * sizeof(mtjob_t));
       if (local_trie == NULL || jobs == NULL) {
-         fprintf(stderr, "error allocating trie\mtjob: %s\n", strerror(errno));
+         fprintf(stderr, "error allocating trie mtjob_t (plan_mt): %s\n", strerror(errno));
          abort();
       }
 
@@ -881,7 +851,7 @@ addmatch
 )
 {
    if (dist > tau) {
-      fprintf(stderr, "error (addmatch): distance exceeds tau.\n"
+      fprintf(stderr, "error (addmatch): distance exceeds tau.\n");
       abort();
    }
    // Create stack if not done before.

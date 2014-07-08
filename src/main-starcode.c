@@ -66,8 +66,8 @@ main(
    int threads_flag = -1;
    int cluster_flag = -1;
    // Unset options (value 'UNSET').
-   char * const UNSET;
-   char *format_option = UNSET;
+   char * const UNSET = "unset";
+//   char *format_option = UNSET;
    char *input = UNSET;
    char *output = UNSET;
 

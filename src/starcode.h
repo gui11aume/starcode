@@ -1,3 +1,28 @@
+/*
+** Copyright 2014 Guillaume Filion, Eduard Valera Zorita and Pol Cusco.
+**
+** File authors:
+**  Guillaume Filion     (guillaume.filion@gmail.com)
+**  Eduard Valera Zorita (ezorita@mit.edu)
+**
+** Last modified: July 8, 2014
+**
+** License: 
+**  This program is free software: you can redistribute it and/or modify
+**  it under the terms of the GNU General Public License as published by
+**  the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  This program is distributed in the hope that it will be useful,
+**  but WITHOUT ANY WARRANTY; without even the implied warranty of
+**  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**  GNU General Public License for more details.
+**
+**  You should have received a copy of the GNU General Public License
+**  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+**
+*/
+
 #define _GNU_SOURCE
 #include <execinfo.h>
 #include <signal.h>
@@ -26,6 +51,10 @@
 
 #define STRATEGY_EQUAL  1
 #define STRATEGY_PREFIX  99
+
+#define str(a) (char *)(a)
+#define min(a,b) (((a) < (b)) ? (a) : (b))
+#define max(a,b) (((a) > (b)) ? (a) : (b))
 
 #if !defined( __GNUC__) || defined(__APPLE__)
    ssize_t getline(char **lineptr, size_t *n, FILE *stream);
@@ -111,5 +140,28 @@ int tquery(FILE*, FILE*, FILE*, const int, const int, const int, const int);
 void * tquery_thread(void*);
 int bisection(int,int,char*,useq_t**,int,int);
 match_t * new_match(useq_t *,int);
+
+lookup_t *new_lookup(int, int, int, int);
+int lut_search(lookup_t *, useq_t *);
+void lut_insert(lookup_t *, useq_t *);
+int seq2id(char *, int);
+useq_t *new_useq(int, char*);
+gstack_t *read_file(FILE*);
+void destroy_useq(useq_t*);
+void addmatch(useq_t*, useq_t*, int, int);
+void transfer_counts_and_update_canonicals(useq_t*);
+void unpad_useq (gstack_t*);
+int pad_useq(gstack_t*, int*);
+int canonical_order(const void*, const void*);
+int count_order(const void *a, const void *b);
+void *do_query(void*);
+void run_plan(mtplan_t*, int, int);
+mtplan_t *plan_mt(int, int, int, int, gstack_t*, const int);
+void message_passing_clustering(gstack_t*, int);
+void sphere_clustering(gstack_t*, int);
+void * _mergesort(void *);
+int seqsort(void **, int, int (*)(const void*, const void*), int);
+long count_trie_nodes(useq_t **, int, int);
+int AtoZ(const void *, const void *);
 
 #endif

@@ -1,0 +1,17 @@
+Dear Editor,
+
+please find here our manuscript entitled "Starcode: an exact algorithm for sequence clustering", where we implement and describe a novel software to cluster similar sequences. Our main theoretical contribution is the poucet search algorith, which performs Needleman-Wunsch alignment on data structured in tries. This results in substantial speed-ups when comparing sequences, so that starcode can compete with heuristics while maintaining algorithmic exactness.
+
+The problem of inexact string matching has broad applications in the industry and in the academia. We believe that this improvement is not restricted to bioinformatics. Nevertheless, the problem arose in the experimental context of our laboratory and starcode is the result of our efforts to solve it. We thus decided to write the manusript from the perspective of high throughput sequence analysis. We have put special efforts to describe and motivate the main algorithmic steps as clearly and as esthetically as possible to make this work a landmark reference for the method.
+
+We have decided to focus the showcase on the motivating problem of starcode, namely clustering random barcodes used as molecular trackers. This is an emerging technology and the availability of starcode is very timely for a new generation of genome-wide experiments. We make the point that there exists no tool for such task as the moment, and that using currently available software gives very poor results. Since good clustering algorithms also have application for more classic problems, we also show how starcode can be used to recover abundant motifs in large datasets.
+
+Overall I believe that this work is well suited for publication in Bioinformatics. The novelty of the algorithm combined with its efficiency will be of great theoretical and practical interest to the readers. More generally, experience shows that the first software available to perform a task are the most popular, which is why I believe that starcode will have a significant impact in the near future. I hope that our work will meet the standards of scientific quality and unbiasedness of Bioinformatics.
+
+I am looking forward to hearing from you.
+
+Kind regards,
+
+Guillaume Filion
+
+

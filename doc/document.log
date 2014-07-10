@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2014.4.27)  2 JUL 2014 11:52
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2014.4.27)  8 JUL 2014 19:36
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -304,135 +304,135 @@ G,.JBIG2,.JB2,.eps]
 File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
 e
 ))
-LaTeX Font Info:    Try loading font information for OT1+phv on input line 24.
+LaTeX Font Info:    Try loading font information for OT1+phv on input line 25.
 
 (/usr/share/texlive/texmf-dist/tex/latex/psnfss/ot1phv.fd
 File: ot1phv.fd 2001/06/04 scalable font definitions for OT1/phv.
 )
 LaTeX Font Info:    Font shape `OT1/phv/m/it' in size <9> not available
-(Font)              Font shape `OT1/phv/m/sl' tried instead on input line 24.
+(Font)              Font shape `OT1/phv/m/sl' tried instead on input line 25.
 LaTeX Font Info:    Font shape `OT1/phv/bx/it' in size <9> not available
-(Font)              Font shape `OT1/phv/b/it' tried instead on input line 24.
+(Font)              Font shape `OT1/phv/b/it' tried instead on input line 25.
 LaTeX Font Info:    Font shape `OT1/phv/b/it' in size <9> not available
-(Font)              Font shape `OT1/phv/b/sl' tried instead on input line 24.
+(Font)              Font shape `OT1/phv/b/sl' tried instead on input line 25.
 LaTeX Font Info:    Font shape `OT1/phv/bx/it' in size <19> not available
-(Font)              Font shape `OT1/phv/b/it' tried instead on input line 24.
+(Font)              Font shape `OT1/phv/b/it' tried instead on input line 25.
 LaTeX Font Info:    Font shape `OT1/phv/b/it' in size <19> not available
-(Font)              Font shape `OT1/phv/b/sl' tried instead on input line 24.
+(Font)              Font shape `OT1/phv/b/sl' tried instead on input line 25.
 LaTeX Font Info:    Font shape `OT1/phv/m/it' in size <8> not available
-(Font)              Font shape `OT1/phv/m/sl' tried instead on input line 24.
+(Font)              Font shape `OT1/phv/m/sl' tried instead on input line 25.
 LaTeX Font Info:    Font shape `OT1/phv/bx/n' in size <9> not available
-(Font)              Font shape `OT1/phv/b/n' tried instead on input line 24.
+(Font)              Font shape `OT1/phv/b/n' tried instead on input line 25.
 LaTeX Font Info:    Font shape `OT1/phv/bx/n' in size <16> not available
-(Font)              Font shape `OT1/phv/b/n' tried instead on input line 24.
-LaTeX Font Info:    Calculating math sizes for size <13> on input line 24.
+(Font)              Font shape `OT1/phv/b/n' tried instead on input line 25.
+LaTeX Font Info:    Calculating math sizes for size <13> on input line 25.
 
 
 LaTeX Font Warning: Font shape `OT1/cmr/m/n' in size <13> not available
-(Font)              size <12> substituted on input line 24.
+(Font)              size <12> substituted on input line 25.
 
 
 LaTeX Font Warning: Font shape `OT1/cmr/m/n' in size <6.5> not available
-(Font)              size <6> substituted on input line 24.
+(Font)              size <6> substituted on input line 25.
 
 
 LaTeX Font Warning: Font shape `OML/cmm/m/it' in size <13> not available
-(Font)              size <12> substituted on input line 24.
+(Font)              size <12> substituted on input line 25.
 
 
 LaTeX Font Warning: Font shape `OML/cmm/m/it' in size <6.5> not available
-(Font)              size <6> substituted on input line 24.
+(Font)              size <6> substituted on input line 25.
 
 
 LaTeX Font Warning: Font shape `OMS/cmsy/m/n' in size <13> not available
-(Font)              size <12> substituted on input line 24.
+(Font)              size <12> substituted on input line 25.
 
 
 LaTeX Font Warning: Font shape `OMS/cmsy/m/n' in size <6.5> not available
-(Font)              size <6> substituted on input line 24.
+(Font)              size <6> substituted on input line 25.
 
-LaTeX Font Info:    Try loading font information for U+msa on input line 24.
+LaTeX Font Info:    Try loading font information for U+msa on input line 25.
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
-LaTeX Font Info:    Try loading font information for U+msb on input line 24.
+LaTeX Font Info:    Try loading font information for U+msb on input line 25.
 
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
-LaTeX Font Info:    Calculating math sizes for size <9.09996> on input line 24.
+LaTeX Font Info:    Calculating math sizes for size <9.09996> on input line 25.
 
 
 
 LaTeX Font Warning: Font shape `OT1/cmr/m/n' in size <4.54997> not available
-(Font)              size <5> substituted on input line 24.
+(Font)              size <5> substituted on input line 25.
 
 
 LaTeX Font Warning: Font shape `OML/cmm/m/it' in size <4.54997> not available
-(Font)              size <5> substituted on input line 24.
+(Font)              size <5> substituted on input line 25.
 
 
 LaTeX Font Warning: Font shape `OMS/cmsy/m/n' in size <4.54997> not available
-(Font)              size <5> substituted on input line 24.
+(Font)              size <5> substituted on input line 25.
 
 
 LaTeX Font Warning: Font shape `OT1/cmr/m/n' in size <7.5> not available
-(Font)              size <7> substituted on input line 24.
+(Font)              size <7> substituted on input line 25.
 
 
 LaTeX Font Warning: Font shape `OML/cmm/m/it' in size <7.5> not available
-(Font)              size <7> substituted on input line 24.
+(Font)              size <7> substituted on input line 25.
 
 
 LaTeX Font Warning: Font shape `OMS/cmsy/m/n' in size <7.5> not available
-(Font)              size <7> substituted on input line 24.
+(Font)              size <7> substituted on input line 25.
 
 
-Underfull \hbox (badness 10000) detected at line 24
+Underfull \hbox (badness 10000) detected at line 25
 []
  []
 
 LaTeX Font Info:    Font shape `OT1/phv/bx/n' in size <8> not available
-(Font)              Font shape `OT1/phv/b/n' tried instead on input line 27.
+(Font)              Font shape `OT1/phv/b/n' tried instead on input line 28.
 Missing character: There is no   in font phvr7t!
 LaTeX Font Info:    Font shape `OT1/phv/bx/n' in size <10> not available
-(Font)              Font shape `OT1/phv/b/n' tried instead on input line 54.
-<Fig1.pdf, id=1, 227.62039pt x 142.26149pt>
-File: Fig1.pdf Graphic file (type pdf)
- <use Fig1.pdf>
-Package pdftex.def Info: Fig1.pdf used on input line 108.
+(Font)              Font shape `OT1/phv/b/n' tried instead on input line 57.
+<NW.pdf, id=1, 227.62039pt x 142.26149pt>
+File: NW.pdf Graphic file (type pdf)
+ <use NW.pdf>
+Package pdftex.def Info: NW.pdf used on input line 112.
 (pdftex.def)             Requested size: 227.61983pt x 142.26112pt.
 LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <8> not available
-(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 128.
-LaTeX Font Info:    Try loading font information for OMS+phv on input line 143.
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 132.
+LaTeX Font Info:    Try loading font information for OMS+phv on input line 146.
 
 
 (/usr/share/texlive/texmf-dist/tex/latex/psnfss/omsphv.fd
 File: omsphv.fd 
 )
 LaTeX Font Info:    Font shape `OMS/phv/m/n' in size <7> not available
-(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 143.
+(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 146.
  [1
 
 {/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}
 
 
 ]
-<Fig2.pdf, id=22, 250.28908pt x 213.39726pt>
-File: Fig2.pdf Graphic file (type pdf)
- <use Fig2.pdf>
-Package pdftex.def Info: Fig2.pdf used on input line 158.
+<trie.pdf, id=22, 250.28908pt x 213.39726pt>
+File: trie.pdf Graphic file (type pdf)
+ <use trie.pdf>
+Package pdftex.def Info: trie.pdf used on input line 164.
 (pdftex.def)             Requested size: 250.28847pt x 213.39673pt.
 
-<Fig3.pdf, id=23, 241.84352pt x 170.7178pt>
-File: Fig3.pdf Graphic file (type pdf)
- <use Fig3.pdf>
-Package pdftex.def Info: Fig3.pdf used on input line 204.
+<poucet.pdf, id=23, 241.84352pt x 170.7178pt>
+File: poucet.pdf Graphic file (type pdf)
+ <use poucet.pdf>
+Package pdftex.def Info: poucet.pdf used on input line 212.
 (pdftex.def)             Requested size: 241.84293pt x 170.71738pt.
 LaTeX Font Info:    Font shape `OT1/phv/bx/it' in size <8> not available
-(Font)              Font shape `OT1/phv/b/it' tried instead on input line 237.
+(Font)              Font shape `OT1/phv/b/it' tried instead on input line 244.
 LaTeX Font Info:    Font shape `OT1/phv/b/it' in size <8> not available
-(Font)              Font shape `OT1/phv/b/sl' tried instead on input line 237.
+(Font)              Font shape `OT1/phv/b/sl' tried instead on input line 244.
 
 Overfull \hbox (261.0pt too wide) has occurred while \output is active
 [][] 
@@ -446,19 +446,13 @@ Overfull \hbox (261.0pt too wide) has occurred while \output is active
 [][] 
  []
 
-[2 <./Fig1.pdf> <./Fig2.pdf>]
+[2 <./NW.pdf> <./trie.pdf>]
 LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <9> not available
-(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 276.
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 282.
 
-Underfull \hbox (badness 1394) in paragraph at lines 317--319
-[] \OT1/ptm/m/sc/9 compute $\OML/cmm/m/it/9 node$\OT1/ptm/m/n/9 -specific colum
-n values following NW
- []
-
-
-Underfull \hbox (badness 1082) in paragraph at lines 320--322
-[] \OT1/ptm/m/sc/9 compute $\OML/cmm/m/it/9 child$\OT1/ptm/m/n/9 -specific row 
-values following NW
+Underfull \hbox (badness 1009) in paragraph at lines 361--367
+\OT1/ptm/m/n/8 2002) tailored for the task of clustering random barcodes. In sp
+here
  []
 
 
@@ -469,39 +463,20 @@ Overfull \hbox (261.0pt too wide) has occurred while \output is active
 
 Overfull \vbox (1.0pt too high) has occurred while \output is active []
 
- [3 <./Fig3.pdf>]
-LaTeX Font Info:    Try loading font information for OT1+pcr on input line 396.
+ [3 <./poucet.pdf>] <scalability.pdf, id=121, 505.89pt x 505.89pt>
+File: scalability.pdf Graphic file (type pdf)
+ <use scalability.pdf>
+Package pdftex.def Info: scalability.pdf used on input line 419.
+(pdftex.def)             Requested size: 237.76833pt x 237.76833pt.
 
- (/usr/share/texlive/texmf-dist/tex/latex/psnfss/ot1pcr.fd
-File: ot1pcr.fd 2001/06/04 font definitions for OT1/pcr.
-)
-Underfull \hbox (badness 1939) in paragraph at lines 409--413
+Underfull \hbox (badness 1939) in paragraph at lines 430--434
 \OT1/ptm/m/n/9 Sequence clustering is routinely used to curate databases of
  []
 
 
-Underfull \hbox (badness 1365) in paragraph at lines 422--431
-[]\OT1/ptm/m/n/9 Using 12 cores, starcode clustered the shuffled 50 million
+Underfull \hbox (badness 1609) in paragraph at lines 444--463
+\OT1/ptm/m/n/9 Using 12 threads, starcode clustered the shuffled 50 million
  []
-
-<Fig4.pdf, id=120, 241.84352pt x 270.29985pt>
-File: Fig4.pdf Graphic file (type pdf)
- <use Fig4.pdf>
-Package pdftex.def Info: Fig4.pdf used on input line 436.
-(pdftex.def)             Requested size: 241.84293pt x 270.29918pt.
-
-Underfull \hbox (badness 1122) in paragraph at lines 447--447
-\OT1/ptm/m/n/8 on the dataset described in the text. \OT1/ptm/b/n/8 b \OT1/ptm/
-m/n/8 Error rate compared to CD-
- []
-
-
-Underfull \hbox (badness 1226) in paragraph at lines 453--461
-\OT1/ptm/m/n/9 A potential strategy to cluster short sequences is to use last
- []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 Overfull \hbox (261.0pt too wide) has occurred while \output is active
@@ -516,56 +491,79 @@ Overfull \hbox (261.0pt too wide) has occurred while \output is active
 [][] 
  []
 
-[4 <./Fig4.pdf>]
-Underfull \hbox (badness 1142) in paragraph at lines 482--491
+[4 <./scalability.pdf>]
+LaTeX Font Info:    Try loading font information for OT1+pcr on input line 473.
+
+
+(/usr/share/texlive/texmf-dist/tex/latex/psnfss/ot1pcr.fd
+File: ot1pcr.fd 2001/06/04 font definitions for OT1/pcr.
+)
+Underfull \hbox (badness 1314) in paragraph at lines 477--488
+\OT1/ptm/m/n/9 reads, each 75 nucleotides long. Using 12 threads, starcode
+ []
+
+<benchmark.pdf, id=132, 241.84352pt x 139.42087pt>
+File: benchmark.pdf Graphic file (type pdf)
+ <use benchmark.pdf>
+Package pdftex.def Info: benchmark.pdf used on input line 504.
+(pdftex.def)             Requested size: 241.84293pt x 139.4205pt.
+
+Underfull \hbox (badness 1412) in paragraph at lines 519--527
+\OT1/ptm/m/n/9 sequences against itself. Once matches are available, several
+ []
+
+
+Underfull \hbox (badness 1142) in paragraph at lines 569--578
 \OT1/ptm/m/n/9 algorithms to cluster similar sequences. Briefly, the principle
  []
 
 
-Underfull \hbox (badness 1178) in paragraph at lines 492--506
+Underfull \hbox (badness 1178) in paragraph at lines 579--597
 \OT1/ptm/m/n/9 identified 24.1 million (91%) barcode-containing reads out of
  []
 
 
-Underfull \hbox (badness 1769) in paragraph at lines 492--506
-\OT1/ptm/m/n/9 starcode produced exactly the same output as the sequential
+Underfull \hbox (badness 2799) in paragraph at lines 579--597
+\OT1/ptm/m/n/9 Following the authors, we kept only the barcodes with at
  []
 
 
-Underfull \hbox (badness 1648) in paragraph at lines 507--520
+Underfull \hbox (badness 1701) in paragraph at lines 579--597
+\OT1/ptm/m/n/9 least 5 counts and performed clustering as described: ``First
+ []
+
+
+Overfull \hbox (261.0pt too wide) has occurred while \output is active
+[][] 
+ []
+
+
+Overfull \vbox (1.0pt too high) has occurred while \output is active []
+
+ [5 <./benchmark.pdf>]
+Underfull \hbox (badness 1648) in paragraph at lines 598--611
 []\OT1/ptm/m/n/9 The performance of the sequential algorithm relies on the
  []
 
 
-Underfull \hbox (badness 3503) in paragraph at lines 522--532
+Underfull \hbox (badness 3503) in paragraph at lines 613--625
 \OT1/ptm/m/n/9 Sequence motifs are thought to play an important role in
  []
 
 
-Underfull \hbox (badness 1253) in paragraph at lines 522--532
+Underfull \hbox (badness 1253) in paragraph at lines 613--625
 \OT1/ptm/m/n/9 targeting them to the sites where they act. Identifying those
  []
 
 Missing character: There is no   in font ptmr7t!
 
-Underfull \hbox (badness 1406) in paragraph at lines 545--552
-\OT1/ptm/m/n/9 two signatures of chromatin proteins called Red and Yellow,
+Underfull \hbox (badness 1348) in paragraph at lines 639--657
+\OT1/ptm/m/n/9 about 20 seconds for each replicate. The most enriched 10-
  []
 
 
-Underfull \hbox (badness 2856) in paragraph at lines 553--564
-[]\OT1/ptm/m/n/9 The total coverage of Red and Yellow chromatin in the
- []
-
-
-Underfull \hbox (badness 3579) in paragraph at lines 553--564
-\OT1/ptm/m/it/9 Drosophila \OT1/ptm/m/n/9 genome is 10.7 Mb and 21.3 Mb respect
-ively,
- []
-
-
-Underfull \hbox (badness 7851) in paragraph at lines 553--564
-\OT1/ptm/m/n/9 corresponding to 21.5 million and 42.5 million 18-mers,
+Underfull \hbox (badness 1097) in paragraph at lines 659--670
+\OT1/ptm/m/n/9 popular heuristics. By design, starcode is tailored to process
  []
 
 
@@ -576,47 +574,29 @@ Overfull \hbox (261.0pt too wide) has occurred while \output is active
 
 Overfull \vbox (1.0pt too high) has occurred while \output is active []
 
- [5]
-Underfull \hbox (badness 2478) in paragraph at lines 578--588
-\OT1/ptm/m/n/9 clustering problems, such as identifying enriched k-mers in
+
+Overfull \hbox (261.0pt too wide) has occurred while \output is active
+[][] 
  []
 
-
-Underfull \hbox (badness 1147) in paragraph at lines 578--588
-\OT1/ptm/m/n/9 genomes and in experimental data. Here we have given two
- []
-
-
-Underfull \hbox (badness 1184) in paragraph at lines 589--597
-[]\OT1/ptm/m/n/9 The current version of starcode has been mildly optimized
- []
-
-
-Underfull \hbox (badness 1221) in paragraph at lines 598--615
-\OT1/ptm/m/n/9 the speed of starcode. More generally, storing computational
- []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-Underfull \hbox (badness 2903) in paragraph at lines 634--640
+[6]
+Underfull \hbox (badness 2903) in paragraph at lines 723--729
  \OT1/ptm/m/it/9 Funding[][] \OT1/ptm/m/n/9 The research leading to these resul
 ts has received
  []
 
 
-Underfull \hbox (badness 1983) in paragraph at lines 634--640
+Underfull \hbox (badness 1983) in paragraph at lines 723--729
 \OT1/ptm/m/n/9 and Knowledge) and the Spanish Ministry of Economy and
  []
 
 
-Underfull \hbox (badness 2903) in paragraph at lines 634--640
+Underfull \hbox (badness 2903) in paragraph at lines 723--729
 \OT1/ptm/m/n/9 (SEV-2012-0208). P.C. fellowship is partly financed by the
  []
 
 
-Underfull \hbox (badness 1502) in paragraph at lines 634--640
+Underfull \hbox (badness 1502) in paragraph at lines 723--729
 \OT1/ptm/m/n/9 Subprogram: predoctoral fellowships for the training of PhD
  []
 
@@ -624,64 +604,43 @@ Underfull \hbox (badness 1502) in paragraph at lines 634--640
 LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <7> not available
 (Font)              Font shape `OT1/ptm/b/n' tried instead on input line 10.
 Missing character: There is no Ã in font ptmr7t!
+Missing character: There is no © in font ptmr7t!
+Missing character: There is no â in font ptmr7t!
+Missing character: There is no € in font ptmr7t!
+Missing character: There is no ¦ in font ptmr7t!
+Missing character: There is no Ã in font ptmr7t!
 Missing character: There is no ³ in font ptmr7t!
-
-Overfull \hbox (261.0pt too wide) has occurred while \output is active
-[][] 
- []
-
-
-Overfull \vbox (1.0pt too high) has occurred while \output is active []
-
-
-Overfull \hbox (261.0pt too wide) has occurred while \output is active
-[][] 
- []
-
-[6])
+)
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-Extra height:10.0pt when 33.12122pt
+Extra height:11.44545pt when 412.21619pt
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-Extra height:10.0pt when 34.12122pt
+Extra height:11.44545pt when 413.21619pt
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-Extra height:10.0pt when 35.12122pt
+Extra height:11.44545pt when 414.21619pt
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-Extra height:10.0pt when 36.12122pt
+Extra height:11.44545pt when 415.21619pt
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-Extra height:10.0pt when 37.12122pt
+Extra height:11.44545pt when 416.21619pt
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-Extra height:10.0pt when 38.12122pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:10.0pt when 39.12122pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:0.0pt when 40.12122pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-(2)Left:40.12122pt Right:39.24243pt Output:40.12122pt
+Extra height:0.0pt when 417.21619pt
+(2)Left:417.21619pt Right:418.43239pt Output:417.21619pt
+(2)Left:418.43239pt Right:418.43239pt Output:418.43239pt
 - LAST -
 Extra skip:0.0pt
-Left:40.12122pt
-Right:39.24243pt
-Output:40.12122pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
+Left:418.43239pt
+Right:418.43239pt
+Output:418.43239pt
 
 Overfull \hbox (261.0pt too wide) has occurred while \output is active
 [][] 
@@ -690,9 +649,7 @@ Overfull \hbox (261.0pt too wide) has occurred while \output is active
 
 Overfull \vbox (1.0pt too high) has occurred while \output is active []
 
- [7
-
-]
+ [7]
 (./document.aux)
 
 LaTeX Font Warning: Size substitutions with differences
@@ -700,34 +657,35 @@ LaTeX Font Warning: Size substitutions with differences
 
  ) 
 Here is how much of TeX's memory you used:
- 3976 strings out of 493304
- 51308 string characters out of 6139871
- 130424 words of memory out of 5000000
- 7307 multiletter control sequences out of 15000+600000
+ 3986 strings out of 493304
+ 51479 string characters out of 6139871
+ 140557 words of memory out of 5000000
+ 7316 multiletter control sequences out of 15000+600000
  55024 words of font info for 111 fonts, out of 8000000 for 9000
  961 hyphenation exceptions out of 8191
- 38i,12n,28p,1478b,365s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 38i,11n,28p,1489b,369s stack positions out of 5000i,500n,10000p,200000b,80000s
 {/usr/share/texlive/texmf-dist/fonts/enc/dvips/base/8r.enc}</usr/share/texliv
-e/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb></usr/share/texlive/texmf
--dist/fonts/type1/public/amsfonts/cm/cmmi9.pfb></usr/share/texlive/texmf-dist/f
-onts/type1/public/amsfonts/cm/cmr6.pfb></usr/share/texlive/texmf-dist/fonts/typ
-e1/public/amsfonts/cm/cmr7.pfb></usr/share/texlive/texmf-dist/fonts/type1/publi
-c/amsfonts/cm/cmr8.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfon
-ts/cm/cmr9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cm
-sy6.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb
-></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/
-share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy9.pfb></usr/share/t
-exlive/texmf-dist/fonts/type1/urw/courier/ucrr8a.pfb></usr/share/texlive/texmf-
-dist/fonts/type1/urw/helvetic/uhvb8a.pfb></usr/share/texlive/texmf-dist/fonts/t
-ype1/urw/helvetic/uhvbo8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/he
-lvetic/uhvr8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/helvetic/uhvro
-8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/sh
-are/texlive/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></usr/share/texlive/tex
-mf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on document.pdf (7 pages, 1279452 bytes).
+e/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi6.pfb></usr/share/texlive/texmf
+-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb></usr/share/texlive/texmf-dist/f
+onts/type1/public/amsfonts/cm/cmmi9.pfb></usr/share/texlive/texmf-dist/fonts/ty
+pe1/public/amsfonts/cm/cmr6.pfb></usr/share/texlive/texmf-dist/fonts/type1/publ
+ic/amsfonts/cm/cmr7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfo
+nts/cm/cmr8.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/c
+mr9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy6.pfb
+></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/
+share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/share/t
+exlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy9.pfb></usr/share/texlive/
+texmf-dist/fonts/type1/urw/courier/ucrr8a.pfb></usr/share/texlive/texmf-dist/fo
+nts/type1/urw/helvetic/uhvb8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/ur
+w/helvetic/uhvbo8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/helvetic/
+uhvr8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/helvetic/uhvro8a.pfb>
+</usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/share/tex
+live/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></usr/share/texlive/texmf-dist
+/fonts/type1/urw/times/utmri8a.pfb>
+Output written on document.pdf (7 pages, 1272318 bytes).
 PDF statistics:
- 220 PDF objects out of 1000 (max. 8388607)
- 115 compressed objects within 2 object streams
+ 230 PDF objects out of 1000 (max. 8388607)
+ 123 compressed objects within 2 object streams
  0 named destinations out of 1000 (max. 500000)
- 21 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 26 words of extra memory for PDF output out of 10000 (max. 10000000)
 

@@ -9,6 +9,11 @@ Akhtar, W., de~Jong, J., Pindyurin, A.~V., Pagie, L., Meuleman, W., de~Ridder,
   integrated in parallel.}
 \newblock {\em {Cell}\/}, {\bf 154}(4), 914--27.
 
+\bibitem[Daubner {\em et~al.}(2013)Daubner, Cléry, and Allain]{pmid23253355}
+Daubner, G.~M., Cléry, A., and Allain, F. H.-T. (2013).
+\newblock {RRM-RNA recognition: NMR or crystallography…and new findings.}
+\newblock {\em {Curr. Opin. Struct. Biol.}}, {\bf 23}(1), 100--8.
+
 \bibitem[Dohm {\em et~al.}(2008)Dohm, Lottaz, Borodina, and
   Himmelbauer]{pmid18660515}
 Dohm, J.~C., Lottaz, C., Borodina, T., and Himmelbauer, H. (2008).
@@ -39,16 +44,6 @@ Eid, J., Fehr, A., Gray, J., Luong, K., Lyle, J., Otto, G., Peluso, P., Rank,
   F., Korlach, J., and Turner, S. (2009).
 \newblock {Real-time DNA sequencing from single polymerase molecules.}
 \newblock {\em {Science}\/}, {\bf 323}(5910), 133--8.
-
-\bibitem[Filion {\em et~al.}(2010)Filion, van Bemmel, Braunschweig, Talhout,
-  Kind, Ward, Brugman, de~Castro, Kerkhoven, Bussemaker, and van
-  Steensel]{pmid20888037}
-Filion, G.~J., van Bemmel, J.~G., Braunschweig, U., Talhout, W., Kind, J.,
-  Ward, L.~D., Brugman, W., de~Castro, I.~J., Kerkhoven, R.~M., Bussemaker,
-  H.~J., and van Steensel, B. (2010).
-\newblock {Systematic protein location mapping reveals five principal chromatin
-  types in Drosophila cells.}
-\newblock {\em {Cell}\/}, {\bf 143}(2), 212--24.
 
 \bibitem[Fu {\em et~al.}(2012)Fu, Niu, Zhu, Wu, and Li]{pmid23060610}
 Fu, L., Niu, B., Zhu, Z., Wu, S., and Li, W. (2012).
@@ -116,6 +111,27 @@ Needleman, S.~B. and Wunsch, C.~D. (1970).
   amino acid sequence of two proteins.}
 \newblock {\em {J. Mol. Biol.}}, {\bf 48}(3), 443--53.
 
+\bibitem[Pandit {\em et~al.}(2013)Pandit, Zhou, Shiue, Coutinho-Mansfield, Li,
+  Qiu, Huang, Yeo, Ares, and Fu]{pmid23562324}
+Pandit, S., Zhou, Y., Shiue, L., Coutinho-Mansfield, G., Li, H., Qiu, J.,
+  Huang, J., Yeo, G.~W., Ares, M., and Fu, X.-D. (2013).
+\newblock {Genome-wide analysis reveals SR protein cooperation and competition
+  in regulated splicing.}
+\newblock {\em {Mol. Cell}\/}, {\bf 50}(2), 223--35.
+
+\bibitem[{R Core Team}(2014){R Core Team}]{R}
+{R Core Team} (2014).
+\newblock {\em R: A Language and Environment for Statistical Computing\/}.
+\newblock R Foundation for Statistical Computing, Vienna, Austria.
+
+\bibitem[Ray {\em et~al.}(2009)Ray, Kazan, Chan, Castillo, Chaudhry, Talukder,
+  Blencowe, Morris, and Hughes]{pmid19561594}
+Ray, D., Kazan, H., Chan, E.~T., Castillo, L.~P., Chaudhry, S., Talukder, S.,
+  Blencowe, B.~J., Morris, Q., and Hughes, T.~R. (2009).
+\newblock {Rapid and systematic analysis of the RNA recognition specificities
+  of RNA-binding proteins.}
+\newblock {\em {Nat. Biotechnol.}}, {\bf 27}(7), 667--70.
+
 \bibitem[Schepers {\em et~al.}(2008)Schepers, Swart, van Heijst, Gerlach,
   Castrucci, Sie, Heimerikx, Velds, Kerkhoven, Arens, and
   Schumacher]{pmid18809713}
@@ -134,12 +150,5 @@ Smith, H.~O., Gwinn, M.~L., and Salzberg, S.~L. (1999).
 Ukkonen, E. (1995).
 \newblock On-line construction of suffix trees.
 \newblock {\em Algorithmica\/}, {\bf 14}(3), 249--260.
-
-\bibitem[van Steensel {\em et~al.}(2003)van Steensel, Delrow, and
-  Bussemaker]{pmid12601174}
-van Steensel, B., Delrow, J., and Bussemaker, H.~J. (2003).
-\newblock {Genomewide analysis of Drosophila GAGA factor target genes reveals
-  context-dependent DNA binding.}
-\newblock {\em {Proc. Natl. Acad. Sci. U.S.A.}}, {\bf 100}(5), 2580--5.
 
 \end{thebibliography}

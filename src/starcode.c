@@ -1,32 +1,29 @@
+/*
+** Copyright 2014 Guillaume Filion, Eduard Valera Zorita and Pol Cusco.
+**
+** File authors:
+**  Guillaume Filion     (guillaume.filion@gmail.com)
+**  Eduard Valera Zorita (ezorita@mit.edu)
+**
+** Last modified: July 8, 2014
+**
+** License: 
+**  This program is free software: you can redistribute it and/or modify
+**  it under the terms of the GNU General Public License as published by
+**  the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  This program is distributed in the hope that it will be useful,
+**  but WITHOUT ANY WARRANTY; without even the implied warranty of
+**  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**  GNU General Public License for more details.
+**
+**  You should have received a copy of the GNU General Public License
+**  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+**
+*/
+
 #include "starcode.h"
-#include "trie.h"
-
-#define str(a) (char *)(a)
-#define min(a,b) (((a) < (b)) ? (a) : (b))
-#define max(a,b) (((a) > (b)) ? (a) : (b))
-
-lookup_t *new_lookup(int, int, int, int);
-int lut_search(lookup_t *, useq_t *);
-void lut_insert(lookup_t *, useq_t *);
-int seq2id(char *, int);
-useq_t *new_useq(int, char*);
-gstack_t *read_file(FILE*);
-void destroy_useq(useq_t*);
-void addmatch(useq_t*, useq_t*, int, int);
-void transfer_counts_and_update_canonicals(useq_t*);
-void unpad_useq (gstack_t*);
-int pad_useq(gstack_t*, int*);
-int canonical_order(const void*, const void*);
-int count_order(const void *a, const void *b);
-void *do_query(void*);
-void run_plan(mtplan_t*, int, int);
-mtplan_t *plan_mt(int, int, int, int, gstack_t*, const int);
-void message_passing_clustering(gstack_t*, int);
-void sphere_clustering(gstack_t*, int);
-void * _mergesort(void *);
-int seqsort(void **, int, int (*)(const void*, const void*), int);
-long count_trie_nodes(useq_t **, int, int);
-int AtoZ(const void *, const void *);
 
 FILE *OUTPUT = NULL;
 
@@ -55,9 +52,6 @@ starcode
       ntries = 1;
       maxthreads = 1;
    }
-   // XXX The number of tries must be odd otherwise the     XXX
-   // XXX scheduler will make mistakes. So, just in case... XXX
-   if (ntries % 2 == 0) abort();
  
    // Pad sequences. (And return the median size)
    int med = -1;
@@ -122,7 +116,10 @@ run_plan
             mtjob_t *job = mttrie->jobs + mttrie->currentjob++;
             pthread_t thread;
             // Start job and detach thread.
-            if (pthread_create(&thread, NULL, do_query, job)) abort();
+            if (pthread_create(&thread, NULL, do_query, job)) {
+               fprintf(stderr, "error creating thread (run_plan): %s\n", strerror(errno));
+               abort();
+            }
             pthread_detach(thread);
             if (verbose) {
                fprintf(stderr, "starcode progress: %.2f%% \r",
@@ -163,8 +160,7 @@ do_query
    // Create local hit stack.
    gstack_t **hits = new_tower(tau+1);
    if (hits == NULL) {
-      fprintf(stderr, "error: cannot create hit stack (%d)\n",
-            check_trie_error_and_reset());
+      fprintf(stderr, "error creating hit stack (do_query): %s\n", strerror(errno));
       abort();
    }
 
@@ -182,8 +178,7 @@ do_query
          lut_insert(lut, query);
          data = insert_string_wo_malloc(trie, query->seq, &node_pos);
          if (data == NULL || *data != NULL) {
-            fprintf(stderr, "error: cannot build trie (%d)\n",
-                  check_trie_error_and_reset());
+            fprintf(stderr, "error building trie (do_query): %s.\n", strerror(errno));
             abort();
          }
       }
@@ -210,7 +205,7 @@ do_query
          for (int j = 0 ; hits[j] != TOWER_TOP ; j++) hits[j]->nitems = 0;
          int err = search(trie, query->seq, tau, hits, start, trail);
          if (err) {
-            fprintf(stderr, "error: cannot complete query (%d)\n", err);
+            fprintf(stderr, "search error (do_query): %d\n", err);
             abort();
          }
 
@@ -312,18 +307,27 @@ plan_mt
 {
    // Initialize plan.
    mtplan_t *mtplan = malloc(sizeof(mtplan_t));
-   if (mtplan == NULL) abort();
+   if (mtplan == NULL) {
+      fprintf(stderr, "error allocating mt_plan (plan_mt): %s\n",strerror(errno));
+      abort();
+   }
 
    // Initialize mutex.
    pthread_mutex_t *mutex = malloc((ntries + 1) * sizeof(pthread_mutex_t));
    pthread_cond_t *monitor = malloc(sizeof(pthread_cond_t));
-   if (mutex == NULL || monitor == NULL) abort();
+   if (mutex == NULL || monitor == NULL) {
+      fprintf(stderr, "error allocating mutex (plan_mt): %s\n",strerror(errno));
+      abort();
+   }
    for (int i = 0; i < ntries + 1; i++) pthread_mutex_init(mutex + i,NULL);
    pthread_cond_init(monitor,NULL);
 
    // Initialize 'mttries'.
    mttrie_t *mttries = malloc(ntries * sizeof(mttrie_t));
-   if (mttries == NULL) abort();
+   if (mttries == NULL) {
+      fprintf(stderr, "error allocating mttrie_t (plan_mt): %s\n", strerror(errno));
+      abort();
+   }
 
    // Boundaries of the query blocks.
    int Q = useqS->nitems / ntries;
@@ -343,7 +347,10 @@ plan_mt
       trie_t *local_trie  = new_trie(tau, height);
       node_t *local_nodes = (node_t *) malloc(nnodes[i] * node_t_size(tau));
       mtjob_t *jobs = malloc(njobs * sizeof(mtjob_t));
-      if (local_trie == NULL || jobs == NULL) abort();
+      if (local_trie == NULL || jobs == NULL) {
+         fprintf(stderr, "error allocating trie mtjob_t (plan_mt): %s\n", strerror(errno));
+         abort();
+      }
 
       // Allocate lookup struct.
       // TODO: Try only one lut as well. (It will always return 1 in the query step though).
@@ -655,9 +662,15 @@ read_file
    ssize_t nread;
    size_t nchar = M;
    gstack_t *useqS = new_gstack();
-   if (useqS == NULL) abort();
+   if (useqS == NULL) {
+      fprintf(stderr, "error allocating useq gstack (read_file): %s\n", strerror(errno));
+      abort();
+   }
    char *line = malloc(M * sizeof(char));
-   if (line == NULL) abort();
+   if (line == NULL) {
+      fprintf(stderr, "error allocating line buffer (read_file): %s\n", strerror(errno));
+      abort();
+   }
    int count = 0;
 
    // Read sequences from input file.
@@ -673,9 +686,15 @@ read_file
       else {
          seq = copy;
       }
-      if (strlen(seq) > MAXBRCDLEN) abort();
+      if (strlen(seq) > MAXBRCDLEN) {
+         fprintf(stderr, "error (read_file): maximum input sequence length exceeded.\n");
+         abort();
+      }
       useq_t *new = new_useq(count, seq);
-      if (new == NULL) abort();
+      if (new == NULL) {
+         fprintf(stderr, "error allocating useq_t (read_file): %s\n", strerror(errno));
+         abort();
+      }
       push(new, &useqS);
    }
 
@@ -749,7 +768,10 @@ unpad_useq
       while (u->seq[pad] == ' ') pad++;
       // Create a new sequence without paddings characters.
       char *unpadded = malloc((len - pad + 1) * sizeof(char));
-      if (unpadded == NULL) abort();
+      if (unpadded == NULL) {
+         fprintf(stderr, "error allocating char* (unpad_useq): %s\n", strerror(errno));
+         abort();
+      }
       memcpy(unpadded, u->seq + pad, len - pad + 1);
       free(u->seq);
       u->seq = unpadded;
@@ -828,7 +850,10 @@ addmatch
    int      tau
 )
 {
-   if (dist > tau) abort();
+   if (dist > tau) {
+      fprintf(stderr, "error (addmatch): distance exceeds tau.\n");
+      abort();
+   }
    // Create stack if not done before.
    if (from->matches == NULL) from->matches = new_tower(tau+1);
    push(to, from->matches + dist);
@@ -970,7 +995,10 @@ new_useq
 )
 {
    useq_t *new = malloc(sizeof(useq_t));
-   if (new == NULL) abort();
+   if (new == NULL) {
+      fprintf(stderr, "error allocating useq_t (new_useq): %s\n", strerror(errno));
+      abort();
+   }
    new->seq = malloc((strlen(seq)+1) * sizeof(char));
    strcpy(new->seq, seq);
    new->count = count;

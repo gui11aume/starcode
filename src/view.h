@@ -1,8 +1,8 @@
 #define BALL_SIZE(elem) 2 * sizeof(int)   + \
                         4 * sizeof(double) + \
                   (elem+1)* sizeof(ball_t *)
-#define HEIGHT 600.0
-#define RAND_FACTOR HEIGHT / RAND_MAX
+#define CANVAS_SIZE 600.0
+#define RAND_FACTOR CANVAS_SIZE / RAND_MAX
 #define PI 3.141592653589793238462643383279502884L
 
 struct ball_t;
@@ -27,8 +27,9 @@ struct star_t {
    double   radius;          // distance to most distant ball + its radius
 };
 
-//ball_t ** create_ball_list(char * filename);
-//ball_t ** new_ball(int n_children);
+void      force_directed_drawing(int, ball_t **);
+//ball_t ** list_balls(FILE *, int *);
+//ball_t ** new_ball(char *);
 double    norm(double, double);
 double    electric(ball_t *, ball_t *, double);
 double    elastic(double);

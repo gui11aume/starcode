@@ -1,27 +1,3 @@
-/*
-** Copyright 2014 Guillaume Filion, Eduard Valera Zorita and Pol Cusco.
-**
-** File authors:
-**  Pol Cusco (pcusco@gmail.com)
-**
-** Last modified: July 8, 2014
-**
-** License: 
-**  This program is free software: you can redistribute it and/or modify
-**  it under the terms of the GNU General Public License as published by
-**  the Free Software Foundation, either version 3 of the License, or
-**  (at your option) any later version.
-**
-**  This program is distributed in the hope that it will be useful,
-**  but WITHOUT ANY WARRANTY; without even the implied warranty of
-**  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-**  GNU General Public License for more details.
-**
-**  You should have received a copy of the GNU General Public License
-**  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-**
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -31,6 +7,7 @@
 #include <execinfo.h>
 #include <signal.h>
 #include <unistd.h>
+#include "starcode.h"
 #include "view.h"
 
 void SIGSEGV_handler(int sig) {
@@ -51,9 +28,9 @@ int main(int argc, const char *argv[])
    signal(SIGSEGV, SIGSEGV_handler);
 
    // Create list of ball pointers.
-   //FILE * inputf = fopen("example_starcode_output.txt", "r");
+   //FILE * inputf = fopen("node_network.txt", "r");
    //int n_balls;
-   //ball_t * ball_list = create_ball_list(inputf, &n_balls);
+   //ball_t * ball_list = list_balls(inputf, &n_balls);
 
    /* Begin test code */
    const int n_balls = 8;
@@ -108,9 +85,21 @@ int main(int argc, const char *argv[])
    ball_list[7]->root = ball_list[4];
    /* End test code */
 
+   force_directed_drawing(n_balls, ball_list);
+
+   return 0;
+}
+
+void
+force_directed_drawing
+(
+   int       n_balls,
+   ball_t ** ball_list
+)
+{
    // Initialize ball positions.
    // Define canvas size and generate random positions in it.
-   int canvas_size[2] = { HEIGHT , HEIGHT };
+   int canvas_size[2] = { CANVAS_SIZE , CANVAS_SIZE };
    srand(time(NULL));
    for (int i = 0; i < n_balls; i++) {
       ball_list[i]->position[0] = rand() * RAND_FACTOR;
@@ -143,43 +132,70 @@ int main(int argc, const char *argv[])
 
    draw_cairo_env(cr, n_balls, ball_list, offset);
    cairo_surface_write_to_png(surface, "example_starcode_image.png");
-
-   return 0;
 }
 
 //ball_t *
-//create_ball_list
+//list_balls
 //(
-//   //FILE * inputf,
+//   FILE * inputf,
 //   int  * n_balls
 //)
 //{
 //   *n_balls = 0;
 //   size_t list_size = 1024;
 //   ball_t * ball_list = malloc(list_size * sizeof(ball_t *));
-//   while (/*read line and store values*/-1 != -1) {
-//      ball_t * ball = new_ball(/*ball.n_children*/);
+//   if (ball_list == NULL) {
+//      fprintf(stderr, "Error in ball_list malloc: %s\n", strerror(errno));
+//   }
+//   size_t nchar = M;
+//   char * line = malloc(M * sizeof(char));
+//   if (line == NULL) {
+//      fprintf(stderr, "Error in line malloc: %s\n",strerror(errno));
+//   }
+//   ssize_t nread;
+//   while ((nread = getline(&line, &nchar, inputf)) != -1) {
+//      // Strip end of line character.
+//      if (line[nread-1] == '\n') line[nread-1] = '\0';
+//      ball_t * ball = new_ball(line);
 //      n_balls++;
-//      if (n_balls >= current_size) {
+//      if (n_balls >= list_size) {
 //         list_size *= 2;
-//         ball_list = realloc(ball_list, list_size);
+//         ball_list = realloc(ball_list, list_size * sizeof(ball_t *));
+//         if (ball_list == NULL) {
+//            fprintf(stderr, "Error in ball_list realloc: %s\n",
+//                    strerror(errno));
+//         }
 //      }
 //   }
-//
+//   free(line);
+//   if (fclose(inputf) == EOF) {
+//      fprintf(stderr, "Error in closing input file: %s\n", strerror(errno));
+//   }
 //   return ball_list;
-//
 //}
-
+//
 //ball_t *
 //new_ball
 //(
-//   int n_children
+//   char * line
 //)
 //{
+//   char * child;
+//   char * parent;
+//   char * root;
+//   if (sscanf(line, "%s\t%d
+//                     %s\t%d
+//                     %s\t%d",
+//                     copy, &count
+//                     copy, &count
+//                     copy, &count) == 6) seq = copy;
+//   else {
+//
+//   }
 //   ball_t * ball = malloc(BALL_SIZE(n_children));
-//   //if (ball == NULL) {
-//   //   fprintf(stderr, "Error in ball malloc: %s\n", strerror(errno));
-//   //}
+//   if (ball == NULL) {
+//      fprintf(stderr, "Error in ball malloc: %s\n", strerror(errno));
+//   }
 //   // TODO: fill ball with info.
 //
 //   return ball;
@@ -347,10 +363,17 @@ list_stars
    *n_stars = 0;
    int list_size  = 1000;
    star_t ** star_list = malloc(list_size * sizeof(star_t *));
+   if (star_list == NULL) {
+      fprintf(stderr, "Error in star malloc: %s\n", strerror(errno));
+   }
    // Define stars root identity and position.
    for (int i = 0; i < n_balls; i++) {
       if (ball_list[i] == ball_list[i]->root) {
          star_list[*n_stars] = malloc(sizeof(star_t));
+         if (star_list[*n_stars] == NULL) {
+            fprintf(stderr, "Error in star_list malloc: %s\n",
+                    strerror(errno));
+         }
          star_list[*n_stars]->root = ball_list[i]->root;
          star_list[*n_stars]->position[0] = ball_list[i]->position[0];
          star_list[*n_stars]->position[1] = ball_list[i]->position[1];
@@ -359,6 +382,10 @@ list_stars
             list_size *= 2;
             star_list =
                realloc(star_list, list_size * sizeof(star_t *));
+            if (star_list == NULL) {
+               fprintf(stderr, "Error in star_list realloc: %s\n",
+                       strerror(errno));
+            }
          }
       }
    }

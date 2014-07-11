@@ -4,6 +4,7 @@
 #include <time.h>
 #include <errno.h>
 #include <cairo.h>
+#include <cairo-pdf.h>
 #include <execinfo.h>
 #include <signal.h>
 #include <unistd.h>
@@ -126,12 +127,12 @@ force_directed_drawing
    // Draw all balls and bonds.
    int offset[2] = { 0, 0 };
    resize_canvas(canvas_size, n_stars, star_list, offset);
-   cairo_surface_t * surface = cairo_image_surface_create(
-         CAIRO_FORMAT_ARGB32, canvas_size[0], canvas_size[1]);
+   cairo_surface_t * surface;
+   surface = cairo_pdf_surface_create(
+         "example_starcode_image.pdf", canvas_size[0], canvas_size[1]);
    cairo_t * cr = cairo_create(surface);
-
    draw_cairo_env(cr, n_balls, ball_list, offset);
-   cairo_surface_write_to_png(surface, "example_starcode_image.png");
+   cairo_surface_finish(surface);
 }
 
 //ball_t *

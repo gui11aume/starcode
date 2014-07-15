@@ -1,38 +1,6 @@
-/*
-** Copyright 2014 Guillaume Filion, Eduard Valera Zorita and Pol Cusco.
-**
-** File authors:
-**  Pol Cusco (pcusco@gmail.com)
-**
-** Last modified: July 8, 2014
-**
-** License: 
-**  This program is free software: you can redistribute it and/or modify
-**  it under the terms of the GNU General Public License as published by
-**  the Free Software Foundation, either version 3 of the License, or
-**  (at your option) any later version.
-**
-**  This program is distributed in the hope that it will be useful,
-**  but WITHOUT ANY WARRANTY; without even the implied warranty of
-**  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-**  GNU General Public License for more details.
-**
-**  You should have received a copy of the GNU General Public License
-**  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-**
-*/
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <time.h>
-#include <errno.h>
-#include <cairo.h>
-#include <execinfo.h>
-#include <signal.h>
-#include <unistd.h>
 #include "view.h"
 
+#if 0
 void SIGSEGV_handler(int sig) {
    void *array[10];
    size_t size;
@@ -51,9 +19,9 @@ int main(int argc, const char *argv[])
    signal(SIGSEGV, SIGSEGV_handler);
 
    // Create list of ball pointers.
-   //FILE * inputf = fopen("example_starcode_output.txt", "r");
+   //FILE * inputf = fopen("node_network.txt", "r");
    //int n_balls;
-   //ball_t * ball_list = create_ball_list(inputf, &n_balls);
+   //ball_t * ball_list = list_balls(inputf, &n_balls);
 
    /* Begin test code */
    const int n_balls = 8;
@@ -108,10 +76,24 @@ int main(int argc, const char *argv[])
    ball_list[7]->root = ball_list[4];
    /* End test code */
 
+   force_directed_drawing(n_balls, ball_list);
+
+   return 0;
+}
+#endif
+
+void
+force_directed_drawing
+(
+   int       n_balls,
+   ball_t ** ball_list
+)
+{
    // Initialize ball positions.
    // Define canvas size and generate random positions in it.
-   int canvas_size[2] = { HEIGHT , HEIGHT };
+   int canvas_size[2] = { CANVAS_SIZE , CANVAS_SIZE };
    srand(time(NULL));
+   fprintf(stderr, "initializing\n");
    for (int i = 0; i < n_balls; i++) {
       ball_list[i]->position[0] = rand() * RAND_FACTOR;
       ball_list[i]->position[1] = rand() * RAND_FACTOR;
@@ -123,10 +105,12 @@ int main(int argc, const char *argv[])
    double flat = 1e-1;
    double regr[2];
    do {
+      fprintf(stderr, "new loop\n");
       physics_loop(n_balls, ball_list, moves, movement_list);
       regression(moves, movement_list, regr);
    } while (regr[0] < flat || regr[1] > 10.0);
 
+   fprintf(stderr, "spiralize\n");
    // Define stars and bubble-plot them.
    int n_stars = 0;
    star_t ** star_list = list_stars(n_balls, ball_list, &n_stars);
@@ -134,52 +118,81 @@ int main(int argc, const char *argv[])
    spiralize_displacements(n_stars, star_list, canvas_size);
    move_stars(n_balls, n_stars, ball_list, star_list);
 
+   fprintf(stderr, "draw\n");
    // Draw all balls and bonds.
    int offset[2] = { 0, 0 };
    resize_canvas(canvas_size, n_stars, star_list, offset);
-   cairo_surface_t * surface = cairo_image_surface_create(
-         CAIRO_FORMAT_ARGB32, canvas_size[0], canvas_size[1]);
+   cairo_surface_t * surface;
+   surface = cairo_pdf_surface_create(
+         "example_starcode_image.pdf", canvas_size[0], canvas_size[1]);
    cairo_t * cr = cairo_create(surface);
-
    draw_cairo_env(cr, n_balls, ball_list, offset);
-   cairo_surface_write_to_png(surface, "example_starcode_image.png");
-
-   return 0;
+   cairo_surface_finish(surface);
+   fprintf(stderr, "done\n");
 }
 
 //ball_t *
-//create_ball_list
+//list_balls
 //(
-//   //FILE * inputf,
+//   FILE * inputf,
 //   int  * n_balls
 //)
 //{
 //   *n_balls = 0;
 //   size_t list_size = 1024;
 //   ball_t * ball_list = malloc(list_size * sizeof(ball_t *));
-//   while (/*read line and store values*/-1 != -1) {
-//      ball_t * ball = new_ball(/*ball.n_children*/);
+//   if (ball_list == NULL) {
+//      fprintf(stderr, "Error in ball_list malloc: %s\n", strerror(errno));
+//   }
+//   size_t nchar = M;
+//   char * line = malloc(M * sizeof(char));
+//   if (line == NULL) {
+//      fprintf(stderr, "Error in line malloc: %s\n",strerror(errno));
+//   }
+//   ssize_t nread;
+//   while ((nread = getline(&line, &nchar, inputf)) != -1) {
+//      // Strip end of line character.
+//      if (line[nread-1] == '\n') line[nread-1] = '\0';
+//      ball_t * ball = new_ball(line);
 //      n_balls++;
-//      if (n_balls >= current_size) {
+//      if (n_balls >= list_size) {
 //         list_size *= 2;
-//         ball_list = realloc(ball_list, list_size);
+//         ball_list = realloc(ball_list, list_size * sizeof(ball_t *));
+//         if (ball_list == NULL) {
+//            fprintf(stderr, "Error in ball_list realloc: %s\n",
+//                    strerror(errno));
+//         }
 //      }
 //   }
-//
+//   free(line);
+//   if (fclose(inputf) == EOF) {
+//      fprintf(stderr, "Error in closing input file: %s\n", strerror(errno));
+//   }
 //   return ball_list;
-//
 //}
-
+//
 //ball_t *
 //new_ball
 //(
-//   int n_children
+//   char * line
 //)
 //{
+//   char * child;
+//   char * parent;
+//   char * root;
+//   if (sscanf(line, "%s\t%d
+//                     %s\t%d
+//                     %s\t%d",
+//                     copy, &count
+//                     copy, &count
+//                     copy, &count) == 6) seq = copy;
+//   else {
+//
+//   }
 //   ball_t * ball = malloc(BALL_SIZE(n_children));
-//   //if (ball == NULL) {
-//   //   fprintf(stderr, "Error in ball malloc: %s\n", strerror(errno));
-//   //}
+//   if (ball == NULL) {
+//      fprintf(stderr, "Error in ball malloc: %s\n", strerror(errno));
+//   }
 //   // TODO: fill ball with info.
 //
 //   return ball;
@@ -193,6 +206,7 @@ norm
 )
 {
    return sqrt(pow(x_coord, 2) + pow(y_coord, 2));
+   //return sqrt(x_coord * x_coord + y_coord * y_coord);
 }
 
 double
@@ -206,6 +220,7 @@ electric
    double ke = 5.0e1;
    // Coulomb's law.
    return ke * ball1->size * ball2->size / pow(dist, 2);
+   //return ke * ball1->size * ball2->size / (dist * dist);
 }
 
 double
@@ -284,13 +299,18 @@ physics_loop
       for (int i = 0; i < n_balls; i++) {
          ball_t * ball = ball_list[i];
          // Compute elastic... 
-         for (int j = 0; j < ball->n_children; j++) {
-            compute_force(ball, ball->children[j], 0);
+         int n_children = ball->children->nitems;
+//         for (int j = 0; j < ball->n_children; j++) {
+         for (int j = 0; j < n_children; j++) {
+            ball_t *child = (ball_t *) ball->children->items[j];
+//            compute_force(ball, ball->children[j], 0);
+            compute_force(ball, child, 0);
          }
          // ...and electric forces.
          for (int k = i+1; k < n_balls; k++) {
             // Isolate the physics of different stars.
-            if (ball->root == ball_list[k]->root) {
+//            if (ball->root == ball_list[k]->root) {
+            if (ball->starid == ball_list[k]->starid) {
                compute_force(ball, ball_list[k], 1);
             }
          }
@@ -318,6 +338,8 @@ regression
    x_mean /= moves;
    for (int i = 0; i < moves; i++) {
       x  += pow(movement_list[i] - x_mean, 2);
+      //double p = movement_list[i] - x_mean;
+      //x  += p * p;
       xy += (movement_list[i] - x_mean) * (i - y_mean);
    }
    regression[0] = xy / x;                          // Slope.
@@ -347,11 +369,20 @@ list_stars
    *n_stars = 0;
    int list_size  = 1000;
    star_t ** star_list = malloc(list_size * sizeof(star_t *));
+   if (star_list == NULL) {
+      fprintf(stderr, "Error in star malloc: %s\n", strerror(errno));
+   }
    // Define stars root identity and position.
    for (int i = 0; i < n_balls; i++) {
-      if (ball_list[i] == ball_list[i]->root) {
+//      if (ball_list[i] == ball_list[i]->root) {
+      if (ball_list[i]->starid == i+1) {
          star_list[*n_stars] = malloc(sizeof(star_t));
-         star_list[*n_stars]->root = ball_list[i]->root;
+         if (star_list[*n_stars] == NULL) {
+            fprintf(stderr, "Error in star_list malloc: %s\n",
+                    strerror(errno));
+         }
+//         star_list[*n_stars]->root = ball_list[i]->root;
+         star_list[*n_stars]->starid = ball_list[i]->starid;
          star_list[*n_stars]->position[0] = ball_list[i]->position[0];
          star_list[*n_stars]->position[1] = ball_list[i]->position[1];
          (*n_stars)++;
@@ -359,6 +390,10 @@ list_stars
             list_size *= 2;
             star_list =
                realloc(star_list, list_size * sizeof(star_t *));
+            if (star_list == NULL) {
+               fprintf(stderr, "Error in star_list realloc: %s\n",
+                       strerror(errno));
+            }
          }
       }
    }
@@ -367,7 +402,8 @@ list_stars
       int star_size = 0;
       double mean_pos[2] = { 0.0, 0.0 };
       for (int j = 0; j < n_balls; j++) {
-         if (star_list[i]->root == ball_list[j]->root) {
+//         if (star_list[i]->root == ball_list[j]->root) {
+         if (star_list[i]->starid == ball_list[j]->starid) {
             mean_pos[0] += ball_list[j]->position[0];
             mean_pos[1] += ball_list[j]->position[1];
             star_size++;
@@ -378,10 +414,11 @@ list_stars
       star_list[i]->position[1] = mean_pos[1] / star_size;
       // Compute the radius.
       star_list[i]->radius = 0.0;
-      double radius = 0.0;
+//      double radius = 0.0;
       for (int j = 0; j < n_balls; j++) {
          ball_t * ball = ball_list[j];
-         if (star_list[i]->root == ball->root) {
+//         if (star_list[i]->root == ball->root) {
+         if (star_list[i]->starid == ball->starid) {
             double x_dist = star_list[i]->position[0] - ball->position[0];
             double y_dist = star_list[i]->position[1] - ball->position[1];
             double radius = norm(x_dist, y_dist) + sqrt(ball->size / PI);
@@ -448,7 +485,8 @@ move_stars
 {
    for (int i = 0; i < n_balls; i++) {
       for (int j = 0; j < n_stars; j++) {
-         if (ball_list[i]->root == star_list[j]->root) {
+//         if (ball_list[i]->root == star_list[j]->root) {
+         if (ball_list[i]->starid == star_list[j]->starid) {
             ball_list[i]->position[0] += star_list[j]->displacement[0];
             ball_list[i]->position[1] += star_list[j]->displacement[1];
          }
@@ -494,9 +532,13 @@ draw_edges
 {
    double x_pos = ball->position[0] - offset[0];
    double y_pos = ball->position[1] - offset[1];
-   for (int j = 0; j < ball->n_children; j++) {
-      double child_x_pos = ball->children[j]->position[0] - offset[0];
-      double child_y_pos = ball->children[j]->position[1] - offset[1];
+//   for (int j = 0; j < ball->n_children; j++) {
+   for (int j = 0; j < ball->children->nitems; j++) {
+      ball_t *child = (ball_t *) ball->children->items[j];
+//      double child_x_pos = ball->children[j]->position[0] - offset[0];
+//      double child_y_pos = ball->children[j]->position[1] - offset[1];
+      double child_x_pos = child->position[0] - offset[0];
+      double child_y_pos = child->position[1] - offset[1];
       cairo_set_line_width(cr, 1);
       cairo_set_source_rgb(cr, 0, 0, 0);
       cairo_move_to(cr, x_pos, y_pos);

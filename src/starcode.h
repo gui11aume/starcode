@@ -33,7 +33,9 @@
 #include <getopt.h>
 #include <pthread.h>
 #include <errno.h>
+#include <math.h>
 #include <string.h>
+#include "view.h"
 #include "trie.h"
 
 #ifndef __STARCODE_LOADED_
@@ -74,12 +76,25 @@ typedef struct lookup_t lookup_t;
 
 typedef struct sortargs_t sortargs_t;
 
+/*
+struct ball_t;
+typedef struct ball_t ball_t;
+struct ball_t {
+   double size;
+   double position[2];
+   double force[2];
+   gstack_t *children;
+   int starid;
+};
+*/
 
 struct useq_t {
   int              count;
   char          *  seq;
   gstack_t      ** matches;
   struct useq_t *  canonical;
+  // experimental //
+  ball_t        *  ball;
 };
 
 struct lookup_t {
@@ -88,7 +103,6 @@ struct lookup_t {
    int  * klen;
    char * lut[];
 };
-
 
 struct sortargs_t {
    void ** buf0;
@@ -163,5 +177,7 @@ void * _mergesort(void *);
 int seqsort(void **, int, int (*)(const void*, const void*), int);
 long count_trie_nodes(useq_t **, int, int);
 int AtoZ(const void *, const void *);
+
+void view(gstack_t *);
 
 #endif

@@ -1,8 +1,21 @@
+#include <cairo.h>
+#include <cairo-pdf.h>
+#include <errno.h>
+#include <execinfo.h>
+#include <math.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
+#include "trie.h"
+
 #define BALL_SIZE(elem) 2 * sizeof(int)   + \
                         4 * sizeof(double) + \
                   (elem+1)* sizeof(ball_t *)
-#define HEIGHT 600.0
-#define RAND_FACTOR HEIGHT / RAND_MAX
+#define CANVAS_SIZE 600.0
+#define RAND_FACTOR CANVAS_SIZE / RAND_MAX
 #define PI 3.141592653589793238462643383279502884L
 
 struct ball_t;
@@ -11,6 +24,7 @@ struct star_t;
 typedef struct ball_t ball_t;
 typedef struct star_t star_t;
 
+/*
 struct ball_t {
    int      size;        // # of barcodes
    int      n_children;  // # of children
@@ -19,16 +33,28 @@ struct ball_t {
    ball_t * root;        // address to root
    ball_t * children[];  // list of direct children
 };
+*/
+
+struct ball_t {
+   double   size;
+   double   position[2];
+   double   force[2];
+   gstack_t *children;
+   int starid;
+};
+
 
 struct star_t {
-   ball_t * root;            // address of root ball_t
+//   ball_t * root;            // address of root ball_t
+   int      starid;          // Numeric ID of the star.
    double   position[2];     // (x,y) initial position of the root
    double   displacement[2]; // (x,y) distance from position
    double   radius;          // distance to most distant ball + its radius
 };
 
-//ball_t ** create_ball_list(char * filename);
-//ball_t ** new_ball(int n_children);
+void      force_directed_drawing(int, ball_t **);
+//ball_t ** list_balls(FILE *, int *);
+//ball_t ** new_ball(char *);
 double    norm(double, double);
 double    electric(ball_t *, ball_t *, double);
 double    elastic(double);

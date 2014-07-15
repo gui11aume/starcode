@@ -25,6 +25,9 @@
 
 #include "starcode.h"
 
+int Tarjan_find (int item, int *rep);
+void Tarjan_union (int item1, int item2, int *rep);
+
 FILE *OUTPUT = NULL;
 
 int
@@ -66,6 +69,8 @@ starcode
 
    // Remove padding characters.
    unpad_useq(useqS);
+
+   view(useqS);
 
    if (clusters == 0) {
       message_passing_clustering(useqS, maxthreads);
@@ -1041,4 +1046,112 @@ AtoZ
       return cmp;
    }
    return (la < lb ? -1 : 1);
+}
+
+void
+view
+(gstack_t *useqS)
+{
+
+   int n = useqS->nitems;
+
+   // Allocate the 'ball_t' (they need to exist in order to
+   // set the children relationships right).
+   ball_t **ball_list = malloc(n * sizeof(ball_t *));
+   if (ball_list == NULL) abort();
+   for (int i = 0 ; i < n ; i++) {
+      useq_t *useq = (useq_t *) useqS->items[i];
+      useq->ball = malloc(sizeof(ball_t));
+      if (useq->ball == NULL) abort();
+      useq->ball->starid = i+1;
+      useq->ball->size = 40*sqrt(useq->count);
+      useq->ball->children = new_gstack();
+      if (useq->ball->children == NULL) abort();
+      ball_list[i] = useq->ball;
+   }
+
+   int *rep = calloc((n+1), sizeof(int));
+   if (rep == NULL) abort();
+
+   for (int i = 0 ; i < n ; i++) {
+      useq_t *useq = (useq_t *) useqS->items[i];
+      if (useq->matches == NULL) continue;
+      gstack_t *matches;
+      for (int j = 0 ; (matches = useq->matches[j]) != TOWER_TOP ; j++) {
+         for (int k = 0 ; k < matches->nitems ; k++) {
+            useq_t *match = (useq_t *) matches->items[k];
+            Tarjan_union(useq->ball->starid, match->ball->starid, rep);
+         }
+      }
+   }
+
+   for (int i = 0 ; i < n ; i++) {
+      useq_t *useq = (useq_t *) useqS->items[i];
+      useq->ball->starid = Tarjan_find(useq->ball->starid, rep);
+      if (useq->matches == NULL) continue;
+
+      gstack_t *matches;
+
+      for (int j = 0 ; (matches = useq->matches[j]) != TOWER_TOP ; j++) {
+         for (int k = 0 ; k < matches->nitems ; k++) {
+            useq_t *match = (useq_t *) matches->items[k];
+            push( match->ball, &(useq->ball->children));
+         }
+      }
+   }
+
+   fprintf(stderr, "plotting...\n");
+   force_directed_drawing(n, ball_list);
+   
+   for (int i = 0 ; i < n ; i++) {
+      ball_t *ball = ball_list[i];
+      fprintf(stderr, "%d\n", ball->starid);
+      free(ball->children);
+      free(ball);
+   }
+   free(ball_list);
+   free(rep);
+   return;
+}
+
+
+// The code below is copy/pasted from Robert Sedgewick.
+// See http://www.yendor.com/programming/minauto/ufind.c.
+
+int Tarjan_find
+(
+   int item,
+   int *rep
+)
+{
+   int i;
+   int temp;
+   for (i = item ; rep[i] > 0 ; i = rep[i]);
+   while (rep[item] > 0) {
+      temp = item;
+      item = rep[item];
+      rep[temp] = i;
+   }
+   return i;
+}
+
+
+void Tarjan_union
+(
+   int item1,
+   int item2,
+   int *rep
+)
+{
+   int i = Tarjan_find(item1, rep);
+   int j = Tarjan_find(item2, rep);
+   if (i != j) {
+      if (rep[j] > rep[i]) {
+         rep[i] += (rep[j] - 1);
+         rep[j] = i;
+      } else {
+         rep[j] += (rep[i] - 1);
+         rep[i] = j;
+      }
+   }
 }

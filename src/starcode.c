@@ -70,7 +70,7 @@ starcode
    // Remove padding characters.
    unpad_useq(useqS);
 
-   view(useqS);
+   view(useqS, maxthreads);
 
    if (clusters == 0) {
       message_passing_clustering(useqS, maxthreads);
@@ -1050,7 +1050,10 @@ AtoZ
 
 void
 view
-(gstack_t *useqS)
+(
+   gstack_t *useqS,
+   int maxthreads
+)
 {
 
    int n = useqS->nitems;
@@ -1064,7 +1067,8 @@ view
       useq->ball = malloc(sizeof(ball_t));
       if (useq->ball == NULL) abort();
       useq->ball->starid = i+1;
-      useq->ball->size = 40*sqrt(useq->count);
+      useq->ball->size = useq->count;
+      //useq->ball->size = 40*sqrt(useq->count);
       useq->ball->children = new_gstack();
       if (useq->ball->children == NULL) abort();
       ball_list[i] = useq->ball;
@@ -1101,7 +1105,7 @@ view
    }
 
    fprintf(stderr, "plotting...\n");
-   force_directed_drawing(n, ball_list);
+   force_directed_drawing(n, ball_list, maxthreads);
    
    for (int i = 0 ; i < n ; i++) {
       ball_t *ball = ball_list[i];

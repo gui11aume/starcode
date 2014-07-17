@@ -76,18 +76,6 @@ typedef struct lookup_t lookup_t;
 
 typedef struct sortargs_t sortargs_t;
 
-/*
-struct ball_t;
-typedef struct ball_t ball_t;
-struct ball_t {
-   double size;
-   double position[2];
-   double force[2];
-   gstack_t *children;
-   int starid;
-};
-*/
-
 struct useq_t {
   int              count;
   char          *  seq;
@@ -178,6 +166,6 @@ int seqsort(void **, int, int (*)(const void*, const void*), int);
 long count_trie_nodes(useq_t **, int, int);
 int AtoZ(const void *, const void *);
 
-void view(gstack_t *);
+void view(gstack_t *, int);
 
 #endif

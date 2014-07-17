@@ -13,8 +13,8 @@ force_directed_drawing
    int canvas_size[2] = { CANVAS_SIZE , CANVAS_SIZE };
    srand(time(NULL));
    fprintf(stderr, "initializing\n");
-   //int n_stars = 0;
-   //star_t ** star_list = list_stars(n_balls, ball_list, &n_stars);
+   int n_stars = 0;
+   gstack_t * star_list = list_stars(n_balls, ball_list, &n_stars);
    //for (int i = 0; i < NTHREADS; i++) {
    //   int start = i * n_balls / NTHREADS;
    //   int stop = (i+1) * n_balls / NTHREADS;
@@ -39,8 +39,8 @@ force_directed_drawing
 
    fprintf(stderr, "spiralize\n");
    // Define stars and bubble-plot them.
-   int n_stars = 0;
-   star_t ** star_list = list_stars(n_balls, ball_list, &n_stars);
+   //int n_stars = 0;
+   //star_t ** star_list = list_stars(n_balls, ball_list, &n_stars);
    qsort(star_list, n_stars, sizeof(ball_t *), compar);
    spiralize_displacements(n_stars, star_list, canvas_size);
    move_stars(n_balls, n_stars, ball_list, star_list);
@@ -55,6 +55,9 @@ force_directed_drawing
    cairo_t * cr = cairo_create(surface);
    draw_cairo_env(cr, n_balls, ball_list, offset);
    cairo_surface_finish(surface);
+
+   // Free memory.
+   free(star_list);
    fprintf(stderr, "done\n");
 }
 
@@ -237,6 +240,64 @@ compar
    return (ball1->size > ball2->size) ? -1 : 1; // Descending order.
 }
 
+gstack_t *
+list_stars
+(
+   int       n_balls,
+   ball_t ** ball_list,
+   int     * n_stars
+)
+{
+   *n_stars = 0;
+   // Create a star list and push stars into it.
+   gstack_t * star_list = new_gstack();
+   for (int i = 0; i < n_balls; i++) {
+      // Create a star and initialize it.
+      if (ball_list[i]->starid == i+1) { // TODO: why is that comparison for?
+         star_t * star = malloc(sizeof(star_t));
+         if (star == NULL) {
+            fprintf(stderr, "Error in star_t malloc: %s\n", strerror(errno));
+         }
+         star->starid = ball_list[i]->starid;
+         star->position[0] = ball_list[i]->position[0];
+         star->position[1] = ball_list[i]->position[1];
+         star->members = new_gstack();
+         push((void *) star, &star_list);
+         (*n_stars)++;
+      } else if (0) { // TODO: condition to add members to the star
+         push((void *) ball_list[i], $star_list[ball_list[i]->starid]);
+      }
+   }
+   // Define stars (center) position and radius.
+   for (int i = 0; i < *n_stars; i++) {
+      int star_size = 0;
+      double mean_pos[2] = { 0.0, 0.0 };
+      for (int j = 0; j < n_balls; j++) {
+         if (star_list[i]->starid == ball_list[j]->starid) {
+            mean_pos[0] += ball_list[j]->position[0];
+            mean_pos[1] += ball_list[j]->position[1];
+            star_size++;
+         } 
+      }
+      // Now position is the central position of the star.
+      star_list[i]->position[0] = mean_pos[0] / star_size;
+      star_list[i]->position[1] = mean_pos[1] / star_size;
+      // Compute the radius.
+      star_list[i]->radius = 0.0;
+      for (int j = 0; j < n_balls; j++) {
+         ball_t * ball = ball_list[j];
+         if (star_list[i]->starid == ball->starid) {
+            double x_dist = star_list[i]->position[0] - ball->position[0];
+            double y_dist = star_list[i]->position[1] - ball->position[1];
+            double radius = norm(x_dist, y_dist) + sqrt(ball->size / PI);
+            if (radius > star_list[i]->radius) star_list[i]->radius = radius;
+         }
+      }
+   }
+   return star_list;
+}
+
+/*
 star_t **
 list_stars
 (
@@ -302,6 +363,7 @@ list_stars
    }
    return star_list;
 }
+*/
 
 void
 spiralize_displacements

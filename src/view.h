@@ -44,21 +44,21 @@ struct star_t {
    gstack_t * members;         // Balls inside star.
 };
 
-star_t ** list_stars(int, ball_t **, int *);
+gstack_t * list_stars(int, ball_t **, int *);
 //void      initialize_positions(int, int, ball_t **);
-void      force_directed_drawing(int, ball_t **, int);
-double    norm(double, double);
-double    electric(ball_t *, ball_t *, double);
-double    elastic(double);
-void      compute_force(ball_t *, ball_t *, int);
-double    move_ball(ball_t *);
-void      physics_loop(int, ball_t **, int, double *);
-void      regression(int, double *, double *);
-int       compar(const void *, const void *);
+void       force_directed_drawing(int, ball_t **, int);
+double     norm(double, double);
+double     electric(ball_t *, ball_t *, double);
+double     elastic(double);
+void       compute_force(ball_t *, ball_t *, int);
+double     move_ball(ball_t *);
+void       physics_loop(int, ball_t **, int, double *);
+void       regression(int, double *, double *);
+int        compar(const void *, const void *);
 //star_t ** list_stars(int, ball_t **, int *);
-void      spiralize_displacements(int, star_t **, int *);
-void      move_stars(int, int, ball_t **, star_t **);
-void      resize_canvas(int *, int, star_t **, int *);
-void      draw_cairo_env(cairo_t *, int, ball_t **, int *);
-void      draw_edges(cairo_t *, ball_t *, int *);
-void      draw_circles(cairo_t *, ball_t *, int *);
+void       spiralize_displacements(int, star_t **, int *);
+void       move_stars(int, int, ball_t **, star_t **);
+void       resize_canvas(int *, int, star_t **, int *);
+void       draw_cairo_env(cairo_t *, int, ball_t **, int *);
+void       draw_edges(cairo_t *, ball_t *, int *);
+void       draw_circles(cairo_t *, ball_t *, int *);

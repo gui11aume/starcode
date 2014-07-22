@@ -1068,7 +1068,6 @@ view
       if (useq->ball == NULL) abort();
       useq->ball->starid = i+1;
       useq->ball->size = useq->count;
-      //useq->ball->size = 40*sqrt(useq->count);
       useq->ball->children = new_gstack();
       if (useq->ball->children == NULL) abort();
       ball_list[i] = useq->ball;

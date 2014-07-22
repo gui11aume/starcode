@@ -8,19 +8,17 @@ force_directed_drawing
    int       maxthreads
 )
 {
+   // Create the thread pool.
+   pthread_t thread_pool[maxthreads];
+   for (int i = 0; i < maxthreads; i++) {
+      pthread_create(&thread_pool[i], NULL, fun, args);
+   }
    // Initialize ball positions.
    // Define canvas size and generate random positions in it.
    int canvas_size[2] = { CANVAS_SIZE , CANVAS_SIZE };
    srand(time(NULL));
    fprintf(stderr, "initializing\n");
-   int n_stars = 0;
-   gstack_t * star_list = list_stars(n_balls, ball_list, &n_stars);
-   //for (int i = 0; i < NTHREADS; i++) {
-   //   int start = i * n_balls / NTHREADS;
-   //   int stop = (i+1) * n_balls / NTHREADS;
-   //   if (stop > n_balls) stop = n_balls; 
-   //   initialize_positions(start, stop, ball_list);
-   //}
+   gstack_t * star_list = list_stars(n_balls, ball_list);
    for (int i = 0; i < n_balls; i++) {
       ball_list[i]->position[0] = rand() * RAND_FACTOR;
       ball_list[i]->position[1] = rand() * RAND_FACTOR;
@@ -39,16 +37,15 @@ force_directed_drawing
 
    fprintf(stderr, "spiralize\n");
    // Define stars and bubble-plot them.
-   //int n_stars = 0;
-   //star_t ** star_list = list_stars(n_balls, ball_list, &n_stars);
-   qsort(star_list, n_stars, sizeof(ball_t *), compar);
-   spiralize_displacements(n_stars, star_list, canvas_size);
-   move_stars(n_balls, n_stars, ball_list, star_list);
+   define_stars(star_list);
+   qsort(star_list->items, star_list->nitems, sizeof(ball_t *), compar);
+   spiralize_displacements(star_list, canvas_size);
+   move_stars(n_balls, ball_list, star_list);
 
    fprintf(stderr, "draw\n");
    // Draw all balls and bonds.
    int offset[2] = { 0, 0 };
-   resize_canvas(canvas_size, n_stars, star_list, offset);
+   resize_canvas(canvas_size, star_list, offset);
    cairo_surface_t * surface;
    surface = cairo_pdf_surface_create(
          "example_starcode_image.pdf", canvas_size[0], canvas_size[1]);
@@ -57,8 +54,39 @@ force_directed_drawing
    cairo_surface_finish(surface);
 
    // Free memory.
+   for (int i = 0; i < star_list->nitems; i++) {
+      free(((star_t *) star_list->items[i])->members);
+      free(star_list->items[i]);
+   }
    free(star_list);
    fprintf(stderr, "done\n");
+}
+
+gstack_t *
+list_stars
+(
+   int       n_balls,
+   ball_t ** ball_list
+)
+{
+   gstack_t * dense = new_gstack(); // Store star_t's (with their starid).
+   int sparse[n_balls+1];           // Store dense indices.
+   for (int i = 0; i < n_balls; i++) {
+      ball_t * ball = ball_list[i];
+      // If ball->starid is not present in the star set, create star...
+      int s = ball->starid;
+      if (!(sparse[s] < dense->nitems && sparse[s] >= 0 &&
+            ((star_t *) dense->items[sparse[s]])->starid == s)) {
+         star_t * star = malloc(sizeof(star_t));
+         star->starid = s;
+         star->members = new_gstack();
+         sparse[s] = dense->nitems;
+         push((void *) star, &dense);
+      }
+      // ...and add ball as a member of the star.
+      push((void *) ball, &((star_t *) dense->items[sparse[s]])->members);
+   }
+   return dense;
 }
 
 //void
@@ -103,7 +131,8 @@ electric
    double   dist2
 )
 {
-   double ke = 5.0e1;
+   double ke = 7.0e1;
+   //double ke = 5.0e1;
    // Coulomb's law.
    return ke * ball1->size * ball2->size / dist2;
 }
@@ -228,6 +257,34 @@ regression
    regression[1] = y_mean - regression[0] * x_mean; // Intercept.
 }
 
+void
+define_stars
+(
+   gstack_t * star_list
+)
+{
+   for (int i = 0; i < star_list->nitems; i++) {
+      star_t * star = star_list->items[i];
+      // Define star central position.
+      double mean_pos[2] = { 0.0, 0.0 };
+      for (int j = 0; j < star->members->nitems; j++) {
+         mean_pos[0] += ((ball_t *)star->members->items[j])->position[0];
+         mean_pos[1] += ((ball_t *)star->members->items[j])->position[1];
+      }
+      star->position[0] = mean_pos[0] / star->members->nitems;
+      star->position[1] = mean_pos[1] / star->members->nitems;
+      // Measure the radius.
+      star->radius = 0.0;
+      for (int j = 0; j < star->members->nitems; j++) {
+         ball_t * ball = star->members->items[j];
+         double x_dist = star->position[0] - ball->position[0];
+         double y_dist = star->position[1] - ball->position[1];
+         double radius = norm(x_dist, y_dist) + sqrt(ball->size / PI);
+         if (radius > star->radius) star->radius = radius;
+      }
+   }
+}
+
 int
 compar
 (
@@ -235,153 +292,28 @@ compar
    const void * elem2
 )
 {
-   ball_t * ball1 = (ball_t *) elem1;
-   ball_t * ball2 = (ball_t *) elem2;
-   return (ball1->size > ball2->size) ? -1 : 1; // Descending order.
+   star_t * star1 = (star_t *) elem1;
+   star_t * star2 = (star_t *) elem2;
+   return (star1->radius > star2->radius) ? -1 : 1; // Descending order.
 }
-
-gstack_t *
-list_stars
-(
-   int       n_balls,
-   ball_t ** ball_list,
-   int     * n_stars
-)
-{
-   *n_stars = 0;
-   // Create a star list and push stars into it.
-   gstack_t * star_list = new_gstack();
-   for (int i = 0; i < n_balls; i++) {
-      // Create a star and initialize it.
-      if (ball_list[i]->starid == i+1) { // TODO: why is that comparison for?
-         star_t * star = malloc(sizeof(star_t));
-         if (star == NULL) {
-            fprintf(stderr, "Error in star_t malloc: %s\n", strerror(errno));
-         }
-         star->starid = ball_list[i]->starid;
-         star->position[0] = ball_list[i]->position[0];
-         star->position[1] = ball_list[i]->position[1];
-         star->members = new_gstack();
-         push((void *) star, &star_list);
-         (*n_stars)++;
-      } else if (0) { // TODO: condition to add members to the star
-         push((void *) ball_list[i], $star_list[ball_list[i]->starid]);
-      }
-   }
-   // Define stars (center) position and radius.
-   for (int i = 0; i < *n_stars; i++) {
-      int star_size = 0;
-      double mean_pos[2] = { 0.0, 0.0 };
-      for (int j = 0; j < n_balls; j++) {
-         if (star_list[i]->starid == ball_list[j]->starid) {
-            mean_pos[0] += ball_list[j]->position[0];
-            mean_pos[1] += ball_list[j]->position[1];
-            star_size++;
-         } 
-      }
-      // Now position is the central position of the star.
-      star_list[i]->position[0] = mean_pos[0] / star_size;
-      star_list[i]->position[1] = mean_pos[1] / star_size;
-      // Compute the radius.
-      star_list[i]->radius = 0.0;
-      for (int j = 0; j < n_balls; j++) {
-         ball_t * ball = ball_list[j];
-         if (star_list[i]->starid == ball->starid) {
-            double x_dist = star_list[i]->position[0] - ball->position[0];
-            double y_dist = star_list[i]->position[1] - ball->position[1];
-            double radius = norm(x_dist, y_dist) + sqrt(ball->size / PI);
-            if (radius > star_list[i]->radius) star_list[i]->radius = radius;
-         }
-      }
-   }
-   return star_list;
-}
-
-/*
-star_t **
-list_stars
-(
-   int       n_balls,
-   ball_t ** ball_list,
-   int     * n_stars
-)
-{
-   *n_stars = 0;
-   int list_size  = 1000;
-   star_t ** star_list = malloc(list_size * sizeof(star_t *));
-   if (star_list == NULL) {
-      fprintf(stderr, "Error in star malloc: %s\n", strerror(errno));
-   }
-   // Define stars root identity and position.
-   for (int i = 0; i < n_balls; i++) {
-      if (ball_list[i]->starid == i+1) {
-         star_list[*n_stars] = malloc(sizeof(star_t));
-         if (star_list[*n_stars] == NULL) {
-            fprintf(stderr, "Error in star_list malloc: %s\n",
-                    strerror(errno));
-         }
-         star_list[*n_stars]->starid = ball_list[i]->starid;
-         star_list[*n_stars]->position[0] = ball_list[i]->position[0];
-         star_list[*n_stars]->position[1] = ball_list[i]->position[1];
-         (*n_stars)++;
-         if (*n_stars >= list_size) {
-            list_size *= 2;
-            star_list =
-               realloc(star_list, list_size * sizeof(star_t *));
-            if (star_list == NULL) {
-               fprintf(stderr, "Error in star_list realloc: %s\n",
-                       strerror(errno));
-            }
-         }
-      }
-   }
-   // Define stars (center) position and radius.
-   for (int i = 0; i < *n_stars; i++) {
-      int star_size = 0;
-      double mean_pos[2] = { 0.0, 0.0 };
-      for (int j = 0; j < n_balls; j++) {
-         if (star_list[i]->starid == ball_list[j]->starid) {
-            mean_pos[0] += ball_list[j]->position[0];
-            mean_pos[1] += ball_list[j]->position[1];
-            star_size++;
-         } 
-      }
-      // Now position is the central position of the star.
-      star_list[i]->position[0] = mean_pos[0] / star_size;
-      star_list[i]->position[1] = mean_pos[1] / star_size;
-      // Compute the radius.
-      star_list[i]->radius = 0.0;
-      for (int j = 0; j < n_balls; j++) {
-         ball_t * ball = ball_list[j];
-         if (star_list[i]->starid == ball->starid) {
-            double x_dist = star_list[i]->position[0] - ball->position[0];
-            double y_dist = star_list[i]->position[1] - ball->position[1];
-            double radius = norm(x_dist, y_dist) + sqrt(ball->size / PI);
-            if (radius > star_list[i]->radius) star_list[i]->radius = radius;
-         }
-      }
-   }
-   return star_list;
-}
-*/
 
 void
 spiralize_displacements
 (
-   int       n_stars, 
-   star_t ** star_list,
-   int     * canvas_size
+   gstack_t * star_list,
+   int      * canvas_size
 )
 {
    double center[2] = { canvas_size[0] / 2.0, canvas_size[1] / 2.0 };
    double step = 0.1; // Step along the spiral and padding between stars.
    // Place the first star in the center of the canvas.
-   star_list[0]->displacement[0] = center[0] - star_list[0]->position[0];
-   star_list[0]->displacement[1] = center[1] - star_list[0]->position[1];
-   star_list[0]->position[0] = center[0];
-   star_list[0]->position[1] = center[1];
-   for (int i = 1; i < n_stars; i++) {
-      star_t * star1 = star_list[i];
+   star_t * first = (star_t *) star_list->items[0];
+   first->displacement[0] = center[0] - first->position[0];
+   first->displacement[1] = center[1] - first->position[1];
+   first->position[0] = center[0];
+   first->position[1] = center[1];
+   for (int i = 1; i < star_list->nitems; i++) {
+      star_t * star1 = star_list->items[i];
       double x_pos;
       double y_pos;
       double distance = 0.0; // Distance from center, along a spiral line.
@@ -392,7 +324,7 @@ spiralize_displacements
          x_pos = center[0] + distance * cos(distance + phase); 
          y_pos = center[1] + distance * sin(distance + phase); 
          for (int j = 0; j < i; j++) {
-            star_t * star2 = star_list[j];
+            star_t * star2 = star_list->items[j];
             double x_dist = x_pos - star2->position[0];
             double y_dist = y_pos - star2->position[1];
             double radii = star1->radius + star2->radius;
@@ -413,17 +345,18 @@ spiralize_displacements
 void
 move_stars
 (
-   int       n_balls,
-   int       n_stars,
-   ball_t ** ball_list,
-   star_t ** star_list
+   int        n_balls,
+   ball_t  ** ball_list,
+   gstack_t * star_list
 )
 {
    for (int i = 0; i < n_balls; i++) {
-      for (int j = 0; j < n_stars; j++) {
-         if (ball_list[i]->starid == star_list[j]->starid) {
-            ball_list[i]->position[0] += star_list[j]->displacement[0];
-            ball_list[i]->position[1] += star_list[j]->displacement[1];
+      ball_t * ball = ball_list[i];
+      for (int j = 0; j < star_list->nitems; j++) {
+         star_t * star = star_list->items[j];
+         if (ball->starid == star->starid) {
+            ball->position[0] += star->displacement[0];
+            ball->position[1] += star->displacement[1];
          }
       }
    }
@@ -432,18 +365,17 @@ move_stars
 void
 resize_canvas
 (
-   int     * canvas_size,
-   int       n_stars,
-   star_t ** star_list,
-   int     * offset
+   int      * canvas_size,
+   gstack_t * star_list,
+   int      * offset
 )
 {
    double x_max = -INFINITY;
    double x_min =  INFINITY;
    double y_max = -INFINITY;
    double y_min =  INFINITY;
-   for (int i = 0; i < n_stars; i++) {
-      star_t * star = star_list[i];
+   for (int i = 0; i < star_list->nitems; i++) {
+      star_t * star = star_list->items[i];
       int x_dist = star->position[0];
       int y_dist = star->position[1];
       if (x_dist + star->radius > x_max) x_max = x_dist + star->radius;

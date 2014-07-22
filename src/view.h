@@ -19,7 +19,6 @@
 #define CANVAS_SIZE 600.0
 #define RAND_FACTOR CANVAS_SIZE / RAND_MAX
 #define PI 3.141592653589793238462643383279502884L
-#define NTHREADS 6
 
 struct ball_t;
 struct star_t;
@@ -38,13 +37,13 @@ struct ball_t {
 
 struct star_t {
    int        starid;          // Numeric ID of the star.
-   double     position[2];     // (x,y) initial position of the root.
+   double     position[2];     // (x,y) initial position of the star.
    double     displacement[2]; // (x,y) distance from position.
    double     radius;          // Distance to most distant ball + its radius.
    gstack_t * members;         // Balls inside star.
 };
 
-gstack_t * list_stars(int, ball_t **, int *);
+gstack_t * list_stars(int, ball_t **);
 //void      initialize_positions(int, int, ball_t **);
 void       force_directed_drawing(int, ball_t **, int);
 double     norm(double, double);
@@ -54,11 +53,11 @@ void       compute_force(ball_t *, ball_t *, int);
 double     move_ball(ball_t *);
 void       physics_loop(int, ball_t **, int, double *);
 void       regression(int, double *, double *);
+void       define_stars(gstack_t *);
 int        compar(const void *, const void *);
-//star_t ** list_stars(int, ball_t **, int *);
-void       spiralize_displacements(int, star_t **, int *);
-void       move_stars(int, int, ball_t **, star_t **);
-void       resize_canvas(int *, int, star_t **, int *);
+void       spiralize_displacements(gstack_t *, int *);
+void       move_stars(int, ball_t **, gstack_t *);
+void       resize_canvas(int *, gstack_t *, int *);
 void       draw_cairo_env(cairo_t *, int, ball_t **, int *);
 void       draw_edges(cairo_t *, ball_t *, int *);
 void       draw_circles(cairo_t *, ball_t *, int *);

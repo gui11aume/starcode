@@ -90,7 +90,7 @@ search
    ERROR = 0;
 
    char maxtau = get_maxtau(trie);
-   char height = get_height(trie);
+   int height = get_height(trie);
    if (tau > maxtau) {
       // DETAIL: the nodes' cache has been allocated just enough
       // space to hold Levenshtein distances up to a maximum tau.

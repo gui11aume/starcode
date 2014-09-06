@@ -54,8 +54,8 @@ typedef struct trie_t trie_t;
 // Global constants.
 #define PAD 5		   // Position of padding nodes.
 #define EOS -1             // End Of String, for 'dash()'.
-#define MAXBRCDLEN 127     // Maximum barcode length.
-#define M 128              // MAXBRCDLEN + 1, for short.
+#define MAXBRCDLEN 255     // Maximum barcode length.
+#define M 256              // MAXBRCDLEN + 1, for short.
 #define STACK_INIT_SIZE 16 // Initial space for 'nstack' and 'hstack'
 gstack_t * const TOWER_TOP;
 

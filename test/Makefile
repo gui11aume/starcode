@@ -1,9 +1,8 @@
-vpath %.c ..
-vpath %.h ..
+VPATH= ../src
 
 P=testset
 OBJECTS= trie.o starcode.o
-CFLAGS= -I.. `pkg-config --cflags glib-2.0` -g -Wall -std=gnu99 \
+CFLAGS= -I../src `pkg-config --cflags glib-2.0` -g -Wall -std=gnu99 \
 	-fprofile-arcs -ftest-coverage \
 	-O0 -Wno-aggressive-loop-optimizations
 	#-pg -fprofile-arcs -ftest-coverage

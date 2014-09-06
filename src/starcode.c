@@ -117,7 +117,11 @@ run_plan
             pthread_t thread;
             // Start job and detach thread.
             if (pthread_create(&thread, NULL, do_query, job)) {
-               fprintf(stderr, "error creating thread (run_plan): %s\n", strerror(errno));
+               fprintf(stderr, "error creating thread (run_plan): %s\n",
+                     strerror(errno));
+               fprintf(stderr,
+                     "Please contact guillaume.filion@gmail.com "
+                     "for support with this issue.\n");
                abort();
             }
             pthread_detach(thread);
@@ -160,7 +164,11 @@ do_query
    // Create local hit stack.
    gstack_t **hits = new_tower(tau+1);
    if (hits == NULL) {
-      fprintf(stderr, "error creating hit stack (do_query): %s\n", strerror(errno));
+      fprintf(stderr, "error creating hit stack (do_query): %s\n",
+            strerror(errno));
+      fprintf(stderr,
+            "Please contact guillaume.filion@gmail.com "
+            "for support with this issue.\n");
       abort();
    }
 
@@ -178,8 +186,12 @@ do_query
          lut_insert(lut, query);
          data = insert_string_wo_malloc(trie, query->seq, &node_pos);
          if (data == NULL || *data != NULL) {
-            fprintf(stderr, "error building trie (do_query): %s.\n", strerror(errno));
+            fprintf(stderr, "error building trie (do_query): %s.\n",
+                  strerror(errno));
             abort();
+            fprintf(stderr,
+                  "Please contact guillaume.filion@gmail.com "
+                  "for support with this issue.\n");
          }
       }
 
@@ -206,6 +218,9 @@ do_query
          int err = search(trie, query->seq, tau, hits, start, trail);
          if (err) {
             fprintf(stderr, "search error (do_query): %d\n", err);
+            fprintf(stderr,
+                  "Please contact guillaume.filion@gmail.com "
+                  "for support with this issue.\n");
             abort();
          }
 
@@ -308,7 +323,8 @@ plan_mt
    // Initialize plan.
    mtplan_t *mtplan = malloc(sizeof(mtplan_t));
    if (mtplan == NULL) {
-      fprintf(stderr, "error allocating mt_plan (plan_mt): %s\n",strerror(errno));
+      fprintf(stderr, "out of memory error (plan_mt): %s\n",
+            strerror(errno));
       abort();
    }
 
@@ -316,7 +332,8 @@ plan_mt
    pthread_mutex_t *mutex = malloc((ntries + 1) * sizeof(pthread_mutex_t));
    pthread_cond_t *monitor = malloc(sizeof(pthread_cond_t));
    if (mutex == NULL || monitor == NULL) {
-      fprintf(stderr, "error allocating mutex (plan_mt): %s\n",strerror(errno));
+      fprintf(stderr, "out of memory error (plan_mt): %s\n",
+            strerror(errno));
       abort();
    }
    for (int i = 0; i < ntries + 1; i++) pthread_mutex_init(mutex + i,NULL);
@@ -325,7 +342,8 @@ plan_mt
    // Initialize 'mttries'.
    mttrie_t *mttries = malloc(ntries * sizeof(mttrie_t));
    if (mttries == NULL) {
-      fprintf(stderr, "error allocating mttrie_t (plan_mt): %s\n", strerror(errno));
+      fprintf(stderr, "out of memory error (plan_mt): %s\n",
+            strerror(errno));
       abort();
    }
 
@@ -348,7 +366,8 @@ plan_mt
       node_t *local_nodes = (node_t *) malloc(nnodes[i] * node_t_size(tau));
       mtjob_t *jobs = malloc(njobs * sizeof(mtjob_t));
       if (local_trie == NULL || jobs == NULL) {
-         fprintf(stderr, "error allocating trie mtjob_t (plan_mt): %s\n", strerror(errno));
+         fprintf(stderr, "out of memory error (plan_mt): %s\n",
+               strerror(errno));
          abort();
       }
 
@@ -663,12 +682,14 @@ read_file
    size_t nchar = M;
    gstack_t *useqS = new_gstack();
    if (useqS == NULL) {
-      fprintf(stderr, "error allocating useq gstack (read_file): %s\n", strerror(errno));
+      fprintf(stderr, "out of memory error (read_file): %s\n",
+            strerror(errno));
       abort();
    }
    char *line = malloc(M * sizeof(char));
    if (line == NULL) {
-      fprintf(stderr, "error allocating line buffer (read_file): %s\n", strerror(errno));
+      fprintf(stderr, "out of memory error (read_file): %s\n",
+            strerror(errno));
       abort();
    }
    int count = 0;
@@ -687,12 +708,14 @@ read_file
          seq = copy;
       }
       if (strlen(seq) > MAXBRCDLEN) {
-         fprintf(stderr, "error (read_file): maximum input sequence length exceeded.\n");
+         fprintf(stderr, "max sequence length exceeded (%d) \n", M-1);
+         fprintf(stderr, "offending sequence:\n%s\n", seq);
          abort();
       }
       useq_t *new = new_useq(count, seq);
       if (new == NULL) {
-         fprintf(stderr, "error allocating useq_t (read_file): %s\n", strerror(errno));
+         fprintf(stderr, "out of memory error (read_file): %s\n",
+               strerror(errno));
          abort();
       }
       push(new, &useqS);
@@ -769,7 +792,8 @@ unpad_useq
       // Create a new sequence without paddings characters.
       char *unpadded = malloc((len - pad + 1) * sizeof(char));
       if (unpadded == NULL) {
-         fprintf(stderr, "error allocating char* (unpad_useq): %s\n", strerror(errno));
+         fprintf(stderr, "out of memory error (unpad_useq): %s\n",
+               strerror(errno));
          abort();
       }
       memcpy(unpadded, u->seq + pad, len - pad + 1);
@@ -852,6 +876,9 @@ addmatch
 {
    if (dist > tau) {
       fprintf(stderr, "error (addmatch): distance exceeds tau.\n");
+      fprintf(stderr,
+            "Please contact guillaume.filion@gmail.com "
+            "for support with this issue.\n");
       abort();
    }
    // Create stack if not done before.
@@ -996,7 +1023,8 @@ new_useq
 {
    useq_t *new = malloc(sizeof(useq_t));
    if (new == NULL) {
-      fprintf(stderr, "error allocating useq_t (new_useq): %s\n", strerror(errno));
+      fprintf(stderr, "out of memory error (new_useq): %s\n",
+            strerror(errno));
       abort();
    }
    new->seq = malloc((strlen(seq)+1) * sizeof(char));

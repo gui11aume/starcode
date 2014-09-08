@@ -56,10 +56,6 @@
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #define max(a,b) (((a) > (b)) ? (a) : (b))
 
-#if !defined( __GNUC__) || defined(__APPLE__)
-   ssize_t getline(char **lineptr, size_t *n, FILE *stream);
-#endif
-
 struct useq_t;
 struct c_t;
 struct match_t;

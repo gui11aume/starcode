@@ -57,7 +57,6 @@ search
          trie_t   *  trie,
    const char     *  query,
    const int         tau,
-//         hstack_t ** hits,
          gstack_t ** hits,
          int         start_depth,
    const int         seed_depth

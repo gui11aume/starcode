@@ -742,7 +742,7 @@ pad_useq
    }
 
    // Alloc median bins. (Initializes to 0)
-   int  * count = calloc((maxlen + 1) * sizeof(int));
+   int  * count = calloc((maxlen + 1), sizeof(int));
    char *spaces = malloc((maxlen + 1) * sizeof(char));
    for (int i = 0 ; i < maxlen ; i++) spaces[i] = ' ';
    spaces[maxlen] = '\0';

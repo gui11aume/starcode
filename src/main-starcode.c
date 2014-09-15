@@ -78,7 +78,7 @@ main(
          {"verbose", no_argument,       0, 'v'},
          {"help",    no_argument,       0, 'h'},
          {"spheres", no_argument,       0, 's'},
-//         {"format",  required_argument, 0, 'f'},
+//       {"format",  required_argument, 0, 'f'},
          {"dist",    required_argument, 0, 'd'},
          {"input",   required_argument, 0, 'i'},
          {"output",  required_argument, 0, 'o'},

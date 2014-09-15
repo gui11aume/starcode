@@ -24,6 +24,7 @@
 */
 
 #include "starcode.h"
+#include "_starcode.h"
 
 FILE *OUTPUT = NULL;
 
@@ -44,7 +45,7 @@ starcode
    gstack_t *useqS = read_file(inputf);
 
    // Sort and reduce.
-   useqS->nitems = seqsort(useqS->items, useqS->nitems, AtoZ, maxthreads);
+   useqS->nitems = seqsort(useqS->items, useqS->nitems, size_order, maxthreads);
 
    // Get number of tries.
    int ntries = 3 * maxthreads + (maxthreads % 2 == 0);
@@ -362,8 +363,8 @@ plan_mt
    for (int i = 0 ; i < ntries; i++) {
       // Remember that 'ntries' is odd.
       int njobs = (ntries+1)/2;
-      trie_t *local_trie  = new_trie(tau, height);
-      node_t *local_nodes = (node_t *) malloc(nnodes[i] * node_t_size(tau));
+      trie_t *local_trie  = new_trie(height);
+      node_t *local_nodes = (node_t *) malloc(nnodes[i] * sizeof(node_t));
       mtjob_t *jobs = malloc(njobs * sizeof(mtjob_t));
       if (local_trie == NULL || jobs == NULL) {
          fprintf(stderr, "out of memory error (plan_mt): %s\n",
@@ -374,6 +375,11 @@ plan_mt
       // Allocate lookup struct.
       // TODO: Try only one lut as well. (It will always return 1 in the query step though).
       lookup_t * local_lut = new_lookup(medianlen, height, tau, 14);
+      if (local_lut == NULL) {
+         fprintf(stderr, "out of memory error (plan_mt): %s\n",
+               strerror(errno));
+         abort();
+      }
 
       mttries[i].flag       = TRIE_FREE;
       mttries[i].currentjob = 0;
@@ -448,7 +454,8 @@ sphere_clustering
 )
 {
    // Sort in count order.
-   qsort(useqS->items, useqS->nitems, sizeof(useq_t *), count_order);
+   //qsort(useqS->items, useqS->nitems, sizeof(useq_t *), count_order);
+   seqsort(useqS->items, useqS->nitems, count_order, maxthreads);
 
    for (int i = 0 ; i < useqS->nitems ; i++) {
       useq_t *useq = (useq_t *) useqS->items[i];
@@ -468,7 +475,8 @@ sphere_clustering
    }
 
    // Sort in count order after update.
-   qsort(useqS->items, useqS->nitems, sizeof(useq_t *), count_order);
+   //qsort(useqS->items, useqS->nitems, sizeof(useq_t *), count_order);
+   seqsort(useqS->items, useqS->nitems, count_order, maxthreads);
 
    for (int i = 0 ; i < useqS->nitems ; i++) {
 
@@ -746,6 +754,11 @@ pad_useq
    for (int i = 0; i <= maxlen; i++) count[i] = 0;
 
    char *spaces = malloc((maxlen + 1) * sizeof(char));
+   if (spaces == NULL) {
+      fprintf(stderr, "out of memory error (pad_useq): %s\n",
+            strerror(errno));
+      abort();
+   }
    for (int i = 0 ; i < maxlen ; i++) spaces[i] = ' ';
    spaces[maxlen] = '\0';
 
@@ -757,6 +770,11 @@ pad_useq
       if (len == maxlen) continue;
       // Create a new sequence with padding characters.
       char *padded = malloc((maxlen + 1) * sizeof(char));
+      if (padded == NULL) {
+         fprintf(stderr, "out of memory error (pad_useq): %s\n",
+               strerror(errno));
+         abort();
+      }
       memcpy(padded, spaces, maxlen + 1);
       memcpy(padded+maxlen-len, u->seq, len);
       free(u->seq);
@@ -887,39 +905,6 @@ addmatch
 }
 
 
-int
-canonical_order
-(
-   const void *a,
-   const void *b
-)
-{
-   useq_t *u1 = (useq_t *) a;
-   useq_t *u2 = (useq_t *) b;
-   if (u1->canonical == u2->canonical) return strcmp(u1->seq, u2->seq);
-   if (u1->canonical == NULL) return 1;
-   if (u2->canonical == NULL) return -1;
-   if (u1->canonical->count == u2->canonical->count) {
-      return strcmp(u1->canonical->seq, u2->canonical->seq);
-   }
-   if (u1->canonical->count > u2->canonical->count) return -1;
-   return 1;
-} 
-
-
-int
-count_order
-(
-   const void *a,
-   const void *b
-)
-{
-   int Ca = (*(useq_t **) a)->count;
-   int Cb = (*(useq_t **) b)->count;
-   return (Ca < Cb) - (Ca > Cb);
-} 
-
-
 lookup_t *
 new_lookup
 (
@@ -929,7 +914,13 @@ new_lookup
  int maxkmer
 )
 {
-   lookup_t * lut = (lookup_t *) malloc(2*sizeof(int) + sizeof(int *) + (tau+1)*sizeof(char *));
+   lookup_t * lut = (lookup_t *) malloc(2*sizeof(int) + sizeof(int *) +
+         (tau+1)*sizeof(char *));
+   if (lut == NULL) {
+      fprintf(stderr, "error could not create lookup\n");
+      return NULL;
+   }
+
    int k   = slen / (tau + 1);
    int rem = tau - slen % (tau + 1);
 
@@ -945,8 +936,17 @@ new_lookup
       for (int i = 0; i < tau + 1; i++) lut->klen[i] = k - (rem-- > 0);
 
    // Allocate lookup tables.
-   for (int i = 0; i < tau + 1; i++)
+   for (int i = 0; i < tau + 1; i++) {
       lut->lut[i] = (char *) calloc(1 << max(0,(2*lut->klen[i] - 3)), sizeof(char));
+      if (lut->lut[i] == NULL) {
+         while (--i > 0) {
+            free(lut->lut[i]);
+         }  
+         free(lut);
+         fprintf(stderr, "error could not create lookup\n");
+         return NULL;
+      }
+   }
 
    return lut;
 }
@@ -1049,24 +1049,61 @@ destroy_useq
 
 
 int
-AtoZ
+size_order
 (
-   const void *ap,
-   const void *bp
+   const void *a,
+   const void *b
 )
 {
-   useq_t *a = (useq_t *) ap;
-   useq_t *b = (useq_t *) bp;
-   int la = strlen(a->seq);
-   int lb = strlen(b->seq);
+   useq_t *u1 = (useq_t *) a;
+   useq_t *u2 = (useq_t *) b;
+   int la = strlen(u1->seq);
+   int lb = strlen(u2->seq);
    if (la == lb) {
-      int cmp = strcmp(a->seq, b->seq);
+      int cmp = strcmp(u1->seq, u2->seq);
       if (cmp == 0) {
-         a->count += b->count;
-         free(b->seq);
-         free(b);
+         u1->count += u2->count;
+         destroy_useq(u2);
       }
       return cmp;
    }
    return (la < lb ? -1 : 1);
 }
+
+
+int
+canonical_order
+(
+   const void *a,
+   const void *b
+)
+{
+   useq_t *u1 = (useq_t *) a;
+   useq_t *u2 = (useq_t *) b;
+   if (u1->canonical == u2->canonical) return strcmp(u1->seq, u2->seq);
+   if (u1->canonical == NULL) return 1;
+   if (u2->canonical == NULL) return -1;
+   if (u1->canonical->count == u2->canonical->count) {
+      return strcmp(u1->canonical->seq, u2->canonical->seq);
+   }
+   if (u1->canonical->count > u2->canonical->count) return -1;
+   return 1;
+} 
+
+
+int
+count_order
+(
+   const void *a,
+   const void *b
+)
+{
+   useq_t *u1 = (useq_t *) a;
+   useq_t *u2 = (useq_t *) b;
+   if (u1->count == u2->count) {
+      return strcmp(u1->seq, u2->seq);
+   }
+   return u1->count < u2->count ? 1 : -1;
+} 
+
+

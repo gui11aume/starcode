@@ -1,33 +1,32 @@
-VPATH= ../src
+vpath %.c ../src
+vpath %.c lib
+vpath %.h ../src
+vpath %.h lib
 
-P=testset
-OBJECTS= trie.o starcode.o
-CFLAGS= -I../src `pkg-config --cflags glib-2.0` -g -Wall -std=gnu99 \
-	-fprofile-arcs -ftest-coverage \
-	-O0 -Wno-aggressive-loop-optimizations
-	#-pg -fprofile-arcs -ftest-coverage
-LDLIBS= -L`pwd` -Wl,-rpath=`pwd` `pkg-config --libs glib-2.0` \
-	-lfaultymalloc -lpthread
+P= runtests
+OBJECTS= trie.o starcode.o tests.o libunittest.so
+
 CC= gcc
-$(P): $(OBJECTS) libfaultymalloc.so
+INCLUDES= -I../src -Ilib
+COVERAGE= -fprofile-arcs -ftest-coverage
+CFLAGS= -std=gnu99 -g -Wall -O0 $(INCLUDES) $(COVERAGE)
+LDLIBS= -L`pwd` -Wl,-rpath=`pwd` -lunittest -lpthread
+
+$(P): $(OBJECTS)
+	$(CC) $(CFLAGS) $(OBJECTS) $(LDLIBS) -o $@
 
 clean:
-	rm -f testset *.o *.so *.gcda *.gcno *.gcov gmon.out analysis.txt
+	rm -f $(P) $(OBJECTS) *.gcda *.gcno *.gcov gmon.out .inspect.gdb
 
-libfaultymalloc.so: faultymalloc.c
-	$(CC) -fPIC -shared $(CFLAGS) -o libfaultymalloc.so faultymalloc.c
+libunittest.so: unittest.c
+	$(CC) -fPIC -shared $(CFLAGS) -o libunittest.so lib/unittest.c
 
-test: testset
-	gtester --verbose --keep-going testset
+test: $(P)
+	./$(P)
 
-testperf: testset
-	#perf stat -B -e cache-references,cache-misses,cycles,instructions,branches,faults,migrations gtester --verbose --keep-going -m=perf testset
-	perf stat -d gtester --verbose --keep-going -m=perf testset
-	#gprof -F trie testset gmon.out > analysis.txt
-	#gcov *.gcda
-
-debug: testset
-	gdb --command=debug.gdb --args testset -m=perf
+inspect: $(P)
+	gdb --command=.inspect.gdb --args $(P)
 
 valgrind:
-	valgrind --vgdb=yes --vgdb-error=0 ./testset -m=perf
+	valgrind --vgdb=yes --vgdb-error=0 ./$(P) --debug
+	#valgrind ./$(P) --debug

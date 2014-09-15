@@ -24,6 +24,7 @@
 */
 
 #include "trie.h"
+#include "_trie.h"
 
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #define max(a,b) (((a) > (b)) ? (a) : (b))
@@ -31,23 +32,7 @@
 // Globals.
 int ERROR = 0;
 
-// Here functions.
-int get_maxtau(trie_t *trie) { return trie->info->maxtau; }
 int get_height(trie_t *trie) { return trie->info->height; }
-
-// --  DECLARATION OF PRIVATE FUNCTIONS  -- //
-
-// Search.
-void poucet(node_t*, int, struct arg_t);
-void dash(node_t*, const int*, struct arg_t);
-// Trie creation and destruction.
-node_t *insert(node_t*, int, unsigned char);
-node_t *insert_wo_malloc(node_t *, int, unsigned char, void *);
-node_t *new_trienode(unsigned char);
-void destroy_from(node_t*, void(*)(void*), int, int, int);
-// Snippets.
-int recursive_count_nodes(node_t * node, int, int);
-
 
 // ------  SEARCH FUNCTIONS ------ //
 
@@ -88,21 +73,16 @@ search
 {
    ERROR = 0;
 
-   char maxtau = get_maxtau(trie);
    int height = get_height(trie);
-   if (tau > maxtau) {
-      // DETAIL: the nodes' cache has been allocated just enough
-      // space to hold Levenshtein distances up to a maximum tau.
-      // If this is exceeded, the search will try to read from and
-      // write to forbidden memory space.
-      fprintf(stderr, "error: requested tau greater than 'maxtau'\n");
-      return 74;
+   if (tau > TAU) {
+      fprintf(stderr, "error: requested tau greater than %d\n", TAU);
+      return __LINE__;
    }
 
    int length = strlen(query);
    if (length > height) {
       fprintf(stderr, "error: query longer than allowed max\n");
-      return 80;
+      return __LINE__;
    }
 
    // Make sure the cache is allocated.
@@ -119,7 +99,7 @@ search
    int translated[M];
    translated[0] = length;
    translated[length+1] = EOS;
-   for (int i = max(0, start_depth-maxtau) ; i < length ; i++) {
+   for (int i = max(0, start_depth-TAU) ; i < length ; i++) {
       translated[i+1] = altranslate[(int) query[i]];
    }
 
@@ -128,7 +108,6 @@ search
       .hits    = hits,
       .query   = translated,
       .tau     = tau,
-      .maxtau  = maxtau,
       .pebbles = info->pebbles,
       .seed_depth    = seed_depth,
       .height  = height,
@@ -193,7 +172,7 @@ poucet
    // with positive index and requiring the path, from the part that
    // goes horizontally, with negative index and requiring previous
    // characters of the query.
-   char *pcache = node->cache + arg.maxtau;
+   char *pcache = node->cache + TAU;
    // Risk of overflow at depth lower than 'tau'.
    int maxa = min((depth-1), arg.tau);
 
@@ -230,8 +209,8 @@ poucet
       // Same remark as for parent cache.
       char local_cache[] = {9,8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8,9};
       char *ccache = depth == arg.height ?
-         local_cache + 9 : child->cache + arg.maxtau;
-      memcpy(ccache+1, common, arg.maxtau * sizeof(char));
+         local_cache + 9 : child->cache + TAU;
+      memcpy(ccache+1, common, TAU * sizeof(char));
 
       // Horizontal arm of the L (need previous characters).
       if (maxa > 0) {
@@ -330,60 +309,53 @@ dash
 trie_t *
 new_trie
 (
-   unsigned char maxtau,
-   unsigned char height
+   unsigned int  height
 )
 // SYNOPSIS:                                                              
 //   Front end trie constructor.                                          
 //                                                                        
 // PARAMETERS:                                                            
-//   maxtau: the max value that tau can take in a search                  
 //   height: the fixed depth of the leaves                                
 //                                                                        
 // RETURN:                                                                
 //   A pointer to trie root with meta information and no children.        
 {
 
-   if (maxtau > 8) {
-      fprintf(stderr, "error: 'maxtau' cannot be greater than 8\n");
-      ERROR = 323;
-      // DETAIL:                                                         
-      // There is an absolute limit at 'tau' = 8 because the struct      
-      // member 'path' is encoded as a 32 bit 'int', ie an 8 x 4-bit     
-      // array. It should be enough for most practical purposes.         
+   if (height < 1) {
+      fprintf(stderr, "error: the minimum trie height is 1\n");
+      ERROR = __LINE__;
       return NULL;
    }
 
-   trie_t *trie = malloc(sizeof(trie_t *));
+   trie_t *trie = malloc(sizeof(trie_t));
    if (trie == NULL) {
       fprintf(stderr, "error: could not create trie\n");
-      ERROR = 334;
+      ERROR = __LINE__;
       return NULL;
    }
 
-   node_t *root = new_trienode(maxtau);
+   node_t *root = new_trienode();
    if (root == NULL) {
       fprintf(stderr, "error: could not create root\n");
-      ERROR = 341;
+      ERROR = __LINE__;
       return NULL;
    }
 
    info_t *info = malloc(sizeof(info_t));
    if (info == NULL) {
       fprintf(stderr, "error: could not create trie\n");
-      ERROR = 348;
+      ERROR = __LINE__;
       free(root);
       return NULL;
    }
 
    // Set the values of the meta information.
-   info->maxtau = maxtau;
    info->height = height;
    info->pebbles = new_tower(M);
 
    if (info->pebbles == NULL) {
       fprintf(stderr, "error: could not create trie\n");
-      ERROR = 360;
+      ERROR = __LINE__;
       free(info);
       free(root);
       return NULL;
@@ -400,36 +372,29 @@ new_trie
 
 node_t *
 new_trienode
-(
-   unsigned char maxtau
-)
+(void)
 // SYNOPSIS:                                                              
 //   Back end constructor for a trie node. All values are initialized to  
 //   null, except the cache for dynamic programming which is initialized  
 //   as a root node.                                                      
 //                                                                        
-// PARAMETERS:                                                            
-//   maxtau: the max value that tau can take in a search                  
-//                                                                        
 // RETURN:                                                                
 //   A pointer to trie node with no data and no children.                 
 {
-   size_t cachesize = (2*maxtau + 1) * sizeof(char);
-   node_t *node = malloc(sizeof(node_t) + cachesize);
+
+   node_t *node = calloc(1, sizeof(node_t));
    if (node == NULL) {
       fprintf(stderr, "error: could not create trie node\n");
-      ERROR = 395;
+      ERROR = __LINE__;
       return NULL;
    }
 
-   // Set all base values to 0.
-   node->path = 0;
-   for(int i = 0; i < 6; i++) node->child[i] = NULL;
    // Initialize the cache. This is important for the
    // dynamic programming algorithm.
-   const char init[17] = {8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8};
-   memcpy(node->cache, init+(8-maxtau), cachesize);
+   const char init[] = {8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8};
+   memcpy(node->cache, init, 2*TAU+1);
    return node;
+
 }
 
 
@@ -446,20 +411,20 @@ insert_string
 //                                                                        
 // RETURN:                                                                
 //   The leaf node in case of succes, 'NULL' otherwise.                   
+//                                                                        
+// NB: This function is not used by 'starcode()'.
 {
 
    int i;
 
    int nchar = strlen(string);
-   if (nchar > get_height(trie)) {
-      fprintf(stderr, "error: cannot insert string longer than %d\n",
+   if (nchar != get_height(trie)) {
+      fprintf(stderr, "error: can only insert string of length %d\n",
             get_height(trie));
-      ERROR = 432;
+      ERROR = __LINE__;
       return NULL;
    }
    
-   unsigned char maxtau = get_maxtau(trie);
-
    // Find existing path.
    node_t *node = trie->root;
    for (i = 0 ; i < nchar-1; i++) {
@@ -474,10 +439,10 @@ insert_string
    // Append more nodes.
    for ( ; i < nchar-1 ; i++) {
       int c = translate[(int) string[i]];
-      node = insert(node, c, maxtau);
+      node = insert(node, c);
       if (node == NULL) {
          fprintf(stderr, "error: could not insert string\n");
-         ERROR = 455;
+         ERROR = __LINE__;
          return NULL;
       }
    }
@@ -490,9 +455,8 @@ insert_string
 node_t *
 insert
 (
-            node_t * parent,
-            int      position,
-   unsigned char     maxtau
+   node_t * parent,
+   int      position
 )
 // SYNOPSIS:                                                              
 //   Back end function to construct tries. Append a child to an existing  
@@ -507,16 +471,17 @@ insert
 // PARAMETERS:                                                            
 //   parent: the parent to append the node to                             
 //   position: the position of the child                                  
-//   maxtau: the maximum value of tau used for searches                   
 //                                                                        
 // RETURN:                                                                
 //   The appended child node in case of success, 'NULL' otherwise.        
+//                                                                        
+// NB: This function is not used by 'starcode()'.
 {
    // Initilalize child node.
-   node_t *child = new_trienode(maxtau);
+   node_t *child = new_trienode();
    if (child == NULL) {
       fprintf(stderr, "error: could not insert node\n");
-      ERROR = 494;
+      ERROR = __LINE__;
       return NULL;
    }
    // Update child path and parent pointer.
@@ -534,9 +499,9 @@ insert_string_wo_malloc
 (
          trie_t  * trie,
    const char    * string,
-         node_t ** from_address
+         node_t ** from_addr
 )
-// TODO: document the function, explain that 'from_address' is
+// TODO: document the function, explain that 'from_addr' is
 // incremented.
 // SYNOPSIS:                                                              
 //                                                                        
@@ -546,15 +511,13 @@ insert_string_wo_malloc
    int i;
 
    int nchar = strlen(string);
-   if (nchar > get_height(trie)) {
-      fprintf(stderr, "error: cannot insert string longer than %d\n",
+   if (nchar != get_height(trie)) {
+      fprintf(stderr, "error: can only insert string of length %d\n",
             get_height(trie));
-      ERROR = 526;
+      ERROR = __LINE__;
       return NULL;
    }
    
-   const unsigned char maxtau = get_maxtau(trie);
-
    // Find existing path.
    node_t *node = trie->root;
    for (i = 0 ; i < nchar-1; i++) {
@@ -569,13 +532,8 @@ insert_string_wo_malloc
    // Append more nodes.
    for ( ; i < nchar-1 ; i++) {
       int c = translate[(int) string[i]];
-      node = insert_wo_malloc(node, c, maxtau, *from_address);
-      *from_address = (node_t *)(((char *) (*from_address)) + node_t_size(maxtau));
-      if (node == NULL) {
-         fprintf(stderr, "error: could not insert string\n");
-         ERROR = 549;
-         return NULL;
-      }
+      node = insert_wo_malloc(node, c, *from_addr);
+      (*from_addr)++; 
    }
 
    return node->child + translate[(int) string[nchar-1]];
@@ -585,10 +543,9 @@ insert_string_wo_malloc
 node_t *
 insert_wo_malloc
 (
-            node_t * parent,
-            int      position,
-   unsigned char     maxtau,
-            void   * at_address
+   node_t * parent,
+   int      position,
+   node_t * at_address
 )
 // TODO: document the funciton.
 // SYNOPSIS:                                                              
@@ -600,12 +557,12 @@ insert_wo_malloc
 {
 
    node_t *node = (node_t *) at_address;
-   size_t cachesize = (2*maxtau + 1) * sizeof(char);
 
-   for(int i = 0; i < 6; i++) node->child[i] = NULL;
-   const char init[17] = {8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8};
-   memcpy(node->cache, init+(8-maxtau), cachesize);
+   memset(node->child, 0, 6 * sizeof(void *));
    node->path = (parent->path << 4) + position;
+   const char init[] = {8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8};
+   memcpy(node->cache, init, 2*TAU+1);
+
    parent->child[position] = node;
 
    return node;
@@ -692,17 +649,17 @@ gstack_t *
 new_gstack
 (void)
 {
-   // Allocate memory for a node array, with 'STACK_INIT_SIZE' slots.
+   // Allocate memory for a node array, with 'GSTACK_INIT_SIZE' slots.
    size_t base_size = sizeof(gstack_t);
-   size_t extra_size = STACK_INIT_SIZE * sizeof(void *);
+   size_t extra_size = GSTACK_INIT_SIZE * sizeof(void *);
    gstack_t *new = malloc(base_size + extra_size);
    if (new == NULL) {
       fprintf(stderr, "error: could not create gstack\n");
-      ERROR = 589;
+      ERROR = __LINE__;
       return NULL;
    }
    new->nitems = 0;
-   new->nslots = STACK_INIT_SIZE;
+   new->nslots = GSTACK_INIT_SIZE;
    return new;
 }
 
@@ -715,13 +672,13 @@ new_tower
    gstack_t **new = malloc((height+1) * sizeof(gstack_t *));
    if (new == NULL) {
       fprintf(stderr, "error: could not create tower\n");
-      ERROR = 606;
+      ERROR = __LINE__;
       return NULL;
    }
    for (int i = 0 ; i < height ; i++) {
       new[i] = new_gstack();
       if (new[i] == NULL) {
-         ERROR = 612;
+         ERROR = __LINE__;
          fprintf(stderr, "error: could not initialize tower\n");
          while (--i >= 0) {
             free(new[i]);
@@ -773,7 +730,7 @@ push
          // 'nitems' beyond 'nslots' to lock the stack.
          fprintf(stderr, "error: could not push to gstack\n");
          stack->nitems++;
-         ERROR = 664;
+         ERROR = __LINE__;
          return;
       }
       *stack_addr = stack = ptr;

@@ -750,9 +750,7 @@ pad_useq
    }
 
    // Alloc median bins. (Initializes to 0)
-   int count[maxlen+1];
-   for (int i = 0; i <= maxlen; i++) count[i] = 0;
-
+   int  * count = calloc((maxlen + 1), sizeof(int));
    char *spaces = malloc((maxlen + 1) * sizeof(char));
    if (spaces == NULL) {
       fprintf(stderr, "out of memory error (pad_useq): %s\n",

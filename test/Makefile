@@ -28,5 +28,5 @@ inspect: $(P)
 	gdb --command=.inspect.gdb --args $(P)
 
 valgrind:
-	valgrind --vgdb=yes --vgdb-error=0 ./$(P) --debug
-	#valgrind ./$(P) --debug
+	#valgrind --vgdb=yes --vgdb-error=0 ./$(P) --debug
+	valgrind ./$(P) --debug

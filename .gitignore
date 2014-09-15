@@ -9,3 +9,4 @@ gmon.out
 starcode
 test/analysis.txt
 test/.inspect.gdb
+test/runtests

@@ -374,7 +374,7 @@ plan_mt
 
       // Allocate lookup struct.
       // TODO: Try only one lut as well. (It will always return 1 in the query step though).
-      lookup_t * local_lut = new_lookup(medianlen, height, tau, 14);
+      lookup_t * local_lut = new_lookup(medianlen, height, tau);
       if (local_lut == NULL) {
          fprintf(stderr, "out of memory error (plan_mt): %s\n",
                strerror(errno));
@@ -908,8 +908,7 @@ new_lookup
 (
  int slen,
  int maxlen,
- int tau,
- int maxkmer
+ int tau
 )
 {
    lookup_t * lut = (lookup_t *) malloc(2*sizeof(int) + sizeof(int *) +
@@ -919,6 +918,7 @@ new_lookup
       return NULL;
    }
 
+   // Target size.
    int k   = slen / (tau + 1);
    int rem = tau - slen % (tau + 1);
 
@@ -928,8 +928,8 @@ new_lookup
    lut->klen   = (int *) malloc(lut->kmers * sizeof(int));
    
    // Compute k-mer lengths.
-   if (k > maxkmer)
-      for (int i = 0; i < tau + 1; i++) lut->klen[i] = maxkmer;
+   if (k > MAX_K_FOR_LOOKUP)
+      for (int i = 0; i < tau + 1; i++) lut->klen[i] = MAX_K_FOR_LOOKUP;
    else
       for (int i = 0; i < tau + 1; i++) lut->klen[i] = k - (rem-- > 0);
 
@@ -947,6 +947,18 @@ new_lookup
    }
 
    return lut;
+}
+
+
+void
+destroy_lookup
+(
+   lookup_t * lut
+)
+{
+   for (int i = 0 ; i < lut->kmers ; i++) free(lut->lut[i]);
+   free(lut->klen);
+   free(lut);
 }
 
 

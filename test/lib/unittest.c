@@ -326,6 +326,7 @@ debug_fail_dump
 {
    fprintf(DEBUG_DUMP_FILE, "b %s:%d\n", file, lineno);
    fprintf(DEBUG_DUMP_FILE, "b %s\n", function);
+   fflush(DEBUG_DUMP_FILE);
 }
 
 

@@ -1505,18 +1505,24 @@ test_starcode_7
 // Test 'new_lookup()'
 {
 
-   lookup_t * lut = new_lookup(20, 20, 3, 3);
-   test_assert_critical(lut != NULL);
-   test_assert(lut->kmers == 3+1);
-   test_assert(lut->offset == 3-3);
-   test_assert_critical(lut->klen != NULL);
-   int klen[4] = {3,3,3,3};
-   for (int i = 0 ; i < 4 ; i++) {
-      test_assert(lut->klen[i] == klen[i]);
-      free(lut->lut[i]);
-   }
+   int expected_klen[][4] = {
+      {4,4,4,5},
+      {4,4,5,5},
+      {4,5,5,5},
+      {5,5,5,5},
+   };
 
-   free(lut);
+   for (int i = 0 ; i < 4 ; i++) {
+      lookup_t * lut = new_lookup(20+i, 20+i, 3);
+      test_assert_critical(lut != NULL);
+      test_assert(lut->kmers == 3+1);
+      test_assert(lut->offset == 3-3);
+      test_assert_critical(lut->klen != NULL);
+      for (int j = 0 ; j < 4 ; j++) {
+         test_assert(lut->klen[j] == expected_klen[i][j]);
+      }
+      destroy_lookup(lut);
+   }
 
 }
 

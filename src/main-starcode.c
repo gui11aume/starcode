@@ -23,6 +23,11 @@
 **
 */
 
+#include <execinfo.h>
+#include <getopt.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include "starcode.h"
 
 char *USAGE = "Usage:\n"

@@ -338,6 +338,7 @@ new_trie
    if (root == NULL) {
       fprintf(stderr, "error: could not create root\n");
       ERROR = __LINE__;
+      free(trie);
       return NULL;
    }
 
@@ -346,6 +347,7 @@ new_trie
       fprintf(stderr, "error: could not create trie\n");
       ERROR = __LINE__;
       free(root);
+      free(trie);
       return NULL;
    }
 
@@ -358,6 +360,7 @@ new_trie
       ERROR = __LINE__;
       free(info);
       free(root);
+      free(trie);
       return NULL;
    }
 
@@ -573,9 +576,9 @@ insert_wo_malloc
 void
 destroy_trie
 (
-   trie_t *trie,
-   int free_nodes,
-   void (*destruct)(void *)
+   trie_t * trie,
+   int      free_nodes,
+   void     (*destruct)(void *)
 )
 // SYNOPSIS:                                                              
 //   Front end function to recycle the memory allocated to a trie. Node   
@@ -599,7 +602,10 @@ destroy_trie
    // Free the milesones.
    destroy_tower(trie->info->pebbles);
    destroy_from(trie->root, destruct, free_nodes, get_height(trie), 0);
-   if (!free_nodes) free(trie->root);
+   if (!free_nodes) {
+      free(trie->root);
+      trie->root = NULL;
+   }
    free(trie->info);
    free(trie);
 }
@@ -608,11 +614,11 @@ destroy_trie
 void
 destroy_from
 (
-   node_t *node,
-   void (*destruct)(void *),
-   int free_nodes,
-   int maxdepth,
-   int depth
+   node_t * node,
+   void     (*destruct)(void *),
+   int      free_nodes,
+   int      maxdepth,
+   int      depth
 )
 // SYNOPSIS:                                                              
 //   Back end function to free the memory allocated on a trie. It should  
@@ -635,7 +641,10 @@ destroy_from
          node_t * child = (node_t *) node->child[i];
          destroy_from(child, destruct, free_nodes, maxdepth, depth+1);
       }
-      if (free_nodes) free(node);
+      if (free_nodes) {
+         free(node);
+         node = NULL;
+      }
    }
    return;
 }

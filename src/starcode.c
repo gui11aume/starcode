@@ -454,7 +454,6 @@ sphere_clustering
 )
 {
    // Sort in count order.
-   //qsort(useqS->items, useqS->nitems, sizeof(useq_t *), count_order);
    seqsort(useqS->items, useqS->nitems, count_order, maxthreads);
 
    for (int i = 0 ; i < useqS->nitems ; i++) {
@@ -475,7 +474,6 @@ sphere_clustering
    }
 
    // Sort in count order after update.
-   //qsort(useqS->items, useqS->nitems, sizeof(useq_t *), count_order);
    seqsort(useqS->items, useqS->nitems, count_order, maxthreads);
 
    for (int i = 0 ; i < useqS->nitems ; i++) {
@@ -751,8 +749,8 @@ pad_useq
 
    // Alloc median bins. (Initializes to 0)
    int  * count = calloc((maxlen + 1), sizeof(int));
-   char *spaces = malloc((maxlen + 1) * sizeof(char));
-   if (spaces == NULL) {
+   char * spaces = malloc((maxlen + 1) * sizeof(char));
+   if (spaces == NULL || count == NULL) {
       fprintf(stderr, "out of memory error (pad_useq): %s\n",
             strerror(errno));
       abort();
@@ -787,6 +785,7 @@ pad_useq
    } while (ccount < useqS->nitems / 2);
 
    // Free and return.
+   free(count);
    free(spaces);
    return maxlen;
 }
@@ -937,7 +936,7 @@ new_lookup
    for (int i = 0; i < tau + 1; i++) {
       lut->lut[i] = (char *) calloc(1 << max(0,(2*lut->klen[i] - 3)), sizeof(char));
       if (lut->lut[i] == NULL) {
-         while (--i > 0) {
+         while (--i >= 0) {
             free(lut->lut[i]);
          }  
          free(lut);
@@ -1101,6 +1100,7 @@ canonical_order
 } 
 
 
+// FIXME: implement the destruction.
 int
 count_order
 (
@@ -1111,7 +1111,9 @@ count_order
    useq_t *u1 = (useq_t *) a;
    useq_t *u2 = (useq_t *) b;
    if (u1->count == u2->count) {
-      return strcmp(u1->seq, u2->seq);
+      int cmp = strcmp(u1->seq, u2->seq);
+//      if (cmp == 0) destroy_useq(u1);
+      return cmp;
    }
    return u1->count < u2->count ? 1 : -1;
 } 

@@ -775,6 +775,7 @@ test_search
    test_assert(hits[3]->nitems == 1);
 
    destroy_tower(hits);
+   teardown(trie);
 
 }
 
@@ -876,9 +877,6 @@ test_mem_3
 (void)
 {
 
-   node_t *root = new_trienode();
-   test_assert_critical(root != NULL);
-
    node_t *nodes = malloc(2000 * sizeof(node_t));
    if (nodes == NULL) {
       fprintf(stderr, "unittest error: %s:%d\n", __FILE__, __LINE__);
@@ -906,14 +904,8 @@ test_mem_3
             seq[k] = untranslate[(int)(5 * drand48())];
          }
          void **data = insert_string_wo_malloc(trie, seq, &pos);
-         if (data == NULL) {
-            // Make sure errors are reported.
-            test_assert(check_trie_error_and_reset() > 0);
-         }
-         else {
-            test_assert(*data == NULL);
-            *data = data;
-         }
+         test_assert(*data == NULL);
+         *data = data;
       }
       destroy_trie(trie, DESTROY_NODES_NO, NULL);
    }
@@ -957,6 +949,7 @@ test_mem_4
 
    unredirect_stderr();
    reset_alloc();
+   destroy_tower(hits);
    teardown(trie);
 
 }
@@ -1004,6 +997,7 @@ test_mem_5
    unredirect_stderr();
    reset_alloc();
    destroy_tower(hits);
+   destroy_trie(trie, DESTROY_NODES_YES, NULL);
    
 }
 
@@ -1042,7 +1036,7 @@ test_mem_6
       }
       else {
          free(trienode);
-         trie = NULL;
+         trienode = NULL;
       }
    }
 
@@ -1527,6 +1521,68 @@ test_starcode_7
 }
 
 
+void
+test_starcode_8
+(void)
+// Test 'read_file()'
+{
+
+   const char * expected[] = {
+   "AGGGCTTACAAGTATAGGCC",
+   "TGCGCCAAGTACGATTTCCG",
+   "CCTCATTATTTGTCGCAATG",
+   "AGGGCTTACAAGTATAGGCC",
+   "AGGGCTTACAAGTATAGGCC",
+   "GGGAGCCCACAGTAAGCGAA",
+   "GGGAGCCCACAGTAAGCGAA",
+   "TAGCCTGGTGCGACTGTCAT",
+   "TAGCCTGGTGCGACTGTCAT",
+   "GGAAGCCCACAGCAAGCGAA",
+   "TGCGCCAAGTACGATTTCCG",
+   "GGGAGCCCACAGTAAGCGAA",
+   "AGGGGTTACAAGTCTAGGCC",
+   "CCTCATTATTTGTCGCAATG",
+   "GGGAGCCCACAGTAAGCGAA",
+   "TAGCCTGGTGCGACTGTCAT",
+   "AGGGCTTACAAGTATAGGCC",
+   "TGCGCCAAGTACGATTTCCG",
+   "CCTCATTATTTGTCGCAATG",
+   "AGGGCTTACAAGTATAGGCC",
+   "TAGCCTGGTGCGACTGTCAT",
+   "AGGGCTTACAAGTATAGGCC",
+   "TGCGCCAAGTAAGAATTCCG",
+   "GGGAGCCCACAGTAAGCGAA",
+   "GGGAGCCCACAGTAAGCGAA",
+   "TGCGCCAAGTACGATTTCCG",
+   "CCTCATTATTTGTCGCAATG",
+   "TAGCCTGGTGCGACTGTCAT",
+   "TGCGCCAAGTACGATTTCCG",
+   "CCTCATTATTTGTCGCAATG",
+   "CCTCATTATTTGTCGCAATG",
+   "CCTCATTATTTACCGCAATG",
+   "TAGCCTGGTGCGACTGTCAT",
+   "TGCGCCAAGTACGATTTCCG",
+   "TAACCTGGTGCGACTGTTAT",
+   };
+
+   FILE * f = fopen("test_file.txt", "r");
+   gstack_t * useqS = read_file(f);
+   test_assert(useqS->nitems == 35);
+   for (int i = 0 ; i < useqS->nitems ; i++) {
+      useq_t * u = (useq_t *) useqS->items[i];
+      test_assert(u->count == 1);
+      test_assert(strcmp(u->seq, expected[i]) == 0);
+   }
+
+   // Clean.
+   for (int i = 0 ; i < useqS->nitems ; i++) {
+      destroy_useq(useqS->items[i]);
+   }
+   free(useqS);
+   fclose(f);
+
+}
+
 int
 main(
    int argc,
@@ -1559,6 +1615,7 @@ main(
       {"starcode/base/5", test_starcode_5},
       {"starcode/base/6", test_starcode_6},
       {"starcode/base/7", test_starcode_7},
+      {"starcode/base/8", test_starcode_8},
       {NULL, NULL}
    };
 

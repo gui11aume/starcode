@@ -27,6 +27,6 @@ test: $(P)
 inspect: $(P)
 	gdb --command=.inspect.gdb --args $(P)
 
-valgrind:
+valgrind: $(P)
 	#valgrind --vgdb=yes --vgdb-error=0 ./$(P) --debug
-	valgrind ./$(P) --debug
+	valgrind --leak-check=full ./$(P) --debug

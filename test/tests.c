@@ -4,41 +4,33 @@
 #include "_starcode.h"
 #include "unittest.h"
 
+// Globals //
+int LEAF_NODE;
+
 // Convenience functions.
-int visit(node_t*, char*, int, int, int);
-char *to_string (trie_t *trie, char* s) {
-   visit(trie->root, s, 0, get_height(trie), 0);
-   return s;
-}
 void reset_gstack(gstack_t **g) {
    for (int i = 0 ; g[i] != TOWER_TOP ; i++) g[i]->nitems = 0;
 }
 
-int
-visit
+char *
+render
 (
-   node_t *node,
-   char *buff,
-   int j,
-   int maxdepth,
-   int depth
+   node_t * node,
+   char   * string
 )
 {
    for (int i = 0 ; i < 6 ; i++) {
-      if (node->child[i] != NULL) {
-         buff[j++] = untranslate[i];
-         if (depth < maxdepth-1) {
-            node_t *child = (node_t *) node->child[i];
-            j = visit(child, buff, j, maxdepth, depth+1);
-         }
-         else buff[j++] = '*';
-      }
+      void * child = node->child[i];
+      if (child == NULL) continue;
+      *string++ = untranslate[i];
+      if (child == &LEAF_NODE) continue;
+      string = render(node->child[i], string);
    }
-   buff[j++] = '*';
-   buff[j] = '\0';
-   return j;
+   return string;
 }
 
+
+//  Test setup function  //
 
 trie_t *
 setup
@@ -80,67 +72,46 @@ setup
    for (int i = 0 ; i < 22 ; i++) {
       void **data = insert_string(trie, string[i]);
       // Set node data to self (non 'NULL').
-      if (data != NULL) *data = data;
+      if (data != NULL) *data = &LEAF_NODE;
       else {
          fprintf(stderr, "unittest error: %s:%d\n", __FILE__, __LINE__);
          abort();
       }
    }
 
-   // String representation of the trie as a depth first search
-   // traversal. The stars indicate the a series of with no further
-   // children. I also use indentation to ease the reading.
-   char trie_string_representation[] =
+   char trie_rendering[] =
    "NNAAAAAAAAAAAAAAAANN"
-    "*******************"
     "AAAAAAAAAAAAAAAAAAN"
-   "********************"
    "AAAAAAAAAANAAAAAAAAA"
-             "**********"
              "AAAAAAAAAA"
-                      "*"
                       "T"
-    "*******************"
     "TGCTAGGGTACTCGATAAC"
-   "********************"
    "CATACAGTATTCGACTAAGG"
-    "*******************"
     "GAGGCGTATAGTGTTTCCA"
-   "********************"
    "GGATTAGATCACCGCTTTCG"
-     "******************"
      "GAGACTTTTCCAGGGTAT"
-   "********************"
    "TAAAAAAAAAAAAAAAAAAA"
-    "*******************"
     "CATTGTGATAGCTCGTAAC"
-    "*******************"
     "GGAGATGATGAAGAAGACC"
-    "*******************"
     "TCGGAGCGACTAATATAGG"
-     "******************"
      "GGTATATGTCATAGAAAT"
-   "********************"
    " AAAAAAAAAAAAAAAAAAA"
-    "*******************"
     "GGATATCAAGGGTTACTAG"
-    "*******************"
     "           NNNNNNNN"
-               "********"
                "AAAAAAAA"
-               "********"
                "       N"
-                      "*"
                       "A"
-                      "*"
-                      " "
-   "********************"
-   "*";
+                      " ";
 
    // Make sure the trie has the correct structure.
-   char buff[1024];
-   to_string(trie, buff);
-   if (strcmp(trie_string_representation, buff) != 0) {
+   char * trie_buff = calloc(512, sizeof(char));
+   if (trie_buff == NULL) {
+      fprintf(stderr, "unittest error: %s:%d\n", __FILE__, __LINE__);
+      abort();
+   }
+   render(trie->root, trie_buff);
+   if (strcmp(trie_rendering, trie_buff) != 0) {
+      fprintf(stderr, "(%d)\n", strcmp(trie_rendering, trie_buff));
       fprintf(stderr, "unittest error: %s:%d\n", __FILE__, __LINE__);
       abort();
    }
@@ -149,6 +120,7 @@ setup
       abort();
    }
 
+   free(trie_buff);
    return trie;
 
 }
@@ -233,6 +205,7 @@ test_base_3
    for (int i = 0 ; i < 6 ; i++) {
       node_t *node = insert_wo_malloc(root, i, nodes+i);
       test_assert_critical(node != NULL);
+      test_assert(node == nodes+i);
       for (int j = 0 ; j < 6 ; j++) {
          test_assert(node->child[j] == NULL);
       }
@@ -242,6 +215,12 @@ test_base_3
       }
       test_assert(node->path == i);
       test_assert(root->child[i] == node);
+   }
+
+   // Try to overwrite nodes (should not succeed);
+   for (int i = 0 ; i < 6 ; i++) {
+      node_t *node = insert_wo_malloc(root, i, 0x0);
+      test_assert(node == NULL);
    }
 
    free(root);
@@ -925,7 +904,7 @@ test_mem_4
    int err;
 
    trie_t * trie = setup();
-   gstack_t **hits = new_tower(4);
+   gstack_t ** hits = new_tower(4);
    test_assert_critical(hits != NULL);
 
    // Test 'search()' 1000 times in a perfectly built trie
@@ -1102,95 +1081,6 @@ test_starcode_1
 void
 test_starcode_2
 (void)
-// Test 'seqsort()' and 'size_order()'.
-{
-
-   // Case 1 (no repeat).
-   char *sequences_1[10] = {
-      "IRrLv<'*3S?UU<JF4S<,", "tcKvz5JTm!h*X0mSTg",
-      "tW:0K&Mvtax<PP/qY6er", "hcU+f!=`.Xs6[a,C7XpN",
-      ":3ILp'w?)f]4(a;mf%A9", "RlEF',$6[}ouJQyWqqT#",
-      "U Ct`3w8(#KAE+z;vh,",  "[S^jXvNS VP' cwg~_iq",
-      ".*/@*Q/]]}32kNB#`qqv", "#`Hwp(&,z|bN~07CSID'",
-   };
-   const char *sorted_1[10] = {
-      "tcKvz5JTm!h*X0mSTg",   "U Ct`3w8(#KAE+z;vh,",
-      "#`Hwp(&,z|bN~07CSID'", ".*/@*Q/]]}32kNB#`qqv",
-      ":3ILp'w?)f]4(a;mf%A9", "IRrLv<'*3S?UU<JF4S<,",
-      "RlEF',$6[}ouJQyWqqT#", "[S^jXvNS VP' cwg~_iq",
-      "hcU+f!=`.Xs6[a,C7XpN", "tW:0K&Mvtax<PP/qY6er", 
-   };
-
-   useq_t *to_sort_1[10];
-   for (int i = 0 ; i < 10 ; i++) {
-      to_sort_1[i] = new_useq(1, sequences_1[i]);
-   }
-
-   seqsort((void **) to_sort_1, 10, size_order, 1);
-   for (int i = 0 ; i < 10 ; i++) {
-      test_assert(strcmp(to_sort_1[i]->seq, sorted_1[i]) == 0);
-      test_assert(to_sort_1[i]->count == 1);
-      destroy_useq(to_sort_1[i]);
-   }
-
-   // Case 2 (different lengths).
-   char *sequences_2[10] = {
-      "IRr",                  "tcKvz5JTm!h*X0mSTg",
-      "tW:0K&Mvtax<PP/qY6er", "hcU+f!=`.Xs6[a,C7XpNwoi~OWe88",
-      "z3ILp'w?)f]4(a;mf9",   "RlEFWqqT#",
-      "U Ct`3w8(#Kz;vh,",     "aS^jXvNS VP' cwg~_iq",
-      ".*/@*Q/]]}32#`",       "(&,z|bN~07CSID'",
-   };
-   const char *sorted_2[10] = {
-      "IRr",                  "RlEFWqqT#",
-      ".*/@*Q/]]}32#`",       "(&,z|bN~07CSID'",
-      "U Ct`3w8(#Kz;vh,",     "tcKvz5JTm!h*X0mSTg",
-      "z3ILp'w?)f]4(a;mf9",   "aS^jXvNS VP' cwg~_iq",
-      "tW:0K&Mvtax<PP/qY6er", "hcU+f!=`.Xs6[a,C7XpNwoi~OWe88",
-   };
-
-   useq_t *to_sort_2[10];
-   for (int i = 0 ; i < 10 ; i++) {
-      to_sort_2[i] = new_useq(1, sequences_2[i]);
-   }
-
-   seqsort((void **) to_sort_2, 10, size_order, 1);
-   for (int i = 0 ; i < 10 ; i++) {
-      test_assert(strcmp(to_sort_2[i]->seq, sorted_2[i]) == 0);
-      test_assert(to_sort_2[i]->count == 1);
-      destroy_useq(to_sort_2[i]);
-   }
-
-   // Case 3 (repeats).
-   char *sequences_3[6] = {
-      "repeated", "repeated", "repeated", "repeated", "repeated", "xyz"
-   };
-   char *sorted_3[6] = {
-      "xyz", "repeated", NULL, NULL, NULL, NULL,
-   };
-   int counts[2] = {1,5};
-
-   useq_t *to_sort_3[6];
-   for (int i = 0 ; i < 6 ; i++) {
-      to_sort_3[i] = new_useq(1, sequences_3[i]);
-   }
-
-   seqsort((void **) to_sort_3, 6, size_order, 1);
-   for (int i = 0 ; i < 2 ; i++) {
-      test_assert(strcmp(to_sort_3[i]->seq, sorted_3[i]) == 0);
-      test_assert(to_sort_3[i]->count == counts[i]);
-      destroy_useq(to_sort_3[i]);
-   }
-   for (int i = 2 ; i < 6 ; i++) {
-      test_assert(to_sort_3[i] == NULL);
-   }
-
-}
-
-
-void
-test_starcode_3
-(void)
 // Test 'addmatch', 'transfer_counts_and_update_canonicals'.
 {
    useq_t *u1 = new_useq(1, "B}d2)$ChPyDC=xZ D-C");
@@ -1249,7 +1139,7 @@ test_starcode_3
 
 
 void
-test_starcode_4
+test_starcode_3
 (void)
 // Test 'canonical_order'.
 {
@@ -1258,93 +1148,122 @@ test_starcode_4
    test_assert_critical(u1 != NULL);
    test_assert_critical(u2 != NULL);
 
-   test_assert(canonical_order(u1, u2) == -4);
-   test_assert(canonical_order(u2, u1) == 4);
+   // 'u1' and 'u2' have no canonical, so the
+   // comparison is alphabetical.
+   test_assert(canonical_order(&u1, &u2) == -4);
+   test_assert(canonical_order(&u2, &u1) == 4);
 
    // Add match to 'u1', and update canonicals.
    addmatch(u1, u2, 1, 1);
+   test_assert_critical(u1->matches != NULL);
    transfer_counts_and_update_canonicals(u1);
+   test_assert(u1->count == 0);
+   test_assert(u2->count == 3);
 
-   test_assert(canonical_order(u1, u2) == -4);
-   test_assert(canonical_order(u2, u1) == 4);
+   // Now 'u1' and 'u2' have the same canonical ('u2')
+   // so the comparison is again alphabetical.
+   test_assert(canonical_order(&u1, &u2) == -4);
+   test_assert(canonical_order(&u2, &u1) == 4);
 
    useq_t *u3 = new_useq(1, "CDEF");
    useq_t *u4 = new_useq(2, "GHIJ");
    test_assert_critical(u3 != NULL);
    test_assert_critical(u4 != NULL);
 
-   test_assert(canonical_order(u1, u3) == -1);
-   test_assert(canonical_order(u3, u1) == 1);
-   test_assert(canonical_order(u1, u4) == -1);
-   test_assert(canonical_order(u4, u1) == 1);
-   test_assert(canonical_order(u2, u3) == -1);
-   test_assert(canonical_order(u3, u2) == 1);
-   test_assert(canonical_order(u2, u4) == -1);
-   test_assert(canonical_order(u4, u2) == 1);
-   test_assert(canonical_order(u3, u4) == -4);
-   test_assert(canonical_order(u4, u3) == 4);
+   // Comparisons with 'u1' or with 'u2' give the same
+   // results because they have the same canonical ('u2').
+   test_assert(canonical_order(&u1, &u3) == -1);
+   test_assert(canonical_order(&u2, &u3) == -1);
+   test_assert(canonical_order(&u3, &u1) == 1);
+   test_assert(canonical_order(&u3, &u2) == 1);
+   test_assert(canonical_order(&u1, &u4) == -1);
+   test_assert(canonical_order(&u2, &u4) == -1);
+   test_assert(canonical_order(&u4, &u1) == 1);
+   test_assert(canonical_order(&u4, &u2) == 1);
+   // Comparisons between 'u3' and 'u4' are alphabetical.
+   test_assert(canonical_order(&u3, &u4) == -4);
+   test_assert(canonical_order(&u4, &u3) == 4);
 
    // Add match to 'u3', and update canonicals.
    addmatch(u3, u4, 1, 1);
+   test_assert_critical(u3->matches != NULL);
    transfer_counts_and_update_canonicals(u3);
+   test_assert(u3->count == 0);
+   test_assert(u4->count == 3);
 
-   test_assert(canonical_order(u1, u3) == -2);
-   test_assert(canonical_order(u3, u1) == 2);
-   test_assert(canonical_order(u1, u4) == -2);
-   test_assert(canonical_order(u4, u1) == 2);
-   test_assert(canonical_order(u2, u3) == -2);
-   test_assert(canonical_order(u3, u2) == 2);
-   test_assert(canonical_order(u2, u4) == -2);
-   test_assert(canonical_order(u4, u2) == 2);
-   test_assert(canonical_order(u3, u4) == -4);
-   test_assert(canonical_order(u4, u3) == 4);
+   // Now canonicals ('u2' and 'u4') have the same counts
+   // so comparisons are always alphabetical.
+   test_assert(canonical_order(&u1, &u3) == -2);
+   test_assert(canonical_order(&u2, &u3) == -2);
+   test_assert(canonical_order(&u3, &u1) == 2);
+   test_assert(canonical_order(&u3, &u2) == 2);
+   test_assert(canonical_order(&u1, &u4) == -2);
+   test_assert(canonical_order(&u2, &u4) == -2);
+   test_assert(canonical_order(&u4, &u1) == 2);
+   test_assert(canonical_order(&u4, &u2) == 2);
+   test_assert(canonical_order(&u3, &u4) == -4);
+   test_assert(canonical_order(&u4, &u3) == 4);
 
    useq_t *u5 = new_useq(1, "CDEF");
    useq_t *u6 = new_useq(3, "GHIJ");
    test_assert_critical(u5 != NULL);
    test_assert_critical(u6 != NULL);
 
-   test_assert(canonical_order(u1, u5) == -1);
-   test_assert(canonical_order(u5, u1) == 1);
-   test_assert(canonical_order(u1, u6) == -1);
-   test_assert(canonical_order(u6, u1) == 1);
-   test_assert(canonical_order(u2, u5) == -1);
-   test_assert(canonical_order(u5, u2) == 1);
-   test_assert(canonical_order(u2, u6) == -1);
-   test_assert(canonical_order(u6, u2) == 1);
-   test_assert(canonical_order(u3, u5) == -1);
-   test_assert(canonical_order(u5, u3) == 1);
-   test_assert(canonical_order(u3, u6) == -1);
-   test_assert(canonical_order(u6, u3) == 1);
-   test_assert(canonical_order(u4, u5) == -1);
-   test_assert(canonical_order(u5, u4) == 1);
-   test_assert(canonical_order(u4, u6) == -1);
-   test_assert(canonical_order(u6, u4) == 1);
-   test_assert(canonical_order(u5, u6) == -4);
-   test_assert(canonical_order(u6, u5) == 4);
+   // Comparisons between canonicals.
+   test_assert(canonical_order(&u1, &u5) == -1);
+   test_assert(canonical_order(&u2, &u5) == -1);
+   test_assert(canonical_order(&u5, &u1) == 1);
+   test_assert(canonical_order(&u5, &u2) == 1);
+   test_assert(canonical_order(&u1, &u6) == -1);
+   test_assert(canonical_order(&u2, &u6) == -1);
+   test_assert(canonical_order(&u6, &u1) == 1);
+   test_assert(canonical_order(&u6, &u2) == 1);
+   test_assert(canonical_order(&u3, &u5) == -1);
+   test_assert(canonical_order(&u4, &u5) == -1);
+   test_assert(canonical_order(&u5, &u3) == 1);
+   test_assert(canonical_order(&u5, &u4) == 1);
+   test_assert(canonical_order(&u3, &u6) == -1);
+   test_assert(canonical_order(&u4, &u6) == -1);
+   test_assert(canonical_order(&u6, &u3) == 1);
+   test_assert(canonical_order(&u6, &u4) == 1);
+   // Alphabetical comparisons.
+   test_assert(canonical_order(&u5, &u6) == -4);
+   test_assert(canonical_order(&u6, &u5) == 4);
 
    // Add match to 'u5', and update canonicals.
    addmatch(u5, u6, 1, 1);
+   test_assert_critical(u5->matches != NULL);
    transfer_counts_and_update_canonicals(u5);
+   test_assert(u5->count == 0);
+   test_assert(u6->count == 4);
 
-   test_assert(canonical_order(u1, u5) == 1);
-   test_assert(canonical_order(u5, u1) == -1);
-   test_assert(canonical_order(u1, u6) == 1);
-   test_assert(canonical_order(u6, u1) == -1);
-   test_assert(canonical_order(u2, u5) == 1);
-   test_assert(canonical_order(u5, u2) == -1);
-   test_assert(canonical_order(u2, u6) == 1);
-   test_assert(canonical_order(u6, u2) == -1);
-   test_assert(canonical_order(u3, u5) == 1);
-   test_assert(canonical_order(u5, u3) == -1);
-   test_assert(canonical_order(u3, u6) == 1);
-   test_assert(canonical_order(u6, u3) == -1);
-   test_assert(canonical_order(u4, u5) == 1);
-   test_assert(canonical_order(u5, u4) == -1);
-   test_assert(canonical_order(u4, u6) == 1);
-   test_assert(canonical_order(u6, u4) == -1);
-   test_assert(canonical_order(u5, u6) == -4);
-   test_assert(canonical_order(u6, u5) == 4);
+   // Comparisons between canonicals ('u2', 'u4', 'u6').
+   test_assert(canonical_order(&u1, &u5) == 1);
+   test_assert(canonical_order(&u2, &u5) == 1);
+   test_assert(canonical_order(&u5, &u1) == -1);
+   test_assert(canonical_order(&u5, &u2) == -1);
+   test_assert(canonical_order(&u1, &u6) == 1);
+   test_assert(canonical_order(&u2, &u6) == 1);
+   test_assert(canonical_order(&u6, &u1) == -1);
+   test_assert(canonical_order(&u6, &u2) == -1);
+   test_assert(canonical_order(&u3, &u5) == 1);
+   test_assert(canonical_order(&u4, &u5) == 1);
+   test_assert(canonical_order(&u5, &u3) == -1);
+   test_assert(canonical_order(&u5, &u4) == -1);
+   test_assert(canonical_order(&u3, &u6) == 1);
+   test_assert(canonical_order(&u4, &u6) == 1);
+   test_assert(canonical_order(&u6, &u3) == -1);
+   test_assert(canonical_order(&u6, &u4) == -1);
+   // Alphabetical.
+   test_assert(canonical_order(&u5, &u6) == -4);
+   test_assert(canonical_order(&u6, &u5) == 4);
+
+   useq_t *useq_array[6] = {u1,u2,u3,u4,u5,u6};
+   useq_t *sorted[6] = {u5,u6,u1,u2,u3,u4};
+   qsort(useq_array, 6, sizeof(useq_t *), canonical_order);
+   for (int i = 0 ; i < 6 ; i++) {
+      test_assert(useq_array[i] == sorted[i]);
+   }
 
    destroy_useq(u1);
    destroy_useq(u2);
@@ -1357,17 +1276,17 @@ test_starcode_4
 
 
 void
-test_starcode_5
+test_starcode_4
 (void)
-// Test 'count_order()' and 'seqsort()'.
+// Test 'count_order()'.
 {
 
    useq_t *u1 = new_useq(1, "L@[ohztp{2@V(u(x7fLt&x80");
    useq_t *u2 = new_useq(2, "$Ee6xkB+.Q;Nk)|w[KQ;");
-   test_assert(count_order(u1, u2) == 1);
-   test_assert(count_order(u2, u1) == -1);
-   test_assert(count_order(u1, u1) == 0);
-   test_assert(count_order(u2, u2) == 0);
+   test_assert(count_order(&u1, &u2) == 1);
+   test_assert(count_order(&u2, &u1) == -1);
+   test_assert(count_order(&u1, &u1) == 0);
+   test_assert(count_order(&u2, &u2) == 0);
 
    destroy_useq(u1);
    destroy_useq(u2);
@@ -1382,10 +1301,10 @@ test_starcode_5
       int randint = (int)(4096 * drand48());
       u1 = new_useq(randint, seq1);
       u2 = new_useq(randint + 1, seq2);
-      test_assert(count_order(u1, u2) == 1);
-      test_assert(count_order(u2, u1) == -1);
-      test_assert(count_order(u1, u1) == 0);
-      test_assert(count_order(u2, u2) == 0);
+      test_assert(count_order(&u1, &u2) == 1);
+      test_assert(count_order(&u2, &u1) == -1);
+      test_assert(count_order(&u1, &u1) == 0);
+      test_assert(count_order(&u2, &u2) == 0);
 
       destroy_useq(u1);
       destroy_useq(u2);
@@ -1412,7 +1331,7 @@ test_starcode_5
       to_sort_1[i] = new_useq(i, sequences_1[i]);
    }
 
-   seqsort((void **) to_sort_1, 10, count_order, 1);
+   qsort(to_sort_1, 10, sizeof(useq_t *), count_order);
    for (int i = 0 ; i < 10 ; i++) {
       test_assert(strcmp(to_sort_1[i]->seq, sorted_1[i]) == 0);
       test_assert(to_sort_1[i]->count == 9-i);
@@ -1421,34 +1340,31 @@ test_starcode_5
 
    // Case 2 (repeats).
    char *sequences_2[6] = {
-      "repeated", "repeated", "repeated", "abc", "abc", "xyz"
+      "repeat", "repeat", "repeat", "abc", "abc", "xyz"
    };
    int counts[6] = {1,1,2,3,4,4};
    char *sorted_2[6] = {
-      "abc", "xyz", "abc", "repeated", "repeated", NULL,
+      "abc", "xyz", "abc", "repeat", "repeat", "repeat",
    };
-   int sorted_counts[5] = {4,4,3,2,1};
+   int sorted_counts[6] = {4,4,3,2,1,1};
 
    useq_t *to_sort_2[6];
    for (int i = 0 ; i < 6 ; i++) {
       to_sort_2[i] = new_useq(counts[i], sequences_2[i]);
    }
 
-   seqsort((void **) to_sort_2, 6, count_order, 1);
-   for (int i = 0 ; i < 5 ; i++) {
+   qsort(to_sort_2, 6, sizeof(useq_t *), count_order);
+   for (int i = 0 ; i < 6 ; i++) {
       test_assert(strcmp(to_sort_2[i]->seq, sorted_2[i]) == 0);
       test_assert(to_sort_2[i]->count == sorted_counts[i]);
       destroy_useq(to_sort_2[i]);
-   }
-   for (int i = 5 ; i < 6 ; i++) {
-      test_assert(to_sort_2[i] == NULL);
    }
 
 }
 
 
 void
-test_starcode_6
+test_starcode_5
 (void)
 // Test 'pad_useq()' and 'unpad_useq()'
 {
@@ -1494,7 +1410,7 @@ test_starcode_6
 
 
 void
-test_starcode_7
+test_starcode_6
 (void)
 // Test 'new_lookup()'
 {
@@ -1522,7 +1438,7 @@ test_starcode_7
 
 
 void
-test_starcode_8
+test_starcode_7
 (void)
 // Test 'read_file()'
 {
@@ -1583,6 +1499,212 @@ test_starcode_8
 
 }
 
+
+void
+test_seqsort
+(void)
+{
+
+   gstack_t * useqS = new_gstack();
+
+   // Basic cases.
+   for (int i = 0 ; i < 9 ; i++) {
+      push(new_useq(1, "A"), &useqS);
+   }
+   test_assert(useqS->nitems == 9);
+   seqsort(useqS->items, 9, 1);
+   test_assert_critical(useqS->items[0] != NULL);
+   useq_t *u = useqS->items[0];
+   test_assert(strcmp(u->seq, "A") == 0);
+   test_assert(u->count == 9);
+   test_assert(u->canonical == NULL);
+   for (int i = 1 ; i < 9 ; i++) {
+      test_assert(useqS->items[i] == NULL);
+   }
+   destroy_useq(useqS->items[0]);
+
+   useqS->nitems = 0;
+   for (int i = 0 ; i < 9 ; i++) {
+      push(new_useq(1, i % 2 ? "A":"B"), &useqS);
+   }
+   test_assert(useqS->nitems == 9);
+   seqsort(useqS->items, 9, 1);
+   test_assert_critical(useqS->items[0] != NULL);
+   test_assert_critical(useqS->items[1] != NULL);
+   for (int i = 2 ; i < 9 ; i++) {
+      test_assert(useqS->items[i] == NULL);
+   }
+   u = useqS->items[0];
+   test_assert(strcmp(u->seq, "A") == 0);
+   test_assert(u->count == 4);
+   test_assert(u->canonical == NULL);
+   u = useqS->items[1];
+   test_assert(strcmp(u->seq, "B") == 0);
+   test_assert(u->count == 5);
+   test_assert(u->canonical == NULL);
+   destroy_useq(useqS->items[0]);
+   destroy_useq(useqS->items[1]);
+
+   // Case 1 (no repeat).
+   char *sequences_1[10] = {
+      "IRrLv<'*3S?UU<JF4S<,", "tcKvz5JTm!h*X0mSTg",
+      "tW:0K&Mvtax<PP/qY6er", "hcU+f!=`.Xs6[a,C7XpN",
+      ":3ILp'w?)f]4(a;mf%A9", "RlEF',$6[}ouJQyWqqT#",
+      "U Ct`3w8(#KAE+z;vh,",  "[S^jXvNS VP' cwg~_iq",
+      ".*/@*Q/]]}32kNB#`qqv", "#`Hwp(&,z|bN~07CSID'",
+   };
+   const char *sorted_1[10] = {
+      "tcKvz5JTm!h*X0mSTg",   "U Ct`3w8(#KAE+z;vh,",
+      "#`Hwp(&,z|bN~07CSID'", ".*/@*Q/]]}32kNB#`qqv",
+      ":3ILp'w?)f]4(a;mf%A9", "IRrLv<'*3S?UU<JF4S<,",
+      "RlEF',$6[}ouJQyWqqT#", "[S^jXvNS VP' cwg~_iq",
+      "hcU+f!=`.Xs6[a,C7XpN", "tW:0K&Mvtax<PP/qY6er", 
+   };
+
+   useq_t *to_sort_1[10];
+   for (int i = 0 ; i < 10 ; i++) {
+      to_sort_1[i] = new_useq(1, sequences_1[i]);
+   }
+
+   seqsort((void **) to_sort_1, 10, 1);
+   for (int i = 0 ; i < 10 ; i++) {
+      test_assert(strcmp(to_sort_1[i]->seq, sorted_1[i]) == 0);
+      test_assert(to_sort_1[i]->count == 1);
+      destroy_useq(to_sort_1[i]);
+   }
+
+   // Case 2 (different lengths).
+   char *sequences_2[10] = {
+      "IRr",                  "tcKvz5JTm!h*X0mSTg",
+      "tW:0K&Mvtax<PP/qY6er", "hcU+f!=`.Xs6[a,C7XpNwoi~OWe88",
+      "z3ILp'w?)f]4(a;mf9",   "RlEFWqqT#",
+      "U Ct`3w8(#Kz;vh,",     "aS^jXvNS VP' cwg~_iq",
+      ".*/@*Q/]]}32#`",       "(&,z|bN~07CSID'",
+   };
+   const char *sorted_2[10] = {
+      "IRr",                  "RlEFWqqT#",
+      ".*/@*Q/]]}32#`",       "(&,z|bN~07CSID'",
+      "U Ct`3w8(#Kz;vh,",     "tcKvz5JTm!h*X0mSTg",
+      "z3ILp'w?)f]4(a;mf9",   "aS^jXvNS VP' cwg~_iq",
+      "tW:0K&Mvtax<PP/qY6er", "hcU+f!=`.Xs6[a,C7XpNwoi~OWe88",
+   };
+
+   useq_t *to_sort_2[10];
+   for (int i = 0 ; i < 10 ; i++) {
+      to_sort_2[i] = new_useq(1, sequences_2[i]);
+   }
+
+   seqsort((void **) to_sort_2, 10, 1);
+   for (int i = 0 ; i < 10 ; i++) {
+      test_assert(strcmp(to_sort_2[i]->seq, sorted_2[i]) == 0);
+      test_assert(to_sort_2[i]->count == 1);
+      destroy_useq(to_sort_2[i]);
+   }
+
+   // Case 3 (repeats).
+   char *sequences_3[6] = {
+      "repeat", "repeat", "repeat", "repeat", "repeat", "xyz"
+   };
+   char *sorted_3[6] = {
+      "xyz", "repeat", NULL, NULL, NULL, NULL,
+   };
+   int counts[2] = {1,5};
+
+   useq_t *to_sort_3[6];
+   for (int i = 0 ; i < 6 ; i++) {
+      to_sort_3[i] = new_useq(1, sequences_3[i]);
+   }
+
+   seqsort((void **) to_sort_3, 6, 1);
+   for (int i = 0 ; i < 2 ; i++) {
+      test_assert(strcmp(to_sort_3[i]->seq, sorted_3[i]) == 0);
+      test_assert(to_sort_3[i]->count == counts[i]);
+      destroy_useq(to_sort_3[i]);
+   }
+   for (int i = 2 ; i < 6 ; i++) {
+      test_assert(to_sort_3[i] == NULL);
+   }
+
+
+   // Case 4 (realistic).
+   char *seq[35] = {
+   "AGGGCTTACAAGTATAGGCC",
+   "TGCGCCAAGTACGATTTCCG",
+   "CCTCATTATTTGTCGCAATG",
+   "AGGGCTTACAAGTATAGGCC",
+   "AGGGCTTACAAGTATAGGCC",
+   "GGGAGCCCACAGTAAGCGAA",
+   "GGGAGCCCACAGTAAGCGAA",
+   "TAGCCTGGTGCGACTGTCAT",
+   "TAGCCTGGTGCGACTGTCAT",
+   "GGAAGCCCACAGCAAGCGAA",
+   "TGCGCCAAGTACGATTTCCG",
+   "GGGAGCCCACAGTAAGCGAA",
+   "AGGGGTTACAAGTCTAGGCC",
+   "CCTCATTATTTGTCGCAATG",
+   "GGGAGCCCACAGTAAGCGAA",
+   "TAGCCTGGTGCGACTGTCAT",
+   "AGGGCTTACAAGTATAGGCC",
+   "TGCGCCAAGTACGATTTCCG",
+   "CCTCATTATTTGTCGCAATG",
+   "AGGGCTTACAAGTATAGGCC",
+   "TAGCCTGGTGCGACTGTCAT",
+   "AGGGCTTACAAGTATAGGCC",
+   "TGCGCCAAGTAAGAATTCCG",
+   "GGGAGCCCACAGTAAGCGAA",
+   "GGGAGCCCACAGTAAGCGAA",
+   "TGCGCCAAGTACGATTTCCG",
+   "CCTCATTATTTGTCGCAATG",
+   "TAGCCTGGTGCGACTGTCAT",
+   "TGCGCCAAGTACGATTTCCG",
+   "CCTCATTATTTGTCGCAATG",
+   "CCTCATTATTTGTCGCAATG",
+   "CCTCATTATTTACCGCAATG",
+   "TAGCCTGGTGCGACTGTCAT",
+   "TGCGCCAAGTACGATTTCCG",
+   "TAACCTGGTGCGACTGTTAT",
+   };
+
+   char *sorted_4[10] = {
+   "AGGGCTTACAAGTATAGGCC",
+   "AGGGGTTACAAGTCTAGGCC",
+   "CCTCATTATTTACCGCAATG",
+   "CCTCATTATTTGTCGCAATG",
+   "GGAAGCCCACAGCAAGCGAA",
+   "GGGAGCCCACAGTAAGCGAA",
+   "TAACCTGGTGCGACTGTTAT",
+   "TAGCCTGGTGCGACTGTCAT",
+   "TGCGCCAAGTAAGAATTCCG",
+   "TGCGCCAAGTACGATTTCCG",
+   };
+
+   int counts_4[10] = {6,1,1,6,1,6,1,6,1,6};
+
+   for (int nthreads = 1 ; nthreads < 9 ; nthreads++) {
+
+      useqS->nitems = 0;
+      for (int i = 0 ; i < 35 ; i++) {
+         push(new_useq(1, seq[i]), &useqS);
+      }
+
+      seqsort(useqS->items, 35, 1);
+      for (int i = 0 ; i < 10 ; i++) {
+         test_assert_critical(useqS->items[i] != NULL);
+         u = useqS->items[i];
+         test_assert(strcmp(u->seq, sorted_4[i]) == 0);
+         test_assert(u->count == counts_4[i]);
+         test_assert(u->canonical == NULL);
+         destroy_useq(u);
+      }
+      for (int i = 10 ; i < 35 ; i++) {
+         test_assert(useqS->items[i] == NULL);
+      }
+   }
+
+   free(useqS);
+
+}
+
 int
 main(
    int argc,
@@ -1615,7 +1737,7 @@ main(
       {"starcode/base/5", test_starcode_5},
       {"starcode/base/6", test_starcode_6},
       {"starcode/base/7", test_starcode_7},
-      {"starcode/base/8", test_starcode_8},
+      {"starcode/seqsort", test_seqsort},
       {NULL, NULL}
    };
 

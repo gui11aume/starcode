@@ -88,7 +88,6 @@ struct lookup_t {
 struct sortargs_t {
    void ** buf0;
    void ** buf1;
-   int     (*compar)(const void*, const void*);
    int     size;
    int     b;
    int     thread;
@@ -150,10 +149,10 @@ void       run_plan (mtplan_t *, int, int);
 gstack_t * read_file (FILE *);
 int        seq2id (char *, int);
 gstack_t * seq2useq (gstack_t*, int);
-int        seqsort (void **, int, int (*)(const void*, const void*), int);
+int        seqsort (void **, int, int);
 void       sphere_clustering (gstack_t *, int);
 void       transfer_counts_and_update_canonicals (useq_t*);
 void       unpad_useq (gstack_t*);
-void     * _mergesort (void *); 
+void     * nukesort (void *); 
 
 #endif

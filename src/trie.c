@@ -204,7 +204,7 @@ poucet
    node_t *child;
    for (int i = 0 ; i < 6 ; i++) {
       // Skip if current node has no child at this position.
-      if ((child = (node_t *) node->child[i]) == NULL) continue;
+      if ((child = node->child[i]) == NULL) continue;
 
       // Same remark as for parent cache.
       char local_cache[] = {9,8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8,9};
@@ -550,25 +550,39 @@ insert_wo_malloc
    int      position,
    node_t * at_address
 )
-// TODO: document the funciton.
 // SYNOPSIS:                                                              
+//   Adds a child to the specified node without calling 'malloc()'.
+//   The data is copied at the addres given by the 'at_address'
+//   pointer.
+//   Checks whether the position to insert the node is free. If not,
+//   nothing is done and 'NULL' is returned.
 //                                                                        
 // PARAMETERS:                                                            
+//   parent: the parent node on which to add the child.
+//   position: a number from 0 to 5 indicating the rank of the child.
+//   at_address: the position in memory where to copy the child data.
 //                                                                        
 // RETURN:                                                                
+//   The address of the child node if the insert position is free,
+//   'NULL' otherwise.
+//
 // SIDE EFFECTS:
+//   Modifies the data pointed to by 'at_address'. Also modifies the
+//   parent node
 {
 
-   node_t *node = (node_t *) at_address;
+   if (parent->child[position] != NULL) return NULL;
+   node_t *newnode = at_address; // for clarity
 
-   memset(node->child, 0, 6 * sizeof(void *));
-   node->path = (parent->path << 4) + position;
+   // Initialize child data.
+   memset(newnode->child, 0, 6 * sizeof(void *));
+   newnode->path = (parent->path << 4) + position;
    const char init[] = {8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8};
-   memcpy(node->cache, init, 2*TAU+1);
+   memcpy(newnode->cache, init, 2*TAU+1);
 
-   parent->child[position] = node;
+   parent->child[position] = newnode;
 
-   return node;
+   return newnode;
 
 }
 

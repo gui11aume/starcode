@@ -45,7 +45,7 @@ starcode
    gstack_t *useqS = read_file(inputf);
 
    // Sort and reduce.
-   useqS->nitems = seqsort(useqS->items, useqS->nitems, size_order, maxthreads);
+   useqS->nitems = seqsort(useqS->items, useqS->nitems, maxthreads);
 
    // Get number of tries.
    int ntries = 3 * maxthreads + (maxthreads % 2 == 0);
@@ -357,7 +357,8 @@ plan_mt
    // Preallocated tries.
    // Count with maxlen-1
    long *nnodes = malloc(ntries * sizeof(long));
-   for (int i = 0; i < ntries; i++) nnodes[i] = count_trie_nodes((useq_t **)useqS->items, bounds[i], bounds[i+1]);
+   for (int i = 0; i < ntries; i++) nnodes[i] =
+      count_trie_nodes((useq_t **)useqS->items, bounds[i], bounds[i+1]);
 
    // Create jobs for the tries.
    for (int i = 0 ; i < ntries; i++) {
@@ -454,7 +455,7 @@ sphere_clustering
 )
 {
    // Sort in count order.
-   seqsort(useqS->items, useqS->nitems, count_order, maxthreads);
+   qsort(useqS->items, useqS->nitems, sizeof(useq_t *), count_order);
 
    for (int i = 0 ; i < useqS->nitems ; i++) {
       useq_t *useq = (useq_t *) useqS->items[i];
@@ -474,7 +475,7 @@ sphere_clustering
    }
 
    // Sort in count order after update.
-   seqsort(useqS->items, useqS->nitems, count_order, maxthreads);
+   qsort(useqS->items, useqS->nitems, sizeof(useq_t *), count_order);
 
    for (int i = 0 ; i < useqS->nitems ; i++) {
 
@@ -520,7 +521,7 @@ message_passing_clustering
    }
 
    // Sort in canonical order.
-   seqsort(useqS->items, useqS->nitems, canonical_order, maxthreads);
+   qsort(useqS->items, useqS->nitems, sizeof(useq_t *), canonical_order);
    useq_t *first = (useq_t *) useqS->items[0];
    useq_t *canonical = first->canonical;
 
@@ -553,10 +554,9 @@ message_passing_clustering
 int
 seqsort
 (
- void **data,
- int numels,
- int (*compar)(const void*, const void*),
- int maxthreads
+ void ** data,
+ int     numels,
+ int     maxthreads
 )
 // SYNOPSIS:                                                              
 //   This function implements a recursive multithreaded mergesort algo-   
@@ -570,7 +570,6 @@ seqsort
 // PARAMETERS:                                                            
 //   data:       an array of pointers to each element.                    
 //   numels:     number of elements, i.e. size of 'data'.                 
-//   compar:     pointer to the comparison function.                      
 //   maxthreads: number of threads.                                       
 //                                                                        
 // RETURN:                                                                
@@ -588,88 +587,120 @@ seqsort
    args.buf0   = data;
    args.buf1   = buffer;
    args.size   = numels;
-   args.b      = 0; // Important so that sorted elements end in data (not in buffer).
+   // There are two alternating buffers for the merge step.
+   // 'args.b' alternates on every call to 'nukesort()' to
+   // keep track of which is the source and which is the
+   // destination. It has to be initialized to 0 so that
+   // sorted elements end in 'data' and not in 'buffer'.
+   args.b      = 0;
    args.thread = 0;
    args.repeats = 0;
-   args.compar = compar;
+
+   // Allocate a number of threads that is a power of 2.
    while ((maxthreads >> (args.thread + 1)) > 0) args.thread++;
 
-   _mergesort(&args);
+   nukesort(&args);
 
    free(buffer);
-   
    return numels - args.repeats;
+
 }
 
 void *
-_mergesort
+nukesort
 (
  void * args
 )
 {
    sortargs_t * sortargs = (sortargs_t *) args;
-   if (sortargs->size > 1) {
-      // Next level params.
-      sortargs_t arg1 = *sortargs, arg2 = *sortargs;
-      arg1.size /= 2;
-      arg2.size = arg1.size + arg2.size % 2;
-      arg2.buf0 += arg1.size;
-      arg2.buf1 += arg1.size;
-      arg1.b = arg2.b = (arg1.b + 1) % 2;
 
-      // Either run threads or DIY.
-      if (arg1.thread) {
-         // Decrease one level.
-         arg1.thread = arg2.thread = arg1.thread - 1;
-         // Create threads.
-         pthread_t thread1, thread2;
-         pthread_create(&thread1, NULL, _mergesort, (void *) &arg1);
-         pthread_create(&thread2, NULL, _mergesort, (void *) &arg2);
-         // Wait for threads.
-         pthread_join(thread1, NULL);
-         pthread_join(thread2, NULL);
+   if (sortargs->size < 2) return NULL;
+
+   // Next level params.
+   sortargs_t arg1 = *sortargs, arg2 = *sortargs;
+   arg1.size /= 2;
+   arg2.size = arg1.size + arg2.size % 2;
+   arg2.buf0 += arg1.size;
+   arg2.buf1 += arg1.size;
+   arg1.b = arg2.b = (arg1.b + 1) % 2;
+
+   // Either run threads or DIY.
+   if (arg1.thread) {
+      // Decrease one level.
+      arg1.thread = arg2.thread = arg1.thread - 1;
+      // Create threads.
+      pthread_t thread1, thread2;
+      if ( pthread_create(&thread1, NULL, nukesort, &arg1) ||
+           pthread_create(&thread2, NULL, nukesort, &arg2) ) {
+         fprintf(stderr, "error creating thread (nukesort): %s\n",
+                     strerror(errno));
+         fprintf(stderr,
+               "Please contact guillaume.filion@gmail.com "
+               "for support with this issue.\n");
+         abort();
       }
-      else {
-         _mergesort((void *) &arg1);
-         _mergesort((void *) &arg2);
-      }
-
-      // Separate data and buffer (b specifies which is buffer).
-      void ** l = (sortargs->b ? arg1.buf0 : arg1.buf1);
-      void ** r = (sortargs->b ? arg2.buf0 : arg2.buf1);
-      void ** buf = (sortargs->b ? arg1.buf1 : arg1.buf0);
-
-      // Accumulate repeats
-      sortargs->repeats = arg1.repeats + arg2.repeats;
-
-      int i = 0;
-      int j = 0;
-      int idx = 0;
-      int cmp = 0;
-      int repeats = 0;
-
-      // Merge sets
-      while (i + j < sortargs->size) {
-         // Only NULLS at the end of the buffers.
-         if (l[i] == NULL && r[j] == NULL) break;
-         // Buffers exhausted.
-         if (j == arg2.size || r[j] == NULL)      buf[idx++] = l[i++];
-         else if (i == arg1.size || l[i] == NULL) buf[idx++] = r[j++];
-         // Insert 'NULL' when comparison returns 0.
-         else if ((cmp = sortargs->compar(l[i],r[j])) == 0) {
-            buf[idx++] = l[i++];
-            j++;
-            repeats++;
-         } 
-         // Sort.
-         else if (cmp < 0) buf[idx++] = l[i++];
-         else              buf[idx++] = r[j++];
-      }
-
-      // Pad NULLS.
-      sortargs->repeats += repeats;
-      for (int k = sortargs->size - sortargs->repeats; k < sortargs->size; k++) buf[k] = NULL;
+      // Wait for threads.
+      pthread_join(thread1, NULL);
+      pthread_join(thread2, NULL);
    }
+   else {
+      nukesort(&arg1);
+      nukesort(&arg2);
+   }
+
+   // Separate data and buffer (b specifies which is buffer).
+   void ** l = (sortargs->b ? arg1.buf0 : arg1.buf1);
+   void ** r = (sortargs->b ? arg2.buf0 : arg2.buf1);
+   void ** buf = (sortargs->b ? arg1.buf1 : arg1.buf0);
+
+   int i = 0;
+   int j = 0;
+   int idx = 0;
+   int cmp = 0;
+   int repeats = 0;
+
+   // Merge sets
+   while (i + j < sortargs->size) {
+      // Only NULLS at the end of the buffers.
+      if (l[i] == NULL && r[j] == NULL) break;
+      if (j == arg2.size || r[j] == NULL) {
+         // Right buffer is exhausted. Copy left buffer...
+         memcpy(buf+idx, l+i, (arg1.size-i) * sizeof(void *));
+         break;
+      }
+      if (i == arg1.size || l[i] == NULL) {
+         // ... or vice versa.
+         memcpy(buf+idx, r+j, (arg2.size-j) * sizeof(void *));
+         break;
+      }
+
+      // Do the comparison.
+      useq_t *ul = (useq_t *) l[i];
+      useq_t *ur = (useq_t *) r[j];
+      int sl = strlen(ul->seq);
+      int sr = strlen(ur->seq);
+      if (sl == sr) cmp = strcmp(ul->seq, ur->seq);
+      else cmp = sl < sr ? -1 : 1;
+
+      if (cmp == 0) {
+         // Nuke!
+         ul->count += ur->count;
+         destroy_useq(ur);
+         buf[idx++] = l[i++];
+         j++;
+         repeats++;
+      } 
+      else if (cmp < 0) buf[idx++] = l[i++];
+      else              buf[idx++] = r[j++];
+
+   }
+
+   // Accumulate repeats
+   sortargs->repeats = repeats + arg1.repeats + arg2.repeats;
+
+   // Pad with NULLS.
+   int offset = sortargs->size - sortargs->repeats;
+   memset(buf+offset, 0, sortargs->repeats*sizeof(void *));
    
    return NULL;
 
@@ -824,8 +855,11 @@ transfer_counts_and_update_canonicals
 (
    useq_t *useq
 )
+// TODO: Write the doc.
+// SYNOPSIS:
+//   Function used in message passing clustering.
 {
-   // If the read is canonical do nothing.
+   // If the read has no matches, it is canonical.
    if (useq->matches == NULL) {
       useq->canonical = useq;
       return;
@@ -1058,37 +1092,14 @@ destroy_useq
 
 
 int
-size_order
-(
-   const void *a,
-   const void *b
-)
-{
-   useq_t *u1 = (useq_t *) a;
-   useq_t *u2 = (useq_t *) b;
-   int la = strlen(u1->seq);
-   int lb = strlen(u2->seq);
-   if (la == lb) {
-      int cmp = strcmp(u1->seq, u2->seq);
-      if (cmp == 0) {
-         u1->count += u2->count;
-         destroy_useq(u2);
-      }
-      return cmp;
-   }
-   return (la < lb ? -1 : 1);
-}
-
-
-int
 canonical_order
 (
    const void *a,
    const void *b
 )
 {
-   useq_t *u1 = (useq_t *) a;
-   useq_t *u2 = (useq_t *) b;
+   useq_t *u1 = *((useq_t **) a);
+   useq_t *u2 = *((useq_t **) b);
    if (u1->canonical == u2->canonical) return strcmp(u1->seq, u2->seq);
    if (u1->canonical == NULL) return 1;
    if (u2->canonical == NULL) return -1;
@@ -1100,7 +1111,6 @@ canonical_order
 } 
 
 
-// FIXME: implement the destruction.
 int
 count_order
 (
@@ -1108,14 +1118,8 @@ count_order
    const void *b
 )
 {
-   useq_t *u1 = (useq_t *) a;
-   useq_t *u2 = (useq_t *) b;
-   if (u1->count == u2->count) {
-      int cmp = strcmp(u1->seq, u2->seq);
-//      if (cmp == 0) destroy_useq(u1);
-      return cmp;
-   }
-   return u1->count < u2->count ? 1 : -1;
+   useq_t *u1 = *((useq_t **) a);
+   useq_t *u2 = *((useq_t **) b);
+   if (u1->count == u2->count) return strcmp(u1->seq, u2->seq);
+   else return u1->count < u2->count ? 1 : -1;
 } 
-
-

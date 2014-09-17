@@ -42,42 +42,43 @@ starcode
    OUTPUT = outputf;
 
    if (verbose) fprintf(stderr, "reading input files\n");
-   gstack_t *useqS = read_file(inputf);
+   gstack_t *uSQ = read_file(inputf);
 
-   // Sort and reduce.
-   useqS->nitems = seqsort(useqS->items, useqS->nitems, maxthreads);
+   // Sort/reduce.
+   uSQ->nitems = seqsort((useq_t **) uSQ->items, uSQ->nitems, maxthreads);
 
    // Get number of tries.
    int ntries = 3 * maxthreads + (maxthreads % 2 == 0);
-   if (useqS->nitems < ntries) {
+   if (uSQ->nitems < ntries) {
       ntries = 1;
       maxthreads = 1;
    }
  
    // Pad sequences. (And return the median size)
    int med = -1;
-   int height = pad_useq(useqS, &med);
+   int height = pad_useq(uSQ, &med);
    
    // Make multithreading plan.
-   mtplan_t *mtplan = plan_mt(tau, height, med, ntries, useqS, clusters);
+   mtplan_t *mtplan = plan_mt(tau, height, med, ntries, uSQ, clusters);
 
    // Run the query.
    run_plan(mtplan, verbose, maxthreads);
    if (verbose) fprintf(stderr, "starcode progress: 100.00%%\n");
 
    // Remove padding characters.
-   unpad_useq(useqS);
+   unpad_useq(uSQ);
 
    if (clusters == 0) {
-      message_passing_clustering(useqS, maxthreads);
+      message_passing_clustering(uSQ, maxthreads);
    }
    else if (clusters == 1) {
-      sphere_clustering(useqS, maxthreads);
+      sphere_clustering(uSQ, maxthreads);
    }
 
    // Do not free anything.
    OUTPUT = NULL;
    return 0;
+
 }
 
 void
@@ -554,33 +555,31 @@ message_passing_clustering
 int
 seqsort
 (
- void ** data,
- int     numels,
- int     maxthreads
+ useq_t ** data,
+ int       numels,
+ int       maxthreads
 )
 // SYNOPSIS:                                                              
-//   This function implements a recursive multithreaded mergesort algo-   
-//   rithm. The data is provided as an array of pointers and the content  
-//   of each array position is passed to the function 'compar()'. The     
-//   repeated elements ('compar()' returns 0) are freed (disabled for     
-//   speed) from memory and their addresses are set to NULL in data. One  
-//   can compute the number of repeats for each element by counting the   
-//   preceding number of NULL addresses.                                  
-//                                                                        
+//   Recursive merge sort for 'useq_t' arrays, tailored for the
+//   problem of sorting merging identical sequences. When two
+//   identical sequences are detected during the sort, they are
+//   merged into a single one with more counts, and one of them
+//   is destroyed (freed).
+//
 // PARAMETERS:                                                            
 //   data:       an array of pointers to each element.                    
 //   numels:     number of elements, i.e. size of 'data'.                 
 //   maxthreads: number of threads.                                       
 //                                                                        
 // RETURN:                                                                
-//   Returns the number of unique elements.                               
+//   Number of unique elements.                               
 //                                                                        
 // SIDE EFFECTS:                                                          
 //   Pointers to repeated elements are set to NULL.
 {
    // Copy to buffer.
-   void **buffer = malloc(numels * sizeof(void *));
-   memcpy(buffer, data, numels * sizeof(void *));
+   useq_t **buffer = malloc(numels * sizeof(useq_t *));
+   memcpy(buffer, data, numels * sizeof(useq_t *));
 
    // Prepare args struct.
    sortargs_t args;
@@ -611,6 +610,20 @@ nukesort
 (
  void * args
 )
+// SYNOPSIS:
+//   Recursive part of 'seqsort'. The code of 'nukesort()' is
+//   dangerous and should not be reused. It uses a very special
+//   sort order designed for starcode, it destroys some elements
+//   and sets them to NULL as it sorts.
+//
+// ARGUMENTS:
+//   args: a sortargs_t struct (see private header file).
+//
+// RETURN:
+//   NULL pointer, regardless of the input
+//
+// SIDE EFFECTS:
+//   Sorts the array of 'useq_t' specified in 'args'.
 {
    sortargs_t * sortargs = (sortargs_t *) args;
 
@@ -649,9 +662,9 @@ nukesort
    }
 
    // Separate data and buffer (b specifies which is buffer).
-   void ** l = (sortargs->b ? arg1.buf0 : arg1.buf1);
-   void ** r = (sortargs->b ? arg2.buf0 : arg2.buf1);
-   void ** buf = (sortargs->b ? arg1.buf1 : arg1.buf0);
+   useq_t ** l = (sortargs->b ? arg1.buf0 : arg1.buf1);
+   useq_t ** r = (sortargs->b ? arg2.buf0 : arg2.buf1);
+   useq_t ** buf = (sortargs->b ? arg1.buf1 : arg1.buf0);
 
    int i = 0;
    int j = 0;
@@ -665,12 +678,12 @@ nukesort
       if (l[i] == NULL && r[j] == NULL) break;
       if (j == arg2.size || r[j] == NULL) {
          // Right buffer is exhausted. Copy left buffer...
-         memcpy(buf+idx, l+i, (arg1.size-i) * sizeof(void *));
+         memcpy(buf+idx, l+i, (arg1.size-i) * sizeof(useq_t *));
          break;
       }
       if (i == arg1.size || l[i] == NULL) {
          // ... or vice versa.
-         memcpy(buf+idx, r+j, (arg2.size-j) * sizeof(void *));
+         memcpy(buf+idx, r+j, (arg2.size-j) * sizeof(useq_t *));
          break;
       }
 
@@ -683,7 +696,7 @@ nukesort
       else cmp = sl < sr ? -1 : 1;
 
       if (cmp == 0) {
-         // Nuke!
+         // Identical sequences, this is the nuke part.
          ul->count += ur->count;
          destroy_useq(ur);
          buf[idx++] = l[i++];
@@ -700,7 +713,7 @@ nukesort
 
    // Pad with NULLS.
    int offset = sortargs->size - sortargs->repeats;
-   memset(buf+offset, 0, sortargs->repeats*sizeof(void *));
+   memset(buf+offset, 0, sortargs->repeats*sizeof(useq_t *));
    
    return NULL;
 

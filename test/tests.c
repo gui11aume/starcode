@@ -1512,7 +1512,7 @@ test_seqsort
       push(new_useq(1, "A"), &useqS);
    }
    test_assert(useqS->nitems == 9);
-   seqsort(useqS->items, 9, 1);
+   seqsort((useq_t **) useqS->items, 9, 1);
    test_assert_critical(useqS->items[0] != NULL);
    useq_t *u = useqS->items[0];
    test_assert(strcmp(u->seq, "A") == 0);
@@ -1528,7 +1528,7 @@ test_seqsort
       push(new_useq(1, i % 2 ? "A":"B"), &useqS);
    }
    test_assert(useqS->nitems == 9);
-   seqsort(useqS->items, 9, 1);
+   seqsort((useq_t **) useqS->items, 9, 1);
    test_assert_critical(useqS->items[0] != NULL);
    test_assert_critical(useqS->items[1] != NULL);
    for (int i = 2 ; i < 9 ; i++) {
@@ -1566,7 +1566,7 @@ test_seqsort
       to_sort_1[i] = new_useq(1, sequences_1[i]);
    }
 
-   seqsort((void **) to_sort_1, 10, 1);
+   seqsort(to_sort_1, 10, 1);
    for (int i = 0 ; i < 10 ; i++) {
       test_assert(strcmp(to_sort_1[i]->seq, sorted_1[i]) == 0);
       test_assert(to_sort_1[i]->count == 1);
@@ -1594,7 +1594,7 @@ test_seqsort
       to_sort_2[i] = new_useq(1, sequences_2[i]);
    }
 
-   seqsort((void **) to_sort_2, 10, 1);
+   seqsort(to_sort_2, 10, 1);
    for (int i = 0 ; i < 10 ; i++) {
       test_assert(strcmp(to_sort_2[i]->seq, sorted_2[i]) == 0);
       test_assert(to_sort_2[i]->count == 1);
@@ -1615,7 +1615,7 @@ test_seqsort
       to_sort_3[i] = new_useq(1, sequences_3[i]);
    }
 
-   seqsort((void **) to_sort_3, 6, 1);
+   seqsort(to_sort_3, 6, 1);
    for (int i = 0 ; i < 2 ; i++) {
       test_assert(strcmp(to_sort_3[i]->seq, sorted_3[i]) == 0);
       test_assert(to_sort_3[i]->count == counts[i]);
@@ -1687,7 +1687,7 @@ test_seqsort
          push(new_useq(1, seq[i]), &useqS);
       }
 
-      seqsort(useqS->items, 35, 1);
+      seqsort((useq_t **) useqS->items, 35, 1);
       for (int i = 0 ; i < 10 ; i++) {
          test_assert_critical(useqS->items[i] != NULL);
          u = useqS->items[i];

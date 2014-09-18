@@ -12,6 +12,7 @@
 #include <time.h>
 #include <unistd.h>
 #include "trie.h"
+#include "rbtree.h"
 
 #define BALL_SIZE(elem) 2 * sizeof(int)   + \
                         4 * sizeof(double) + \
@@ -33,7 +34,6 @@ struct ball_t {
    double     force[2];
    gstack_t * children;
 };
-
 
 struct star_t {
    int        starid;          // Numeric ID of the star.

@@ -9,10 +9,10 @@ force_directed_drawing
 )
 {
    // Create the thread pool.
-   pthread_t thread_pool[maxthreads];
-   for (int i = 0; i < maxthreads; i++) {
-      pthread_create(&thread_pool[i], NULL, fun, args);
-   }
+   //pthread_t thread_pool[maxthreads];
+   //for (int i = 0; i < maxthreads; i++) {
+   //   pthread_create(&thread_pool[i], NULL, fun, args);
+   //}
    // Initialize ball positions.
    // Define canvas size and generate random positions in it.
    int canvas_size[2] = { CANVAS_SIZE , CANVAS_SIZE };
@@ -312,6 +312,20 @@ spiralize_displacements
    first->displacement[1] = center[1] - first->position[1];
    first->position[0] = center[0];
    first->position[1] = center[1];
+   /* Use the red-black tree here.
+    * Create and initialize the root node with the first star.
+    * Then spiralize and, *when dropped*, insert the new star
+    * in the rbtree at its final location.
+    */
+   rbnode_t * root;
+   root->color = BLACK;
+   root->side = NULL;
+   root->box = first;
+   root->parent = NULL;
+   root->children[IB] = NULL;
+   root->children[IA] = NULL;
+   root->children[OB] = NULL;
+   root->children[OA] = NULL;
    for (int i = 1; i < star_list->nitems; i++) {
       star_t * star1 = star_list->items[i];
       double x_pos;

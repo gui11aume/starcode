@@ -1,48 +1,80 @@
 /* Two-Dimensional Red-Black Tree.
  * Contains functions for adding nodes
- * and self-balance the tree. */
+ * and self-balance the tree.
+ */
 
 #include "rbtree.h"
 
 rbnode_t *
-add_child
+new_rbnode
 (
-   rbnode_t * parent,
-   void     * item,
-   int        side
+   void * item
 )
 {
-   rbnode_t * child = malloc(sizeof(rbnode_t));
-   parent->children[side] = child;
-   child->color = RED;
+   // Allocate and initialize a new rbnode.
+   rbnode_t * node = malloc(sizeof(rbnode_t));
+   if (node == NULL) {
+      fprintf(stderr, "error: could not create rbnode\n");
+      ERROR = __LINE__;
+      return NULL;
+   }
+   node->color = RED;
+   node->side = NULL;
+   node->box = item; // Put the item in the box.
+   node->parent = NULL;
+   node->children = { NULL, NULL, NULL, NULL };
+   return node;
+}
+
+void
+destroy_node
+(
+   rbnode_t * node
+)
+{
+   // Free a node and all of its descendants.
+   node->parent->children[node->side] = NULL;
+   for (int i=0; i<4; i++) {
+      rbnode_t * child = node->children[i];
+      if (child != NULL) destroy_node(child);
+   }
+   free(node);
+}
+
+void
+add_child
+(
+   rbnode_t * child,
+   rbnode_t * parent,
+   uint32_t   side
+)
+{
+   // Hang a child on a parent's side.
    child->side = side;
-   child->box = item;
    child->parent = parent;
-   child->children[IB] = NULL;
-   child->children[IA] = NULL;
-   child->children[OB] = NULL;
-   child->children[OA] = NULL;
+   parent->children[side] = child;
+   // Rebalance the tree if needed.
    if (parent->color == RED) {
       rebalance(child);
    }
-   return child;
 }
 
 void
 rebalance
 (
-   rbnode_t * node
+   rbnode_t * new
 )
 {
-   rbnode_t * grandpa = node->parent->parent;
-   rbnode_t * parent = node->parent;
+   // Rebalance the tree according to the case.
+   rbnode_t * grandpa = new->parent->parent;
+   rbnode_t * parent = new->parent;
    rbnode_t * uncles[3];
    for (int i=0, j=0; j<3 || i<4; i++) {
       rbnode_t * sibling = grandpa->children[i];
       if (sibling->side != parent->side) uncles[j++] = sibling;
    for (int i=0; i<3; i++) {
       if (uncles[i] == NULL || uncles[i]->color == BLACK) {
-         if (/* node between parent and granpa */1) {
+         if (/* new between parent and granpa */1) {
             /* Rotate like this in case N's value is between G's and P's.
              *
              *      G                G
@@ -55,19 +87,20 @@ rebalance
              *
              * Apply a binary NOT and a 2-bit mask to obtain opposite
              * children index. */
-            rbnode_t * adopted = node->children[(~node->side) & mask];
-            grandpa->children[parent->side] = node;
-            parent->parent = node;
-            parent->children[node->side] = adopted;
-            node->parent = grandpa;
-            node->children[(~node->side) & mask] = parent;
-            node->side = (~node->side) & mask;
+            uint32_t new_invside = invert(new->side); 
+            rbnode_t * adopted = new->children[new_invside];
+            grandpa->children[parent->side] = new;
+            parent->parent = new;
+            parent->children[new->side] = adopted;
+            new->parent = grandpa;
+            new->children[new_invside] = parent;
+            new->side = new_invside;
             adopted->parent = parent;
-            adopted->side = (~adopted->side) & mask;
+            adopted->side = invert(adopted->side);
             // And change their names according to the new family tree.
             tmp = parent;
-            parent = node;
-            node = tmp;
+            parent = new;
+            new = tmp;
          }
          /* Rotate like this in case P's value is between G's and N's.
           *
@@ -75,23 +108,49 @@ rebalance
           *       / \            /   \
           *      P   U          N     G
           *     / \      ->    / \   / \
-          *    N   3          1   2 3   U
+          *    N   A          1   2 A   U
           *   / \
           *  1   2
           *
           * Obtain a balanced tree. */
+         uint32_t parent_invside = invert(parent->side);
+         rbnode_t * adopted = parent->children[parent_invside];
          parent->parent = grandpa->parent;
+         parent->children[parent_invside] = grandpa;
          parent->color = BLACK;
-         parent->children[(~parent->side) & mask];
          grandpa->parent = parent;
-         grandpa->children[parent->side] = parent->children[(~parent->side) & mask];
+         grandpa->children[parent->side] = adopted;
+         grandpa->color = RED;
+         tmp = grandpa->side;
+         grandpa->side = parent_invside;
+         parent->side = tmp;
+         // Check whether it is important for all the uncles to be the same color or if it is an implicit property.
+         // if one black means all are black, return here. 
       }
    }
-   // If all uncles are red, swap uncles and parent colors and propagate.
-   parent->color = BLACK;
-   for (int i=0; i<3; i++) uncles[i]->color = BLACK;
-   if (grandpa->parent != NULL) {
-      grandpa->color = RED;
-      if (grandpa->parent->color == RED) rebalance(grandpa);
+   // If all uncles are red also.
+   case_all_reds(grandpa);
+}
+
+void
+case_all_reds
+(
+   rbnode_t * node
+)
+{
+   // Swap parent/uncles and grandpa colors and propagate upwards.
+   for (int i=0; i<4; i++) node->children[i]->color = BLACK;
+   if (node->parent != NULL) {
+      node->color = RED;  
+      if (node->parent->color == RED) rebalance(node);
    }
+}
+
+uint32_t
+invert
+(
+   uint32_t number
+)
+{
+   return (~number) & MASK
 }

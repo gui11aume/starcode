@@ -5,7 +5,8 @@
 #define OB (uint32_t) 2 // OUT-BEFORE
 #define OA (uint32_t) 3 // OUT-AFTER
 
-const uint32_t mask = 3; // 2-bit mask for obtaining the
+static int ERROR = 0;
+const uint32_t MASK = 3; // 2-bit mask for obtaining the
                          // opposite node during rotations.
 struct rbnode_t;
 
@@ -19,5 +20,8 @@ struct rbnode_t {
    rbnode_t * children[4];
 };
 
-void add_child(rbnode_t *, void *, int);
-void rebalance(rbnode_t *, int);
+rbnode_t * new_rbnode(void *);
+void destroy_node(rbnode_t *);
+void add_child(rbnode_t *, rbnode_t *, uint32_t);
+void rebalance(rbnode_t *);
+void case_all_reds(rbnode_t *);

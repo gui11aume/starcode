@@ -235,12 +235,14 @@ poucet
 
       // Reached height of the trie: it's a hit!
       if (depth == arg.height) {
-         push(child, arg.hits + ccache[0]);
+         if (push(child, arg.hits + ccache[0])) ERROR = __LINE__;
          continue;
       }
 
       // Cache nodes in pebbles when trailing.
-      if (depth <= arg.seed_depth) push(child, (arg.pebbles)+depth);
+      if (depth <= arg.seed_depth) {
+         if (push(child, (arg.pebbles)+depth)) ERROR = __LINE__;
+      }
 
       if (depth > arg.seed_depth) {
          // Use 'dash()' if no more mismatches allowed.
@@ -296,7 +298,7 @@ dash
    }
 
    // End of query, check whether node is a tail.
-   push(node, arg.hits + arg.tau);
+   if (push(node, arg.hits + arg.tau)) ERROR = __LINE__;
 
    return;
 
@@ -355,7 +357,10 @@ new_trie
    info->height = height;
    info->pebbles = new_tower(M);
 
-   if (info->pebbles == NULL) {
+   // Push the root to the ground level of 'pebbles'.
+   // This will be the only node at this level for
+   // the lifetime of the trie.
+   if (info->pebbles == NULL || push(root, info->pebbles)) {
       fprintf(stderr, "error: could not create trie\n");
       ERROR = __LINE__;
       free(info);
@@ -364,7 +369,6 @@ new_trie
       return NULL;
    }
 
-   push(root, info->pebbles);
    trie->root = root;
    trie->info = info;
 
@@ -727,21 +731,41 @@ destroy_tower
 }
 
 
-void
+int
 push
 (
    void *item,
    gstack_t **stack_addr
 )
+// SYNOPSIS:
+//   Push the item referenced by the pointer to the stack. In case
+//   of failure to push the item (because of 'realloc()' failure)
+//   the stack is locked and cannot reiceive more items. Locked
+//   stack is an indication that something went wrong with it and
+//   that at least one item is missing.
+//
+// ARGUMENTS:
+//   item: a void pointer to the item to push
+//   stack_addr: the address of the stack pointer (not the pointer).
+//
+// RETURN:
+//   0 upon success, 1 upon failure.
+//
+// SIDE EFFECT:
+//   Modifies the stack pointed to by '*stack_addr', and potentially
+//   also the address pointed to by '**stack_addr' if resizing is
+//   required.
 {
+
    // Convenience variable for readability.
    gstack_t *stack = *stack_addr;
 
    // Resize stack if needed.
    if (stack->nitems >= stack->nslots) {
       // If the stack has more items than slots, it is in a
-      // locked state and will not receive more items.
-      if (stack->nitems > stack->nslots) return;
+      // locked state and will not receive more items. This
+      // allows to 
+      if (stack->nitems > stack->nslots) return 1;
 
       // The stack is not locked, allocate more memory.
       int new_nslots = 2 * stack->nslots;
@@ -749,19 +773,20 @@ push
       size_t extra_size = new_nslots * sizeof(void *);
       gstack_t *ptr = realloc(stack, base_size + extra_size);
       if (ptr == NULL) {
-         // Failed to add item to the stack. Warn and increase
+         // Failed to add item to the stack. Increase
          // 'nitems' beyond 'nslots' to lock the stack.
-         fprintf(stderr, "error: could not push to gstack\n");
          stack->nitems++;
          ERROR = __LINE__;
-         return;
+         return 1;
       }
       *stack_addr = stack = ptr;
       stack->nslots = new_nslots;
    }
-   // Push item and increate 'nitems'.
+
+   // Push item and increase 'nitems'.
    stack->items[stack->nitems++] = item;
-   return;
+   return 0;
+
 }
 
 

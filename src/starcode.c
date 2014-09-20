@@ -28,6 +28,7 @@
 
 FILE *OUTPUT = NULL;
 
+
 int
 starcode
 (
@@ -119,12 +120,8 @@ run_plan
             pthread_t thread;
             // Start job and detach thread.
             if (pthread_create(&thread, NULL, do_query, job)) {
-               fprintf(stderr, "error creating thread (run_plan): %s\n",
-                     strerror(errno));
-               fprintf(stderr,
-                     "Please contact guillaume.filion@gmail.com "
-                     "for support with this issue.\n");
-               abort();
+               alert();
+               krash();
             }
             pthread_detach(thread);
             if (verbose) {
@@ -166,12 +163,8 @@ do_query
    // Create local hit stack.
    gstack_t **hits = new_tower(tau+1);
    if (hits == NULL) {
-      fprintf(stderr, "error creating hit stack (do_query): %s\n",
-            strerror(errno));
-      fprintf(stderr,
-            "Please contact guillaume.filion@gmail.com "
-            "for support with this issue.\n");
-      abort();
+      alert();
+      krash();
    }
 
    useq_t * last_query = NULL;
@@ -188,12 +181,8 @@ do_query
          lut_insert(lut, query);
          data = insert_string_wo_malloc(trie, query->seq, &node_pos);
          if (data == NULL || *data != NULL) {
-            fprintf(stderr, "error building trie (do_query): %s.\n",
-                  strerror(errno));
-            abort();
-            fprintf(stderr,
-                  "Please contact guillaume.filion@gmail.com "
-                  "for support with this issue.\n");
+            alert();
+            krash();
          }
       }
 
@@ -219,11 +208,8 @@ do_query
          for (int j = 0 ; hits[j] != TOWER_TOP ; j++) hits[j]->nitems = 0;
          int err = search(trie, query->seq, tau, hits, start, trail);
          if (err) {
-            fprintf(stderr, "search error (do_query): %d\n", err);
-            fprintf(stderr,
-                  "Please contact guillaume.filion@gmail.com "
-                  "for support with this issue.\n");
-            abort();
+            alert();
+            krash();
          }
 
          for (int j = 0 ; hits[j] != TOWER_TOP ; j++) {
@@ -253,14 +239,24 @@ do_query
                   // The children is modified, use the children mutex.
                   mutexid = match->count > query->count ? job->queryid : job->trieid;
                   pthread_mutex_lock(job->mutex + mutexid);
-                  addmatch(child, parent, dist, tau);
+                  if (addmatch(child, parent, dist, tau)) {
+                     fprintf(stderr,
+                           "Please contact guillaume.filion@gmail.com "
+                           "for support with this issue.\n");
+                     abort();
+                  }
                   pthread_mutex_unlock(job->mutex + mutexid);
                }
                else {
                   // The parent is modified, use the parent mutex.
                   mutexid = match->count > query->count ? job->trieid : job->queryid;
                   pthread_mutex_lock(job->mutex + mutexid);
-                  addmatch(parent, child, dist, tau);
+                  if (addmatch(parent, child, dist, tau)) {
+                     fprintf(stderr,
+                           "Please contact guillaume.filion@gmail.com "
+                           "for support with this issue.\n");
+                     abort();
+                  }
                   pthread_mutex_unlock(job->mutex + mutexid);
                }
             }
@@ -325,18 +321,16 @@ plan_mt
    // Initialize plan.
    mtplan_t *mtplan = malloc(sizeof(mtplan_t));
    if (mtplan == NULL) {
-      fprintf(stderr, "out of memory error (plan_mt): %s\n",
-            strerror(errno));
-      abort();
+      alert();
+      krash();
    }
 
    // Initialize mutex.
    pthread_mutex_t *mutex = malloc((ntries + 1) * sizeof(pthread_mutex_t));
    pthread_cond_t *monitor = malloc(sizeof(pthread_cond_t));
    if (mutex == NULL || monitor == NULL) {
-      fprintf(stderr, "out of memory error (plan_mt): %s\n",
-            strerror(errno));
-      abort();
+      alert();
+      krash();
    }
    for (int i = 0; i < ntries + 1; i++) pthread_mutex_init(mutex + i,NULL);
    pthread_cond_init(monitor,NULL);
@@ -344,9 +338,8 @@ plan_mt
    // Initialize 'mttries'.
    mttrie_t *mttries = malloc(ntries * sizeof(mttrie_t));
    if (mttries == NULL) {
-      fprintf(stderr, "out of memory error (plan_mt): %s\n",
-            strerror(errno));
-      abort();
+      alert();
+      krash();
    }
 
    // Boundaries of the query blocks.
@@ -369,18 +362,16 @@ plan_mt
       node_t *local_nodes = (node_t *) malloc(nnodes[i] * sizeof(node_t));
       mtjob_t *jobs = malloc(njobs * sizeof(mtjob_t));
       if (local_trie == NULL || jobs == NULL) {
-         fprintf(stderr, "out of memory error (plan_mt): %s\n",
-               strerror(errno));
-         abort();
+         alert();
+         krash();
       }
 
       // Allocate lookup struct.
       // TODO: Try only one lut as well. (It will always return 1 in the query step though).
       lookup_t * local_lut = new_lookup(medianlen, height, tau);
       if (local_lut == NULL) {
-         fprintf(stderr, "out of memory error (plan_mt): %s\n",
-               strerror(errno));
-         abort();
+         alert();
+         krash();
       }
 
       mttries[i].flag       = TRIE_FREE;
@@ -645,12 +636,8 @@ nukesort
       pthread_t thread1, thread2;
       if ( pthread_create(&thread1, NULL, nukesort, &arg1) ||
            pthread_create(&thread2, NULL, nukesort, &arg2) ) {
-         fprintf(stderr, "error creating thread (nukesort): %s\n",
-                     strerror(errno));
-         fprintf(stderr,
-               "Please contact guillaume.filion@gmail.com "
-               "for support with this issue.\n");
-         abort();
+         alert();
+         krash();
       }
       // Wait for threads.
       pthread_join(thread1, NULL);
@@ -732,15 +719,13 @@ read_file
    size_t nchar = M;
    gstack_t *useqS = new_gstack();
    if (useqS == NULL) {
-      fprintf(stderr, "out of memory error (read_file): %s\n",
-            strerror(errno));
-      abort();
+      alert();
+      krash();
    }
    char *line = malloc(M * sizeof(char));
    if (line == NULL) {
-      fprintf(stderr, "out of memory error (read_file): %s\n",
-            strerror(errno));
-      abort();
+      alert();
+      krash();
    }
    int count = 0;
 
@@ -764,9 +749,8 @@ read_file
       }
       useq_t *new = new_useq(count, seq);
       if (new == NULL) {
-         fprintf(stderr, "out of memory error (read_file): %s\n",
-               strerror(errno));
-         abort();
+         alert();
+         krash();
       }
       push(new, &useqS);
    }
@@ -795,9 +779,8 @@ pad_useq
    int  * count = calloc((maxlen + 1), sizeof(int));
    char * spaces = malloc((maxlen + 1) * sizeof(char));
    if (spaces == NULL || count == NULL) {
-      fprintf(stderr, "out of memory error (pad_useq): %s\n",
-            strerror(errno));
-      abort();
+      alert();
+      krash();
    }
    for (int i = 0 ; i < maxlen ; i++) spaces[i] = ' ';
    spaces[maxlen] = '\0';
@@ -811,9 +794,8 @@ pad_useq
       // Create a new sequence with padding characters.
       char *padded = malloc((maxlen + 1) * sizeof(char));
       if (padded == NULL) {
-         fprintf(stderr, "out of memory error (pad_useq): %s\n",
-               strerror(errno));
-         abort();
+         alert();
+         krash();
       }
       memcpy(padded, spaces, maxlen + 1);
       memcpy(padded+maxlen-len, u->seq, len);
@@ -851,9 +833,8 @@ unpad_useq
       // Create a new sequence without paddings characters.
       char *unpadded = malloc((len - pad + 1) * sizeof(char));
       if (unpadded == NULL) {
-         fprintf(stderr, "out of memory error (unpad_useq): %s\n",
-               strerror(errno));
-         abort();
+         alert();
+         krash();
       }
       memcpy(unpadded, u->seq + pad, len - pad + 1);
       free(u->seq);
@@ -927,25 +908,38 @@ transfer_counts_and_update_canonicals
 }
 
 
-void
+int
 addmatch
 (
-   useq_t * from,
    useq_t * to,
+   useq_t * from,
    int      dist,
-   int      tau
+   int      maxtau
 )
+// SYNOPSIS:
+//   Add a sequence to the match record of another.
+//
+// ARGUMENTS:
+//   to: pointer to the sequence to add the match to
+//   from: pointer to the sequence to add as a match
+//   dist: distance between the sequences
+//   maxtau: maximum allowed distance
+//
+// RETURN:
+//   0 upon success, 1 upon failure.
+//
+// SIDE EFFECT:
+//   Updates sequence pointed to by 'to' in place, potentially
+//   creating a match record,
 {
-   if (dist > tau) {
-      fprintf(stderr, "error (addmatch): distance exceeds tau.\n");
-      fprintf(stderr,
-            "Please contact guillaume.filion@gmail.com "
-            "for support with this issue.\n");
-      abort();
-   }
+
+   // Cannot add a match at a distance greater than 'maxtau'
+   // (this lead to a segmentation fault).
+   if (dist > maxtau) return 1;
    // Create stack if not done before.
-   if (from->matches == NULL) from->matches = new_tower(tau+1);
-   push(to, from->matches + dist);
+   if (to->matches == NULL) to->matches = new_tower(maxtau+1);
+   return push(from, to->matches + dist);
+
 }
 
 
@@ -960,7 +954,7 @@ new_lookup
    lookup_t * lut = (lookup_t *) malloc(2*sizeof(int) + sizeof(int *) +
          (tau+1)*sizeof(char *));
    if (lut == NULL) {
-      fprintf(stderr, "error could not create lookup\n");
+      alert();
       return NULL;
    }
 
@@ -981,18 +975,19 @@ new_lookup
 
    // Allocate lookup tables.
    for (int i = 0; i < tau + 1; i++) {
-      lut->lut[i] = (char *) calloc(1 << max(0,(2*lut->klen[i] - 3)), sizeof(char));
+      lut->lut[i] = calloc(1 << max(0,(2*lut->klen[i] - 3)), sizeof(char));
       if (lut->lut[i] == NULL) {
          while (--i >= 0) {
             free(lut->lut[i]);
          }  
          free(lut);
-         fprintf(stderr, "error could not create lookup\n");
+         alert();
          return NULL;
       }
    }
 
    return lut;
+
 }
 
 
@@ -1028,6 +1023,7 @@ lut_search
    }
 
    return 0;
+
 }
 
 
@@ -1067,6 +1063,7 @@ seq2id
    }
 
    return seqid;
+
 }
 
 
@@ -1077,11 +1074,11 @@ new_useq
    char *seq
 )
 {
+   if (seq == NULL) return NULL;
    useq_t *new = malloc(sizeof(useq_t));
    if (new == NULL) {
-      fprintf(stderr, "out of memory error (new_useq): %s\n",
-            strerror(errno));
-      abort();
+      alert();
+      krash();
    }
    new->seq = malloc((strlen(seq)+1) * sizeof(char));
    strcpy(new->seq, seq);
@@ -1136,3 +1133,14 @@ count_order
    if (u1->count == u2->count) return strcmp(u1->seq, u2->seq);
    else return u1->count < u2->count ? 1 : -1;
 } 
+
+
+void
+krash
+(void)
+{
+   fprintf(stderr,
+      "starcode has crashed, please contact guillaume.filion@gmail.com "
+      "for support with this issue.\n");
+   abort();
+}

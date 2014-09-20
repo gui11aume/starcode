@@ -35,6 +35,9 @@
 #include <string.h>
 #include "trie.h"
 
+#define alert() fprintf(stderr, "error `%s' in %s() (%s:%d)\n",\
+                     strerror(errno), __func__, __FILE__, __LINE__)
+
 #define MAX_K_FOR_LOOKUP 14
 
 #define PARENT_TO_CHILD_FACTOR  5
@@ -130,7 +133,7 @@ struct mtjob_t {
 };
 
 int        size_order (const void *a, const void *b);
-void       addmatch (useq_t*, useq_t*, int, int);
+int        addmatch (useq_t*, useq_t*, int, int);
 int        bisection (int, int, char *, useq_t **, int, int);
 int        canonical_order (const void*, const void*);
 long int   count_trie_nodes (useq_t **, int, int);
@@ -138,6 +141,7 @@ int        count_order (const void *, const void *);
 void       destroy_useq (useq_t *);
 void       destroy_lookup (lookup_t *);
 void     * do_query (void*);
+void       krash (void) __attribute__ ((__noreturn__));
 void       lut_insert (lookup_t *, useq_t *); 
 int        lut_search (lookup_t *, useq_t *); 
 void       message_passing_clustering (gstack_t*, int);

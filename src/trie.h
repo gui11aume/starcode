@@ -58,17 +58,17 @@ typedef struct trie_t trie_t;
 
 gstack_t * const TOWER_TOP;
 
-int         check_trie_error_and_reset(void);
-int         count_nodes(trie_t*);
-void 	    destroy_tower(gstack_t **);
-void        destroy_trie(trie_t*, int, void(*)(void *));
-void     ** insert_string_wo_malloc(trie_t *, const char *, node_t **);
-void     ** insert_string(trie_t*, const char*);
-gstack_t *  new_gstack(void);
-gstack_t ** new_tower(int);
-trie_t   *  new_trie(unsigned int);
-void 	    push(void*, gstack_t**);
-int         search(trie_t*, const char*, int, gstack_t**, int, int);
+int         check_trie_error_and_reset (void);
+int         count_nodes (trie_t*);
+void        destroy_tower (gstack_t **);
+void        destroy_trie (trie_t*, int, void(*)(void *));
+void     ** insert_string_wo_malloc (trie_t *, const char *, node_t **);
+void     ** insert_string (trie_t*, const char*);
+gstack_t *  new_gstack (void);
+gstack_t ** new_tower (int);
+trie_t   *  new_trie (unsigned int);
+int         push (void*, gstack_t**);
+int         search (trie_t*, const char*, int, gstack_t**, int, int);
 
 struct trie_t
 {

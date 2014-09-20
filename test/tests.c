@@ -235,6 +235,8 @@ test_base_4
 // Test trie creation and destruction.
 {
 
+   srand48(123);
+
    for (int height = 1 ; height < M ; height++) {
       trie_t *trie = new_trie(height);
       test_assert_critical(trie != NULL);
@@ -764,6 +766,7 @@ test_mem_1
 (void)
 {
 
+   srand48(123);
    int err;
 
    // Test hstack dynamic growth. Build a trie with 1000 sequences
@@ -813,6 +816,8 @@ void
 test_mem_2
 (void)
 {
+
+   srand48(123);
    char seq[21];
    seq[20] = '\0';
 
@@ -855,6 +860,8 @@ void
 test_mem_3
 (void)
 {
+
+   srand48(123);
 
    node_t *nodes = malloc(2000 * sizeof(node_t));
    if (nodes == NULL) {
@@ -938,6 +945,8 @@ void
 test_mem_5
 (void)
 {
+
+   srand48(123);
 
    // The variable 'trie' and 'hstack' are initialized
    // without 'malloc()' failure.
@@ -1053,33 +1062,65 @@ test_starcode_1
 // Basic tests of useq.
 (void)
 {
-   useq_t *case_1 = new_useq(1, "some sequence");
-   test_assert_critical(case_1 != NULL);
-   test_assert(case_1->count == 1);
-   test_assert(strcmp(case_1->seq, "some sequence") == 0);
-   test_assert(case_1->matches == NULL);
-   test_assert(case_1->canonical == NULL);
+   useq_t *u = new_useq(1, "some sequence");
+   test_assert_critical(u != NULL);
+   test_assert(u->count == 1);
+   test_assert(strcmp(u->seq, "some sequence") == 0);
+   test_assert(u->matches == NULL);
+   test_assert(u->canonical == NULL);
+   destroy_useq(u);
 
-   useq_t *case_2 = new_useq(-1, "");
-   test_assert_critical(case_2 != NULL);
-   test_assert(case_2->count == -1);
-   test_assert(strcmp(case_2->seq, "") == 0);
-   test_assert(case_2->matches == NULL);
-   test_assert(case_2->canonical == NULL);
+   // Initialize with negative value and \0 string.
+   u = new_useq(-1, "");
+   test_assert_critical(u != NULL);
+   test_assert(u->count == -1);
+   test_assert(strcmp(u->seq, "") == 0);
+   test_assert(u->matches == NULL);
+   test_assert(u->canonical == NULL);
+   destroy_useq(u);
 
-   addmatch(case_2, case_1, 1, 2);
-
-   test_assert(case_1->matches == NULL);
-   test_assert(case_2->matches != NULL);
-
-   destroy_useq(case_1);
-   destroy_useq(case_2);
+   // Initialize with NULL string.
+   u = new_useq(0, NULL);
+   test_assert(u == NULL);
 
 }
 
 
 void
 test_starcode_2
+(void)
+// Test addmatch().
+{
+
+   useq_t *u1 = new_useq(12983, "string 1");
+   test_assert_critical(u1 != NULL);
+   test_assert(u1->matches == NULL);
+   useq_t *u2 = new_useq(-20838, "string 2");
+   test_assert_critical(u2 != NULL);
+   test_assert(u2->matches == NULL);
+
+   // Add match to u1.
+   addmatch(u1, u2, 1, 2);
+
+   test_assert(u2->matches == NULL);
+   test_assert(u1->matches != NULL);
+
+   // Check failure.
+   test_assert(addmatch(u1, u2, 3, 2) == 1);
+
+   // Add match again to u1.
+   addmatch(u1, u2, 1, 2);
+
+   test_assert(u2->matches == NULL);
+   test_assert_critical(u1->matches != NULL);
+   test_assert_critical(u1->matches[1] != NULL);
+   test_assert(u1->matches[1]->nitems == 2);
+
+}
+
+
+void
+test_starcode_3
 (void)
 // Test 'addmatch', 'transfer_counts_and_update_canonicals'.
 {
@@ -1139,7 +1180,7 @@ test_starcode_2
 
 
 void
-test_starcode_3
+test_starcode_4
 (void)
 // Test 'canonical_order'.
 {
@@ -1276,7 +1317,7 @@ test_starcode_3
 
 
 void
-test_starcode_4
+test_starcode_5
 (void)
 // Test 'count_order()'.
 {
@@ -1364,7 +1405,7 @@ test_starcode_4
 
 
 void
-test_starcode_5
+test_starcode_6
 (void)
 // Test 'pad_useq()' and 'unpad_useq()'
 {
@@ -1410,7 +1451,7 @@ test_starcode_5
 
 
 void
-test_starcode_6
+test_starcode_7
 (void)
 // Test 'new_lookup()'
 {
@@ -1438,7 +1479,72 @@ test_starcode_6
 
 
 void
-test_starcode_7
+test_starcode_8
+(void)
+// Test 'seq2id().'
+{
+
+   srand48(123);
+
+   test_assert(seq2id("AAAAA", 4) == 0);
+   test_assert(seq2id("AAAAC", 4) == 0);
+   test_assert(seq2id("AAAAG", 4) == 0);
+   test_assert(seq2id("AAAAT", 4) == 0);
+   test_assert(seq2id("AAACA", 4) == 1);
+   test_assert(seq2id("AAAGA", 4) == 2);
+   test_assert(seq2id("AAATA", 4) == 3);
+   test_assert(seq2id("AACAA", 4) == 4);
+   test_assert(seq2id("AAGAA", 4) == 8);
+   test_assert(seq2id("AATAA", 4) == 12);
+   test_assert(seq2id("ACAAA", 4) == 16);
+   test_assert(seq2id("AGAAA", 4) == 32);
+   test_assert(seq2id("ATAAA", 4) == 48);
+   test_assert(seq2id("CAAAA", 4) == 64);
+   test_assert(seq2id("GAAAA", 4) == 128);
+   test_assert(seq2id("TAAAA", 4) == 192);
+
+   // Test 10,000 random cases (with no N).
+   for (int i = 0 ; i < 10000 ; i++) {
+      char seq[21] = {0};
+      int id = 0;
+      for (int j = 0 ; j < 20 ; j++) {
+         int r = (int) drand48()*4;
+         id += (r << 2*(19-j));
+         seq[j] = untranslate[r+1];
+      }
+      test_assert(seq2id(seq, 20) == id);
+   }
+
+   // Test failure.
+   test_assert(seq2id("AAAAN", 4) == 0);
+   test_assert(seq2id("NAAAA", 4) == -1);
+
+}
+
+
+void
+test_starcode_9
+(void)
+// Test 'lut_insert()'.
+{
+
+   // TODO: test something.
+   lookup_t *lut = new_lookup(20, 20, 3);
+   test_assert_critical(lut != NULL);
+   for (int i = 0 ; i < 10000 ; i++) {
+      char seq[21] = {0};
+      for (int j = 0 ; j < 20 ; j++) {
+         seq[j] = untranslate[(int)(5 * drand48())];
+      }
+      useq_t *u = new_useq(0, seq);
+      lut_insert(lut, u);
+   }
+
+}
+
+
+void
+test_starcode_10
 (void)
 // Test 'read_file()'
 {
@@ -1687,7 +1793,7 @@ test_seqsort
          push(new_useq(1, seq[i]), &useqS);
       }
 
-      seqsort((useq_t **) useqS->items, 35, 1);
+      seqsort((useq_t **) useqS->items, 35, nthreads);
       for (int i = 0 ; i < 10 ; i++) {
          test_assert_critical(useqS->items[i] != NULL);
          u = useqS->items[i];
@@ -1737,6 +1843,9 @@ main(
       {"starcode/base/5", test_starcode_5},
       {"starcode/base/6", test_starcode_6},
       {"starcode/base/7", test_starcode_7},
+      {"starcode/base/8", test_starcode_8},
+      {"starcode/base/9", test_starcode_9},
+      {"starcode/base/10", test_starcode_10},
       {"starcode/seqsort", test_seqsort},
       {NULL, NULL}
    };

@@ -171,14 +171,17 @@ do_query
    for (int i = job->start ; i <= job->end ; i++) {
       useq_t *query = (useq_t *) useqS->items[i];
       // Do lookup.
-      int do_search = lut_search(lut, query);
+      int do_search = lut_search(lut, query) == 1;
 
       // Insert the new sequence in the lut and trie, but let
       // the last pointer to NULL so that the query does not
       // find itself upon search.
       void **data = NULL;
       if (job->build) {
-         lut_insert(lut, query);
+         if (lut_insert(lut, query)) {
+            alert();
+            krash();
+         }
          data = insert_string_wo_malloc(trie, query->seq, &node_pos);
          if (data == NULL || *data != NULL) {
             alert();
@@ -616,8 +619,8 @@ nukesort
 // SIDE EFFECTS:
 //   Sorts the array of 'useq_t' specified in 'args'.
 {
-   sortargs_t * sortargs = (sortargs_t *) args;
 
+   sortargs_t * sortargs = (sortargs_t *) args;
    if (sortargs->size < 2) return NULL;
 
    // Next level params.
@@ -660,9 +663,8 @@ nukesort
    int repeats = 0;
 
    // Merge sets
-   while (i + j < sortargs->size) {
+   while (i+j < sortargs->size) {
       // Only NULLS at the end of the buffers.
-      if (l[i] == NULL && r[j] == NULL) break;
       if (j == arg2.size || r[j] == NULL) {
          // Right buffer is exhausted. Copy left buffer...
          memcpy(buf+idx, l+i, (arg1.size-i) * sizeof(useq_t *));
@@ -673,6 +675,7 @@ nukesort
          memcpy(buf+idx, r+j, (arg2.size-j) * sizeof(useq_t *));
          break;
       }
+      if (l[i] == NULL && r[j] == NULL) break;
 
       // Do the comparison.
       useq_t *ul = (useq_t *) l[i];
@@ -951,6 +954,7 @@ new_lookup
  int tau
 )
 {
+
    lookup_t * lut = (lookup_t *) malloc(2*sizeof(int) + sizeof(int *) +
          (tau+1)*sizeof(char *));
    if (lut == NULL) {
@@ -975,7 +979,8 @@ new_lookup
 
    // Allocate lookup tables.
    for (int i = 0; i < tau + 1; i++) {
-      lut->lut[i] = calloc(1 << max(0,(2*lut->klen[i] - 3)), sizeof(char));
+      lut->lut[i] = calloc(1 << max(0,(2*lut->klen[i] - 3)),
+            sizeof(char));
       if (lut->lut[i] == NULL) {
          while (--i >= 0) {
             free(lut->lut[i]);
@@ -1009,14 +1014,34 @@ lut_search
  lookup_t * lut,
  useq_t   * query
 )
+// SYNOPSIS:
+//   Perform of a lookup search of the query and determine whether
+//   at least one of the k-mers extracted from the query was inserted
+//   in the lookup table. If this is not the case, the trie search can
+//   be skipped because the query cannot have a match for the given
+//   tau.
+//   
+// ARGUMENTS:
+//   lut: the lookup table to search
+//   query: the query as a useq.
+//
+// RETURN:
+//   1 if any of the k-mers extracted from the query is in the
+//   lookup table, 0 if not, and -1 in case of failure.
+//
+// SIDE-EFFECTS:
+//   None.
 {
    int offset = lut->offset;
-   // Iterate for all kmers and for ins/dels.
+   // Iterate for all k-mers and for ins/dels.
    for (int i = 0; i < lut->kmers; i++) {
       for (int j = -i; j <= i; j++) {
          // If sequence contains 'N' seq2id will return -1.
          int seqid = seq2id(query->seq + offset + j, lut->klen[i]);
-         if (seqid < 0) continue;
+         // Make sure to never proceed passed the end of string.
+         if (seqid == -2) return -1;
+         if (seqid == -1) continue;
+         // The lookup table proper is implemented as a bitmap.
          if ((lut->lut[i][seqid/8] >> (seqid%8)) & 1) return 1;
       }
       offset += lut->klen[i];
@@ -1027,19 +1052,26 @@ lut_search
 }
 
 
-void
+int
 lut_insert
 (
  lookup_t * lut,
  useq_t   * query
 )
 {
+
    int offset = lut->offset;
    for (int i = 0; i < lut->kmers; i++) {
       int seqid = seq2id(query->seq + offset, lut->klen[i]);
+      // The lookup table proper is implemented as a bitmap.
       if (seqid >= 0) lut->lut[i][seqid/8] |= 1 << (seqid%8);
+      // Make sure to never proceed passed the end of string.
+      else if (seqid == -2) return 1;
       offset += lut->klen[i];
    }
+
+   return 0;
+
 }
 
 
@@ -1058,7 +1090,7 @@ seq2id
       else if (seq[i] == 'C' || seq[i] == 'c') seqid += 1;
       else if (seq[i] == 'G' || seq[i] == 'g') seqid += 2;
       else if (seq[i] == 'T' || seq[i] == 't') seqid += 3;
-      else return -1;
+      else return seq[i] == 0 ? -2 : -1;
       if (i < slen - 1) seqid <<= 2;
    }
 
@@ -1074,8 +1106,11 @@ new_useq
    char *seq
 )
 {
+
+   // Calling strlen on NULL causes a segmentation fault.
    if (seq == NULL) return NULL;
-   useq_t *new = malloc(sizeof(useq_t));
+
+   useq_t *new = calloc(1, sizeof(useq_t));
    if (new == NULL) {
       alert();
       krash();
@@ -1083,9 +1118,9 @@ new_useq
    new->seq = malloc((strlen(seq)+1) * sizeof(char));
    strcpy(new->seq, seq);
    new->count = count;
-   new->matches = NULL;
-   new->canonical = NULL;
+
    return new;
+
 }
 
 

@@ -1116,6 +1116,9 @@ test_starcode_2
    test_assert_critical(u1->matches[1] != NULL);
    test_assert(u1->matches[1]->nitems == 2);
 
+   destroy_useq(u1);
+   destroy_useq(u2);
+
 }
 
 
@@ -1191,8 +1194,8 @@ test_starcode_4
 
    // 'u1' and 'u2' have no canonical, so the
    // comparison is alphabetical.
-   test_assert(canonical_order(&u1, &u2) == -4);
-   test_assert(canonical_order(&u2, &u1) == 4);
+   test_assert(canonical_order(&u1, &u2) < 0);
+   test_assert(canonical_order(&u2, &u1) > 0);
 
    // Add match to 'u1', and update canonicals.
    addmatch(u1, u2, 1, 1);
@@ -1203,8 +1206,8 @@ test_starcode_4
 
    // Now 'u1' and 'u2' have the same canonical ('u2')
    // so the comparison is again alphabetical.
-   test_assert(canonical_order(&u1, &u2) == -4);
-   test_assert(canonical_order(&u2, &u1) == 4);
+   test_assert(canonical_order(&u1, &u2) < 0);
+   test_assert(canonical_order(&u2, &u1) > 0);
 
    useq_t *u3 = new_useq(1, "CDEF");
    useq_t *u4 = new_useq(2, "GHIJ");
@@ -1222,8 +1225,8 @@ test_starcode_4
    test_assert(canonical_order(&u4, &u1) == 1);
    test_assert(canonical_order(&u4, &u2) == 1);
    // Comparisons between 'u3' and 'u4' are alphabetical.
-   test_assert(canonical_order(&u3, &u4) == -4);
-   test_assert(canonical_order(&u4, &u3) == 4);
+   test_assert(canonical_order(&u3, &u4) < 0);
+   test_assert(canonical_order(&u4, &u3) > 0);
 
    // Add match to 'u3', and update canonicals.
    addmatch(u3, u4, 1, 1);
@@ -1234,16 +1237,16 @@ test_starcode_4
 
    // Now canonicals ('u2' and 'u4') have the same counts
    // so comparisons are always alphabetical.
-   test_assert(canonical_order(&u1, &u3) == -2);
-   test_assert(canonical_order(&u2, &u3) == -2);
-   test_assert(canonical_order(&u3, &u1) == 2);
-   test_assert(canonical_order(&u3, &u2) == 2);
-   test_assert(canonical_order(&u1, &u4) == -2);
-   test_assert(canonical_order(&u2, &u4) == -2);
-   test_assert(canonical_order(&u4, &u1) == 2);
-   test_assert(canonical_order(&u4, &u2) == 2);
-   test_assert(canonical_order(&u3, &u4) == -4);
-   test_assert(canonical_order(&u4, &u3) == 4);
+   test_assert(canonical_order(&u1, &u3) < 0);
+   test_assert(canonical_order(&u2, &u3) < 0);
+   test_assert(canonical_order(&u3, &u1) > 0);
+   test_assert(canonical_order(&u3, &u2) > 0);
+   test_assert(canonical_order(&u1, &u4) < 0);
+   test_assert(canonical_order(&u2, &u4) < 0);
+   test_assert(canonical_order(&u4, &u1) > 0);
+   test_assert(canonical_order(&u4, &u2) > 0);
+   test_assert(canonical_order(&u3, &u4) < 0);
+   test_assert(canonical_order(&u4, &u3) > 0);
 
    useq_t *u5 = new_useq(1, "CDEF");
    useq_t *u6 = new_useq(3, "GHIJ");
@@ -1268,8 +1271,8 @@ test_starcode_4
    test_assert(canonical_order(&u6, &u3) == 1);
    test_assert(canonical_order(&u6, &u4) == 1);
    // Alphabetical comparisons.
-   test_assert(canonical_order(&u5, &u6) == -4);
-   test_assert(canonical_order(&u6, &u5) == 4);
+   test_assert(canonical_order(&u5, &u6) < 0);
+   test_assert(canonical_order(&u6, &u5) > 0);
 
    // Add match to 'u5', and update canonicals.
    addmatch(u5, u6, 1, 1);
@@ -1296,8 +1299,8 @@ test_starcode_4
    test_assert(canonical_order(&u6, &u3) == -1);
    test_assert(canonical_order(&u6, &u4) == -1);
    // Alphabetical.
-   test_assert(canonical_order(&u5, &u6) == -4);
-   test_assert(canonical_order(&u6, &u5) == 4);
+   test_assert(canonical_order(&u5, &u6) < 0);
+   test_assert(canonical_order(&u6, &u5) > 0);
 
    useq_t *useq_array[6] = {u1,u2,u3,u4,u5,u6};
    useq_t *sorted[6] = {u5,u6,u1,u2,u3,u4};
@@ -1475,6 +1478,18 @@ test_starcode_7
       destroy_lookup(lut);
    }
 
+   for (int i = 0 ; i < 10 ; i++) {
+      lookup_t * lut = new_lookup(59+i, 59+i, 3);
+      test_assert_critical(lut != NULL);
+      test_assert(lut->kmers == 3+1);
+      test_assert(lut->offset == 3-3);
+      test_assert_critical(lut->klen != NULL);
+      for (int j = 0 ; j < 4 ; j++) {
+         test_assert(lut->klen[j] == MAX_K_FOR_LOOKUP);
+      }
+      destroy_lookup(lut);
+   }
+
 }
 
 
@@ -1525,20 +1540,146 @@ test_starcode_8
 void
 test_starcode_9
 (void)
-// Test 'lut_insert()'.
+// Test 'lut_insert()' and lut_search().
 {
 
-   // TODO: test something.
+   srand48(123);
+
    lookup_t *lut = new_lookup(20, 20, 3);
    test_assert_critical(lut != NULL);
+
+   // Insert a too short string.
+   useq_t *u = new_useq(0, "");
+   test_assert(lut_insert(lut, u));
+   destroy_useq(u);
+
+   // Insert the following k-mers: ACGT|AGCG|CTAT|AGCGA|TCA
+   u = new_useq(0, "ACGTAGCGCTATAGCGATCA");
+   test_assert_critical(u != NULL);
+   test_assert(lut_insert(lut, u) == 0);
+   test_assert(lut_search(lut, u) == 1);
+   destroy_useq(u);
+
+   u = new_useq(0, "CGTAGCGCTATAGCGATCAA");
+   test_assert_critical(u != NULL);
+   test_assert(lut_search(lut, u) == 1);
+   destroy_useq(u);
+
+   u = new_useq(0, "AAAAAGCGCCCCCCCCCCCC");
+   test_assert_critical(u != NULL);
+   test_assert(lut_search(lut, u) == 1);
+   destroy_useq(u);
+
+   u = new_useq(0, "CCCCCCCCCCCCCCCAGCGA");
+   test_assert_critical(u != NULL);
+   test_assert(lut_search(lut, u) == 1);
+   destroy_useq(u);
+
+   u = new_useq(0, "CCCCCCCCCAGCGACCCCCC");
+   test_assert_critical(u != NULL);
+   test_assert(lut_search(lut, u) == 1);
+   destroy_useq(u);
+
+   u = new_useq(0, "CCCCCCCCAGCGACCCCCCC");
+   test_assert_critical(u != NULL);
+   test_assert(lut_search(lut, u) == 0);
+   destroy_useq(u);
+
+   u = new_useq(0, "AAAAAAAAAAAAAAAAAAAA");
+   test_assert_critical(u != NULL);
+   test_assert(lut_search(lut, u) == 0);
+   destroy_useq(u);
+
+   destroy_lookup(lut);
+   lut = NULL;
+
+   lut = new_lookup(20, 20, 3);
+   test_assert_critical(lut != NULL);
+
    for (int i = 0 ; i < 10000 ; i++) {
+      // Create random sequences without "N".
       char seq[21] = {0};
       for (int j = 0 ; j < 20 ; j++) {
-         seq[j] = untranslate[(int)(5 * drand48())];
-      }
-      useq_t *u = new_useq(0, seq);
-      lut_insert(lut, u);
+         seq[j] = untranslate[(int)(1 + 4*drand48())];
+      } 
+      u = new_useq(0, seq);
+      test_assert(lut_insert(lut, u) == 0);
+      test_assert(lut_search(lut, u) == 1);
+      destroy_useq(u);
    }
+
+   destroy_lookup(lut);
+
+   // Insert every 4-mer.
+   lut = new_lookup(19, 19, 3);
+   test_assert_critical(lut != NULL);
+   char seq[20] = "AAAAAAAAAAAAAAAAAAA";
+   for (int i = 0 ; i < 256 ; i++) {
+      for (int j = 0 ; j < 4 ; j++) {
+         char nt = untranslate[1 + (int)((i >> (2*j)) & 3)];
+         seq[j] = seq[j+4] = seq[j+8] = seq[j+12] = nt;   
+      }
+      u = new_useq(0, seq);
+      test_assert_critical(u != NULL);
+      test_assert(lut_insert(lut, u) == 0);
+      destroy_useq(u);
+   }
+
+   for (int i = 0 ; i < 4 ; i++) {
+      test_assert(*lut->lut[i] == 255);
+   }
+
+   destroy_lookup(lut);
+
+   // Insert randomly.
+   lut = new_lookup(64, 64, 3);
+   test_assert_critical(lut != NULL);
+   for (int i = 0 ; i < 4 ; i++) {
+      // MAX_K_FOR_LOOKUP
+      test_assert_critical(lut->klen[i] == 14);
+   }
+   for (int i = 0 ; i < 4096 ; i++) {
+      char seq[65] = {0};
+      // Create random sequences without "N".
+      for (int j = 0 ; j < 64 ; j++) {
+         seq[j] = untranslate[(int)(1 + 4*drand48())];
+      } 
+      u = new_useq(0, seq);
+      test_assert_critical(u != NULL);
+      test_assert(lut_insert(lut, u) == 0);
+      destroy_useq(u);
+   }
+
+   const int set_bits_per_byte[256] = {
+      0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4,
+      1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,
+      1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,
+      2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+      1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,
+      2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+      2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+      3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+      1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,
+      2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+      2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+      3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+      2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+      3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+      3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+      4,5,5,6,5,6,6,7,5,6,6,7,6,7,7,8,
+   };
+
+   int jmax = 1 << (2*14 - 3);
+   for (int i = 0 ; i < 4 ; i++) {
+      int total = 0;
+      for (int j = 0 ; j < jmax ; j++) {
+         total += set_bits_per_byte[lut->lut[i][j]];
+      }
+      // The probability of collision is negligible.
+      test_assert(total == 4096);
+   }
+
+   destroy_lookup(lut);
 
 }
 
@@ -1618,7 +1759,7 @@ test_seqsort
       push(new_useq(1, "A"), &useqS);
    }
    test_assert(useqS->nitems == 9);
-   seqsort((useq_t **) useqS->items, 9, 1);
+   test_assert(seqsort((useq_t **) useqS->items, 9, 1) == 1);
    test_assert_critical(useqS->items[0] != NULL);
    useq_t *u = useqS->items[0];
    test_assert(strcmp(u->seq, "A") == 0);
@@ -1634,7 +1775,7 @@ test_seqsort
       push(new_useq(1, i % 2 ? "A":"B"), &useqS);
    }
    test_assert(useqS->nitems == 9);
-   seqsort((useq_t **) useqS->items, 9, 1);
+   test_assert(seqsort((useq_t **) useqS->items, 9, 1) == 2);
    test_assert_critical(useqS->items[0] != NULL);
    test_assert_critical(useqS->items[1] != NULL);
    for (int i = 2 ; i < 9 ; i++) {
@@ -1672,7 +1813,7 @@ test_seqsort
       to_sort_1[i] = new_useq(1, sequences_1[i]);
    }
 
-   seqsort(to_sort_1, 10, 1);
+   test_assert(seqsort(to_sort_1, 10, 1) == 10);
    for (int i = 0 ; i < 10 ; i++) {
       test_assert(strcmp(to_sort_1[i]->seq, sorted_1[i]) == 0);
       test_assert(to_sort_1[i]->count == 1);
@@ -1700,7 +1841,7 @@ test_seqsort
       to_sort_2[i] = new_useq(1, sequences_2[i]);
    }
 
-   seqsort(to_sort_2, 10, 1);
+   test_assert(seqsort(to_sort_2, 10, 1) == 10);
    for (int i = 0 ; i < 10 ; i++) {
       test_assert(strcmp(to_sort_2[i]->seq, sorted_2[i]) == 0);
       test_assert(to_sort_2[i]->count == 1);
@@ -1721,7 +1862,7 @@ test_seqsort
       to_sort_3[i] = new_useq(1, sequences_3[i]);
    }
 
-   seqsort(to_sort_3, 6, 1);
+   test_assert(seqsort(to_sort_3, 6, 1) == 2);
    for (int i = 0 ; i < 2 ; i++) {
       test_assert(strcmp(to_sort_3[i]->seq, sorted_3[i]) == 0);
       test_assert(to_sort_3[i]->count == counts[i]);
@@ -1786,14 +1927,15 @@ test_seqsort
 
    int counts_4[10] = {6,1,1,6,1,6,1,6,1,6};
 
-   for (int nthreads = 1 ; nthreads < 9 ; nthreads++) {
+   // Test 'seqsort()' with 1 to 8 threads.
+   for (int t = 1 ; t < 9 ; t++) {
 
       useqS->nitems = 0;
       for (int i = 0 ; i < 35 ; i++) {
          push(new_useq(1, seq[i]), &useqS);
       }
 
-      seqsort((useq_t **) useqS->items, 35, nthreads);
+      test_assert(seqsort((useq_t **) useqS->items, 35, t) == 10);
       for (int i = 0 ; i < 10 ; i++) {
          test_assert_critical(useqS->items[i] != NULL);
          u = useqS->items[i];
@@ -1805,6 +1947,7 @@ test_seqsort
       for (int i = 10 ; i < 35 ; i++) {
          test_assert(useqS->items[i] == NULL);
       }
+
    }
 
    free(useqS);

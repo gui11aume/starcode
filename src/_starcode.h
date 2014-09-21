@@ -81,10 +81,10 @@ struct useq_t {
 };
 
 struct lookup_t {
-   int    offset;
-   int    kmers;
-   int  * klen;
-   char * lut[];
+            int    offset;
+            int    kmers;
+            int  * klen;
+   unsigned char * lut[];
 };
 
 
@@ -142,7 +142,7 @@ void       destroy_useq (useq_t *);
 void       destroy_lookup (lookup_t *);
 void     * do_query (void*);
 void       krash (void) __attribute__ ((__noreturn__));
-void       lut_insert (lookup_t *, useq_t *); 
+int        lut_insert (lookup_t *, useq_t *); 
 int        lut_search (lookup_t *, useq_t *); 
 void       message_passing_clustering (gstack_t*, int);
 lookup_t * new_lookup (int, int, int);

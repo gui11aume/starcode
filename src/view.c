@@ -319,13 +319,7 @@ spiralize_displacements
     */
    rbnode_t * root;
    root->color = BLACK;
-   root->side = NULL;
    root->box = first;
-   root->parent = NULL;
-   root->children[IB] = NULL;
-   root->children[IA] = NULL;
-   root->children[OB] = NULL;
-   root->children[OA] = NULL;
    for (int i = 1; i < star_list->nitems; i++) {
       star_t * star1 = star_list->items[i];
       double x_pos;

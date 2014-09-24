@@ -44,6 +44,10 @@ starcode
 
    if (verbose) fprintf(stderr, "reading input files\n");
    gstack_t *uSQ = read_file(inputf);
+   if (uSQ->nitems < 1) {
+      fprintf(stderr, "input file empty\n");
+      return 1;
+   }
 
    // Sort/reduce.
    uSQ->nitems = seqsort((useq_t **) uSQ->items, uSQ->nitems, maxthreads);
@@ -760,6 +764,7 @@ read_file
 
    free(line);
    return useqS;
+
 }
 
 
@@ -770,6 +775,7 @@ pad_useq
    int      * median
 )
 {
+
    // Compute maximum length.
    int maxlen = 0;
    for (int i = 0 ; i < useqS->nitems ; i++) {
@@ -817,6 +823,7 @@ pad_useq
    free(count);
    free(spaces);
    return maxlen;
+
 }
 
 
@@ -1107,7 +1114,6 @@ new_useq
 )
 {
 
-   // Calling strlen on NULL causes a segmentation fault.
    if (seq == NULL) return NULL;
 
    useq_t *new = calloc(1, sizeof(useq_t));
@@ -1115,8 +1121,7 @@ new_useq
       alert();
       krash();
    }
-   new->seq = malloc((strlen(seq)+1) * sizeof(char));
-   strcpy(new->seq, seq);
+   new->seq = strdup(seq);
    new->count = count;
 
    return new;

@@ -2,44 +2,42 @@
  * Contains functions for creating, adding and
  * destroying nodes and self-balancing the tree. */
 
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
 #include "rbtree.h"
 
 char VOID;
 double xy[] = { 0.0, 0.0 };
 
-int dfs_shit
-(rbnode_t *node)
+void
+search_add
+(
+   rbnode_t * ref,
+   rbnode_t * node
+)
 {
-   int num_ndes = 0;
-   //int max = 0;
-   for (int i = 0 ; i < 4 ; i++){
-      if (node->children[i] == NULL) continue;
-      num_ndes += dfs_shit(node->children[i]);
-      //int thisone = 1 + dfs_shit(node->children[i]); 
-      //max = thisone > max ? thisone : max;
-   }
-   //return max;
-   return num_ndes + 1;
+   double rx = ref->xy[0];
+   double ry = ref->xy[1];
+   double nx = node->xy[0];
+   double ny = node->xy[1];
+   side_t side = ((nx > rx) << 1) | (ny > ry);
+   if (ref->children[side] != NULL) search_add(ref->children[side], node);
+   else add_child(node, ref, side);
 }
 
 int main(int argc, const char *argv[])
 {
    // Create an example tree.
-   rbnode_t * parent = new_rbnode(&VOID, xy);
-   rbnode_t * root = parent;
-   parent->color = BLACK;
+   rbnode_t * root = new_rbnode(&VOID, xy);
+   root->color = BLACK;
+   root->xy[0] = (double) rand() / RAND_MAX;
+   root->xy[1] = (double) rand() / RAND_MAX;
    for (int i=1; i<10000; i++) {
-      xy[0] = xy[1] = i;
+      xy[0] = (double) rand() / RAND_MAX;
+      xy[1] = (double) rand() / RAND_MAX;
       rbnode_t * node = new_rbnode(&VOID, xy);
-      add_child(node, parent, NE);
-      parent = node;
+      search_add(root, node);
+      while (root->parent != NULL) root = root->parent; // Find new root.
    }
-   while (root->parent != NULL) root = root->parent;
-   fprintf(stdout, "%d\n", dfs_shit(root));
+   destroy_rbnode(root);
    return 0;
 }
 
@@ -69,7 +67,8 @@ destroy_rbnode
 )
 {
    // Free a node and all of its descendants.
-   node->parent->children[node->side] = NULL;
+   rbnode_t * parent = node->parent;
+   if (parent != NULL) parent->children[side(node)] = NULL;
    for (int i=0; i<4; i++) {
       rbnode_t * child = node->children[i];
       if (child != NULL) destroy_rbnode(child);
@@ -82,7 +81,7 @@ add_child
 (
    rbnode_t * child,
    rbnode_t * parent,
-   uint32_t   side
+   side_t     side
 )
 {
    // Hang a child on a parent's side.
@@ -90,7 +89,6 @@ add_child
       fprintf(stderr, "error: could not add rbnode\n");
       ERROR = __LINE__;
    }
-   child->side = side;
    child->parent = parent;
    parent->children[side] = child;
    // Rebalance the tree if needed.
@@ -110,35 +108,26 @@ rebalance
    int num_uncles = 0;
    for (int i=0; num_uncles<3 && i<4; i++) {
       rbnode_t * sibling = grandpa->children[i];
-      if (sibling != NULL && sibling->side != parent->side) uncles[num_uncles++] = sibling;
+      if (sibling != NULL && sibling != parent) uncles[num_uncles++] = sibling;
    }
    int num_reds = 0;
-   for (int i=0; i<num_uncles; i++) {
-      if (uncles[i]->color == RED) num_reds++;
-   }
+   for (int i=0; i<num_uncles; i++) if (uncles[i]->color == RED) num_reds++;
    if (num_reds) case_propagate(grandpa);
    else { // If all uncles are BLACK.
       // If node is between grandpa and parent in BOTH dimensions.
-      if (node->side == invert(parent->side)) {
-         case_rotate1(node);//, parent, grandpa);
-         // Change their names according to the new family tree.
-         rbnode_t * tmp = parent;
-         parent = node;
-         node = tmp;
-      }
-      case_rotate2(node);//, parent, grandpa);
+      if (side(node) == invert[side(parent)]) node = case_rotate1(node);
+      case_rotate2(node);
    }
 }
 
-void
+rbnode_t *
 case_rotate1
 (
    rbnode_t * node
-   //rbnode_t * parent,
-   //rbnode_t * grandpa
 )
 {
-   uint32_t node_invside = invert(node->side); 
+   side_t node_side = side(node);
+   side_t node_invside = invert[node_side]; 
    rbnode_t * parent = node->parent;
    rbnode_t * grandpa = parent->parent;
    rbnode_t * adopted = node->children[node_invside];
@@ -152,24 +141,19 @@ case_rotate1
     *     / \          / \
     *    A   2        1   A
     */
-   if (adopted != NULL) {
-      adopted->parent = parent;
-      adopted->side = invert(adopted->side);
-      parent->children[node->side] = adopted;
-   } else parent->children[node->side] = NULL;
-   grandpa->children[parent->side] = node;
+   grandpa->children[side(parent)] = node;
+   if (adopted != NULL) adopted->parent = parent;
+   parent->children[node_side] = adopted;
    parent->parent = node;
    node->parent = grandpa;
    node->children[node_invside] = parent;
-   node->side = node_invside;
+   return parent;
 }
 
 void
 case_rotate2
 (
    rbnode_t * node
-   //rbnode_t * parent,
-   //rbnode_t * grandpa
 )
 {
    /* Rotate like this in case P value is between G and N.
@@ -185,17 +169,19 @@ case_rotate2
     * Obtain a balanced tree. */
    rbnode_t * parent = node->parent;
    rbnode_t * grandpa = parent->parent;
-   uint32_t parent_invside = invert(parent->side);
+   side_t parent_side = side(parent);
+   side_t parent_invside = invert[parent_side];
    rbnode_t * adopted = parent->children[parent_invside];
-   parent->parent = grandpa->parent;
-   parent->children[parent_invside] = grandpa;
    parent->color = BLACK;
-   grandpa->parent = parent;
-   grandpa->children[parent->side] = adopted;
+   parent->parent = grandpa->parent;
+   if (grandpa->parent != NULL) {
+      grandpa->parent->children[side(grandpa)] = parent;
+   }
+   parent->children[parent_invside] = grandpa;
    grandpa->color = RED;
-   uint32_t tmp = grandpa->side;
-   grandpa->side = parent_invside;
-   parent->side = tmp;
+   grandpa->parent = parent;
+   grandpa->children[parent_side] = adopted;
+   if (adopted != NULL) adopted->parent = grandpa;
 }
 
 void
@@ -206,7 +192,8 @@ case_propagate
 {
    // Swap node and children colors and propagate upwards.
    for (int i=0; i<4; i++) {
-      if (node->children[i] != NULL) node->children[i]->color = BLACK;
+      rbnode_t * child = node->children[i];
+      if (child != NULL) child->color = BLACK;
    }
    if (node->parent != NULL) {
       node->color = RED;  
@@ -214,11 +201,14 @@ case_propagate
    }
 }
 
-uint32_t
-invert
+side_t
+side
 (
-   uint32_t number
+   rbnode_t * node
 )
 {
-   return number ^ MASK;
+   rbnode_t * parent = node->parent;
+   for (int i = 0; i < 4; i++) {
+      if (node == parent->children[i]) return (side_t) i;
+   }
 }

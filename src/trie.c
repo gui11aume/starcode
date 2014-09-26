@@ -186,18 +186,32 @@ poucet
    // The branch of the L that is identical among all children
    // is computed separately. It will be copied later.
    uint32_t path = node->path;
-   // Upper arm of the L (need the path).
+   // This is where the recursion of the famous Needleman-Wunsch
+   // dynamic programming is carried out. It can be demonstrated
+   // that if the two characters to align are identical, the min
+   // will be equal to the upper left term, which allows to shortcut
+   // the recursion.
    if (maxa > 0) {
       // Special initialization for first character. If the previous
       // character was a PAD, there is no cost to start the alignment.
-      mmatch = (arg.query[depth-1] == PAD ? 0 : pcache[maxa]) +
-                  ((path >> 4*(maxa-1) & 15) != arg.query[depth]);
-      shift = min(pcache[maxa-1], common[maxa]) + 1;
-      common[maxa-1] = min(mmatch, shift);
+      char init = arg.query[depth-1] == PAD ? 0 : pcache[maxa];
+      if ((path >> 4*(maxa-1) & 15) == arg.query[depth]) {
+         common[maxa-1] = init;
+      }
+      else {
+         mmatch = init;
+         shift = min(pcache[maxa-1], common[maxa]);
+         common[maxa-1] = min(mmatch, shift) + 1;
+      }
       for (int a = maxa-1 ; a > 0 ; a--) {
-         mmatch = pcache[a] + ((path >> 4*(a-1) & 15) != arg.query[depth]);
-         shift = min(pcache[a-1], common[a]) + 1;
-         common[a-1] = min(mmatch, shift);
+         if ((path >> 4*(a-1) & 15) == arg.query[depth]) {
+            common[a-1] = pcache[a];
+         }
+         else {
+            mmatch = pcache[a];
+            shift = min(pcache[a-1], common[a]);
+            common[a-1] = min(mmatch, shift) + 1;
+         }
       }
    }
 
@@ -215,20 +229,35 @@ poucet
       // Horizontal arm of the L (need previous characters).
       if (maxa > 0) {
          // See comment above for initialization.
-         mmatch = ((path & 15) == PAD ? 0 : pcache[-maxa]) +
-                     (i != arg.query[depth-maxa]);
-         shift = min(pcache[1-maxa], maxa+1) + 1;
-         ccache[-maxa] = min(mmatch, shift);
+         char init = (path & 15) == PAD ? 0 : pcache[-maxa];
+         if (i == arg.query[depth-maxa]) {
+            ccache[-maxa] = init;
+         }
+         else {
+            mmatch = init;
+            shift = min(pcache[1-maxa], maxa+1);
+            ccache[-maxa] = min(mmatch, shift) + 1;
+         }
          for (int a = maxa-1 ; a > 0 ; a--) {
-            mmatch = pcache[-a] + (i != arg.query[depth-a]);
-            shift = min(pcache[1-a], ccache[-a-1]) + 1;
-            ccache[-a] = min(mmatch, shift);
+            if (i == arg.query[depth-a]) {
+               ccache[-a] = pcache[-a];
+            }
+            else {
+               mmatch = pcache[-a];
+               shift = min(pcache[1-a], ccache[-a-1]);
+               ccache[-a] = min(mmatch, shift) + 1;
+            }
          }
       }
       // Center cell (need both arms to be computed).
-      mmatch = pcache[0] + (i != arg.query[depth]);
-      shift = min(ccache[-1], ccache[1]) + 1;
-      ccache[0] = min(mmatch, shift);
+      if (i == arg.query[depth]) {
+         ccache[0] = pcache[0];
+      }
+      else {
+         mmatch = pcache[0];
+         shift = min(ccache[-1], ccache[1]);
+         ccache[0] = min(mmatch, shift) + 1;
+      }
 
       // Stop searching if 'tau' is exceeded.
       if (ccache[0] > arg.tau) continue;

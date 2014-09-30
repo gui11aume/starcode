@@ -62,6 +62,8 @@ struct useq_t;
 struct c_t;
 struct match_t;
 
+typedef enum {UNSET, FASTA, FASTQ, RAW} format_t;
+
 typedef struct useq_t useq_t;
 typedef struct c_t ustack_t;
 typedef struct match_t match_t;
@@ -150,7 +152,7 @@ useq_t   * new_useq (int, char *);
 int        pad_useq (gstack_t*, int*);
 mtplan_t * plan_mt (int, int, int, int, gstack_t *, const int);
 void       run_plan (mtplan_t *, int, int);
-gstack_t * read_file (FILE *);
+gstack_t * read_file (FILE *, int);
 int        seq2id (char *, int);
 gstack_t * seq2useq (gstack_t*, int);
 int        seqsort (useq_t **, int, int);

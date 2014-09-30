@@ -1728,8 +1728,9 @@ test_starcode_10
    "TAACCTGGTGCGACTGTTAT",
    };
 
-   FILE * f = fopen("test_file.txt", "r");
-   gstack_t * useqS = read_file(f);
+   // Read raw file.
+   FILE *f = fopen("test_file.txt", "r");
+   gstack_t *useqS = read_file(f, 0);
    test_assert(useqS->nitems == 35);
    for (int i = 0 ; i < useqS->nitems ; i++) {
       useq_t * u = (useq_t *) useqS->items[i];
@@ -1743,6 +1744,41 @@ test_starcode_10
    }
    free(useqS);
    fclose(f);
+
+   // Read fasta file.
+   f = fopen("test_file.fasta", "r");
+   useqS = read_file(f, 0);
+   test_assert(useqS->nitems == 5);
+   for (int i = 0 ; i < useqS->nitems ; i++) {
+      useq_t * u = (useq_t *) useqS->items[i];
+      test_assert(u->count == 1);
+      test_assert(strcmp(u->seq, expected[i]) == 0);
+   }
+
+   // Clean.
+   for (int i = 0 ; i < useqS->nitems ; i++) {
+      destroy_useq(useqS->items[i]);
+   }
+   free(useqS);
+   fclose(f);
+
+   // Read fastq file.
+   f = fopen("test_file.fastq", "r");
+   useqS = read_file(f, 0);
+   test_assert(useqS->nitems == 5);
+   for (int i = 0 ; i < useqS->nitems ; i++) {
+      useq_t * u = (useq_t *) useqS->items[i];
+      test_assert(u->count == 1);
+      test_assert(strcmp(u->seq, expected[i]) == 0);
+   }
+
+   // Clean.
+   for (int i = 0 ; i < useqS->nitems ; i++) {
+      destroy_useq(useqS->items[i]);
+   }
+   free(useqS);
+   fclose(f);
+
 
 }
 

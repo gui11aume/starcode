@@ -43,8 +43,8 @@ starcode
    OUTPUT = outputf;
 
    if (verbose) fprintf(stderr, "reading input files\n");
-   gstack_t *uSQ = read_file(inputf);
-   if (uSQ->nitems < 1) {
+   gstack_t *uSQ = read_file(inputf, verbose);
+   if (uSQ == NULL || uSQ->nitems < 1) {
       fprintf(stderr, "input file empty\n");
       return 1;
    }
@@ -717,9 +717,35 @@ nukesort
 gstack_t *
 read_file
 (
-   FILE *inputf
+   FILE *inputf,
+   const int verbose
 )
 {
+
+   // Read first line of the file to guess format.
+   char c = fgetc(inputf);
+   format_t format = UNSET;
+   switch(c) {
+      case EOF:
+         // Empty file.
+         return NULL;
+      case '>':
+         format = FASTA;
+         if (verbose) fprintf(stderr, "FASTA format detected\n");
+         break;
+      case '@':
+         format = FASTQ;
+         if (verbose) fprintf(stderr, "FASTQ format detected\n");
+         break;
+      default:
+         format = RAW;
+         if (verbose) fprintf(stderr, "raw format detected\n");
+   }
+   if (ungetc(c, inputf) == EOF) {
+      alert();
+      krash();
+   }
+
    char *seq = NULL;
    char copy[MAXBRCDLEN];
    ssize_t nread;
@@ -729,18 +755,20 @@ read_file
       alert();
       krash();
    }
+
    char *line = malloc(M * sizeof(char));
    if (line == NULL) {
       alert();
       krash();
    }
    int count = 0;
+   int lineno = 0;
 
    // Read sequences from input file.
    while ((nread = getline(&line, &nchar, inputf)) != -1) {
-      // Skip fasta header lines.
-      if (line[0] == '>') continue;
-      // Strip end of line character.
+      lineno++;
+      if (format == FASTA && lineno % 2 != 0) continue;
+      if (format == FASTQ && lineno % 4 != 2) continue;
       if (line[nread-1] == '\n') line[nread-1] = '\0';
       if (sscanf(line, "%s\t%d", copy, &count) != 2) {
          count = 1;

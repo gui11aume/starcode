@@ -1,45 +1,12 @@
 /* Two-Dimensional Red-Black Tree.
  * Contains functions for creating, adding and
- * destroying nodes and self-balancing the tree. */
+ * destroying nodes and self-balancing the tree.
+ * Querying functions need to be written
+ * for each particular implementation.*/
 
 #include "rbtree.h"
 
-char VOID;
-double xy[] = { 0.0, 0.0 };
-
-void
-search_add
-(
-   rbnode_t * ref,
-   rbnode_t * node
-)
-{
-   double rx = ref->xy[0];
-   double ry = ref->xy[1];
-   double nx = node->xy[0];
-   double ny = node->xy[1];
-   side_t side = ((nx > rx) << 1) | (ny > ry);
-   if (ref->children[side] != NULL) search_add(ref->children[side], node);
-   else add_child(node, ref, side);
-}
-
-int main(int argc, const char *argv[])
-{
-   // Create an example tree.
-   rbnode_t * root = new_rbnode(&VOID, xy);
-   root->color = BLACK;
-   root->xy[0] = (double) rand() / RAND_MAX;
-   root->xy[1] = (double) rand() / RAND_MAX;
-   for (int i=1; i<10000; i++) {
-      xy[0] = (double) rand() / RAND_MAX;
-      xy[1] = (double) rand() / RAND_MAX;
-      rbnode_t * node = new_rbnode(&VOID, xy);
-      search_add(root, node);
-      while (root->parent != NULL) root = root->parent; // Find new root.
-   }
-   destroy_rbnode(root);
-   return 0;
-}
+const side_t rbinvert[4] = { NE, SE, NW, SW };
 
 rbnode_t *
 new_rbnode
@@ -52,7 +19,6 @@ new_rbnode
    rbnode_t * node = calloc(1, sizeof(rbnode_t));
    if (node == NULL) {
       fprintf(stderr, "error: could not create rbnode\n");
-      ERROR = __LINE__;
       return NULL;
    }
    memcpy(node->xy, xy, 2*sizeof(double));
@@ -69,14 +35,14 @@ destroy_rbnode
    // Free a node and all of its descendants.
    rbnode_t * parent = node->parent;
    if (parent != NULL) parent->children[side(node)] = NULL;
-   for (int i=0; i<4; i++) {
+   for (int i = 0; i < 4; i++) {
       rbnode_t * child = node->children[i];
       if (child != NULL) destroy_rbnode(child);
    }
    free(node);
 }
 
-void
+int
 add_child
 (
    rbnode_t * child,
@@ -87,15 +53,15 @@ add_child
    // Hang a child on a parent's side.
    if (parent->children[side] != NULL) {
       fprintf(stderr, "error: could not add rbnode\n");
-      ERROR = __LINE__;
    }
    child->parent = parent;
    parent->children[side] = child;
    // Rebalance the tree if needed.
-   if (parent->color == RED) rebalance(child);
+   if (parent->color == RED) return rebalance(child);
+   else return -1;
 }
 
-void
+int
 rebalance
 (
    rbnode_t * node
@@ -106,17 +72,26 @@ rebalance
    rbnode_t * grandpa = parent->parent;
    rbnode_t * uncles[3] = { 0 };
    int num_uncles = 0;
-   for (int i=0; num_uncles<3 && i<4; i++) {
+   for (int i = 0; num_uncles < 3 && i < 4; i++) {
       rbnode_t * sibling = grandpa->children[i];
       if (sibling != NULL && sibling != parent) uncles[num_uncles++] = sibling;
    }
    int num_reds = 0;
-   for (int i=0; i<num_uncles; i++) if (uncles[i]->color == RED) num_reds++;
-   if (num_reds) case_propagate(grandpa);
+   for (int i = 0; i < num_uncles; i++) if (uncles[i]->color == RED) num_reds++;
+   if (num_reds) {
+      case_propagate(grandpa);
+      return 0;
+   }
    else { // If all uncles are BLACK.
+      int rot = INT_MAX;
       // If node is between grandpa and parent in BOTH dimensions.
-      if (side(node) == invert[side(parent)]) node = case_rotate1(node);
+      if (side(node) == rbinvert[side(parent)]) {
+         node = case_rotate1(node);
+         rot = 1;
+      }
       case_rotate2(node);
+      rot = 2;
+      return rot;
    }
 }
 
@@ -127,7 +102,7 @@ case_rotate1
 )
 {
    side_t node_side = side(node);
-   side_t node_invside = invert[node_side]; 
+   side_t node_invside = rbinvert[node_side]; 
    rbnode_t * parent = node->parent;
    rbnode_t * grandpa = parent->parent;
    rbnode_t * adopted = node->children[node_invside];
@@ -170,7 +145,7 @@ case_rotate2
    rbnode_t * parent = node->parent;
    rbnode_t * grandpa = parent->parent;
    side_t parent_side = side(parent);
-   side_t parent_invside = invert[parent_side];
+   side_t parent_invside = rbinvert[parent_side];
    rbnode_t * adopted = parent->children[parent_invside];
    parent->color = BLACK;
    parent->parent = grandpa->parent;
@@ -191,7 +166,7 @@ case_propagate
 )
 {
    // Swap node and children colors and propagate upwards.
-   for (int i=0; i<4; i++) {
+   for (int i = 0; i < 4; i++) {
       rbnode_t * child = node->children[i];
       if (child != NULL) child->color = BLACK;
    }
@@ -208,7 +183,9 @@ side
 )
 {
    rbnode_t * parent = node->parent;
+   if (parent == NULL) return INT_MAX;
    for (int i = 0; i < 4; i++) {
       if (node == parent->children[i]) return (side_t) i;
    }
+   return INT_MAX;
 }

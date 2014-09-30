@@ -1,3 +1,5 @@
+#ifndef __VIEW_HEADER_
+#define __VIEW_HEADER_
 #include <cairo.h>
 #include <cairo-pdf.h>
 #include <errno.h>
@@ -44,7 +46,6 @@ struct star_t {
 };
 
 gstack_t * list_stars(int, ball_t **);
-//void      initialize_positions(int, int, ball_t **);
 void       force_directed_drawing(int, ball_t **, int);
 double     norm(double, double);
 double     electric(ball_t *, ball_t *, double);
@@ -56,8 +57,12 @@ void       regression(int, double *, double *);
 void       define_stars(gstack_t *);
 int        compar(const void *, const void *);
 void       spiralize_displacements(gstack_t *, int *);
+int        find_overlap(rbnode_t *, rbnode_t *, double);
+int        overlap(star_t *, star_t *, double);
 void       move_stars(int, ball_t **, gstack_t *);
 void       resize_canvas(int *, gstack_t *, int *);
 void       draw_cairo_env(cairo_t *, int, ball_t **, int *);
 void       draw_edges(cairo_t *, ball_t *, int *);
 void       draw_circles(cairo_t *, ball_t *, int *);
+
+#endif

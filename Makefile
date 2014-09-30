@@ -1,13 +1,13 @@
 SRC_DIR= src
 INC_DIR= src
-OBJECT_FILES= trie.o starcode.o view.o
+OBJECT_FILES= trie.o starcode.o view.o rbtree.o
 SOURCE_FILES= main-starcode.c
 
 OBJECTS= $(addprefix $(SRC_DIR)/,$(OBJECT_FILES))
 SOURCES= $(addprefix $(SRC_DIR)/,$(SOURCE_FILES))
 INCLUDES= $(addprefix -I, $(INC_DIR))
 
-CFLAGS= `pkg-config --cflags cairo` -std=c99 -Wall -g -O3
+CFLAGS= `pkg-config --cflags cairo` -std=c99 -Wall -g -O0
 LDLIBS= -lcairo -lpthread -lm
 CC= gcc
 all: starcode

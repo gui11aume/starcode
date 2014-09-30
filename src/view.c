@@ -17,6 +17,7 @@ force_directed_drawing
    // Define canvas size and generate random positions in it.
    int canvas_size[2] = { CANVAS_SIZE , CANVAS_SIZE };
    srand(time(NULL));
+   //srand(123);
    fprintf(stderr, "initializing\n");
    gstack_t * star_list = list_stars(n_balls, ball_list);
    for (int i = 0; i < n_balls; i++) {
@@ -88,20 +89,6 @@ list_stars
    }
    return dense;
 }
-
-//void
-//initialize_positions
-//(
-//   int       start,
-//   int       stop,
-//   ball_t ** ball_list
-//)
-//{
-//   for (int j = start; j < stop; j++) {
-//      ball_list[j]->position[0] = rand() * RAND_FACTOR;
-//      ball_list[j]->position[1] = rand() * RAND_FACTOR;
-//   }
-//}
 
 double
 norm2
@@ -305,7 +292,7 @@ spiralize_displacements
 )
 {
    double center[2] = { canvas_size[0] / 2.0, canvas_size[1] / 2.0 };
-   double step = 0.1; // Step along the spiral and padding between stars.
+   double step = 1; // Step along the spiral and padding between stars.
    // Place the first star in the center of the canvas.
    star_t * first = (star_t *) star_list->items[0];
    first->displacement[0] = center[0] - first->position[0];
@@ -315,39 +302,71 @@ spiralize_displacements
    /* Use the red-black tree here.
     * Create and initialize the root node with the first star.
     * Then spiralize and, *when dropped*, insert the new star
-    * in the rbtree at its final location.
-    */
-   rbnode_t * root;
+    * in the rbtree at its final location. */
+   rbnode_t * root = new_rbnode(first, first->position);
    root->color = BLACK;
-   root->box = first;
    for (int i = 1; i < star_list->nitems; i++) {
-      star_t * star1 = star_list->items[i];
-      double x_pos;
-      double y_pos;
+      star_t * star = star_list->items[i];
       double distance = 0.0; // Distance from center, along a spiral line.
       double phase = 2 * PI * rand() / RAND_MAX;
-      int overlap = 1;
-      while (overlap) {
-         overlap = 0;
-         x_pos = center[0] + distance * cos(distance + phase); 
-         y_pos = center[1] + distance * sin(distance + phase); 
-         for (int j = 0; j < i; j++) {
-            star_t * star2 = star_list->items[j];
-            double x_dist = x_pos - star2->position[0];
-            double y_dist = y_pos - star2->position[1];
-            double radii = star1->radius + star2->radius;
-            if (norm(x_dist, y_dist) - radii < step) {
-               overlap = 1;
-               distance += step;
-               break;
-            }
+      double original_xy[2] = { star->position[0], star->position[1] };
+      star->position[0] = center[0] + distance * cos(distance + phase);
+      star->position[1] = center[1] + distance * sin(distance + phase);
+      rbnode_t * star_node = new_rbnode(star, star->position);
+      int dropped = 0;
+      while (!dropped) {
+         // Position along the spiral.
+         star->position[0] = center[0] + distance * cos(distance + phase);
+         star->position[1] = center[1] + distance * sin(distance + phase);
+         if (find_overlap(root, star_node, step)) {
+            distance += step;
+            continue;
+         } else {
+            dropped = 1;
+            while (root->parent != NULL) root = root->parent; // Find new root.
          }
       }
-      star1->displacement[0] = x_pos - star1->position[0];
-      star1->displacement[1] = y_pos - star1->position[1];
-      star1->position[0] = x_pos;
-      star1->position[1] = y_pos;
+      star->displacement[0] = star->position[0] - original_xy[0];
+      star->displacement[1] = star->position[1] - original_xy[1];
    }
+}
+
+int
+find_overlap
+(
+   rbnode_t * ref,
+   rbnode_t * node,
+   double padding
+)
+{
+   if (overlap((star_t *) ref->box, (star_t *) node->box, padding)) return 1;
+   else {
+      double rx = ((star_t *) ref->box)->position[0];
+      double ry = ((star_t *) ref->box)->position[1];
+      double nx = ((star_t *) node->box)->position[0];
+      double ny = ((star_t *) node->box)->position[1];
+      side_t side = ((nx > rx) << 1) | (ny > ry);
+      if (ref->children[side] == NULL) {
+         add_child(node, ref, side);
+         return 0;
+      }
+      return find_overlap(ref->children[side], node, padding);
+   }
+}
+
+int
+overlap
+(
+   star_t * ref,
+   star_t * query,
+   double padding
+)
+{
+   // Return 1 if stars overlap, 0 otherwise.
+   double x_dist = ref->position[0] - query->position[0];
+   double y_dist = ref->position[1] - query->position[1];
+   double radii = ref->radius + query->radius;
+   return (norm(x_dist, y_dist) - radii < padding);
 }
 
 void

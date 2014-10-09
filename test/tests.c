@@ -1062,25 +1062,38 @@ test_starcode_1
 // Basic tests of useq.
 (void)
 {
-   useq_t *u = new_useq(1, "some sequence");
+   // Regular initialization without info.
+   useq_t *u = new_useq(1, "some sequence", NULL);
    test_assert_critical(u != NULL);
    test_assert(u->count == 1);
    test_assert(strcmp(u->seq, "some sequence") == 0);
+   test_assert(u->info == NULL);
+   test_assert(u->matches == NULL);
+   test_assert(u->canonical == NULL);
+   destroy_useq(u);
+
+   // Regular initialization with info.
+   u = new_useq(1, "some sequence", "some info");
+   test_assert_critical(u != NULL);
+   test_assert(u->count == 1);
+   test_assert(strcmp(u->seq, "some sequence") == 0);
+   test_assert(strcmp(u->info, "some info") == 0);
    test_assert(u->matches == NULL);
    test_assert(u->canonical == NULL);
    destroy_useq(u);
 
    // Initialize with negative value and \0 string.
-   u = new_useq(-1, "");
+   u = new_useq(-1, "", NULL);
    test_assert_critical(u != NULL);
    test_assert(u->count == -1);
    test_assert(strcmp(u->seq, "") == 0);
+   test_assert(u->info == NULL);
    test_assert(u->matches == NULL);
    test_assert(u->canonical == NULL);
    destroy_useq(u);
 
    // Initialize with NULL string.
-   u = new_useq(0, NULL);
+   u = new_useq(0, NULL, NULL);
    test_assert(u == NULL);
 
 }
@@ -1092,10 +1105,10 @@ test_starcode_2
 // Test addmatch().
 {
 
-   useq_t *u1 = new_useq(12983, "string 1");
+   useq_t *u1 = new_useq(12983, "string 1", NULL);
    test_assert_critical(u1 != NULL);
    test_assert(u1->matches == NULL);
-   useq_t *u2 = new_useq(-20838, "string 2");
+   useq_t *u2 = new_useq(-20838, "string 2", NULL);
    test_assert_critical(u2 != NULL);
    test_assert(u2->matches == NULL);
 
@@ -1127,8 +1140,8 @@ test_starcode_3
 (void)
 // Test 'addmatch', 'transfer_counts_and_update_canonicals'.
 {
-   useq_t *u1 = new_useq(1, "B}d2)$ChPyDC=xZ D-C");
-   useq_t *u2 = new_useq(2, "RCD67vQc80:~@FV`?o%D");
+   useq_t *u1 = new_useq(1, "B}d2)$ChPyDC=xZ D-C", NULL);
+   useq_t *u2 = new_useq(2, "RCD67vQc80:~@FV`?o%D", NULL);
 
    // Add match to 'u1'.
    addmatch(u1, u2, 1, 1);
@@ -1155,9 +1168,9 @@ test_starcode_3
    destroy_useq(u1);
    destroy_useq(u2);
 
-   useq_t *u3 = new_useq(1, "{Lu[T}FOCMs}L_zx");
-   useq_t *u4 = new_useq(2, "|kAV|Ch|RZ]h~WjCoDpX");
-   useq_t *u5 = new_useq(2, "}lzHolUky");
+   useq_t *u3 = new_useq(1, "{Lu[T}FOCMs}L_zx", NULL);
+   useq_t *u4 = new_useq(2, "|kAV|Ch|RZ]h~WjCoDpX", NULL);
+   useq_t *u5 = new_useq(2, "}lzHolUky", NULL);
 
    // Add matches to 'u3'.
    addmatch(u3, u4, 1, 1);
@@ -1187,8 +1200,8 @@ test_starcode_4
 (void)
 // Test 'canonical_order'.
 {
-   useq_t *u1 = new_useq(1, "ABCD");
-   useq_t *u2 = new_useq(2, "EFGH");
+   useq_t *u1 = new_useq(1, "ABCD", NULL);
+   useq_t *u2 = new_useq(2, "EFGH", NULL);
    test_assert_critical(u1 != NULL);
    test_assert_critical(u2 != NULL);
 
@@ -1209,8 +1222,8 @@ test_starcode_4
    test_assert(canonical_order(&u1, &u2) < 0);
    test_assert(canonical_order(&u2, &u1) > 0);
 
-   useq_t *u3 = new_useq(1, "CDEF");
-   useq_t *u4 = new_useq(2, "GHIJ");
+   useq_t *u3 = new_useq(1, "CDEF", NULL);
+   useq_t *u4 = new_useq(2, "GHIJ", NULL);
    test_assert_critical(u3 != NULL);
    test_assert_critical(u4 != NULL);
 
@@ -1248,8 +1261,8 @@ test_starcode_4
    test_assert(canonical_order(&u3, &u4) < 0);
    test_assert(canonical_order(&u4, &u3) > 0);
 
-   useq_t *u5 = new_useq(1, "CDEF");
-   useq_t *u6 = new_useq(3, "GHIJ");
+   useq_t *u5 = new_useq(1, "CDEF", NULL);
+   useq_t *u6 = new_useq(3, "GHIJ", NULL);
    test_assert_critical(u5 != NULL);
    test_assert_critical(u6 != NULL);
 
@@ -1325,8 +1338,8 @@ test_starcode_5
 // Test 'count_order()'.
 {
 
-   useq_t *u1 = new_useq(1, "L@[ohztp{2@V(u(x7fLt&x80");
-   useq_t *u2 = new_useq(2, "$Ee6xkB+.Q;Nk)|w[KQ;");
+   useq_t *u1 = new_useq(1, "L@[ohztp{2@V(u(x7fLt&x80", NULL);
+   useq_t *u2 = new_useq(2, "$Ee6xkB+.Q;Nk)|w[KQ;", NULL);
    test_assert(count_order(&u1, &u2) == 1);
    test_assert(count_order(&u2, &u1) == -1);
    test_assert(count_order(&u1, &u1) == 0);
@@ -1343,8 +1356,8 @@ test_starcode_5
          seq2[j] = untranslate[(int)(5 * drand48())];
       }
       int randint = (int)(4096 * drand48());
-      u1 = new_useq(randint, seq1);
-      u2 = new_useq(randint + 1, seq2);
+      u1 = new_useq(randint, seq1, NULL);
+      u2 = new_useq(randint + 1, seq2, NULL);
       test_assert(count_order(&u1, &u2) == 1);
       test_assert(count_order(&u2, &u1) == -1);
       test_assert(count_order(&u1, &u1) == 0);
@@ -1372,7 +1385,7 @@ test_starcode_5
 
    useq_t *to_sort_1[10];
    for (int i = 0 ; i < 10 ; i++) {
-      to_sort_1[i] = new_useq(i, sequences_1[i]);
+      to_sort_1[i] = new_useq(i, sequences_1[i], NULL);
    }
 
    qsort(to_sort_1, 10, sizeof(useq_t *), count_order);
@@ -1394,7 +1407,7 @@ test_starcode_5
 
    useq_t *to_sort_2[6];
    for (int i = 0 ; i < 6 ; i++) {
-      to_sort_2[i] = new_useq(counts[i], sequences_2[i]);
+      to_sort_2[i] = new_useq(counts[i], sequences_2[i], NULL);
    }
 
    qsort(to_sort_2, 6, sizeof(useq_t *), count_order);
@@ -1416,8 +1429,8 @@ test_starcode_6
    gstack_t * useqS = new_gstack();
    test_assert_critical(useqS != NULL);
 
-   useq_t *u1 = new_useq(1, "L@[ohztp{2@V(u(x7fLt&x80");
-   useq_t *u2 = new_useq(2, "$Ee6xkB+.Q;Nk)|w[KQ;");
+   useq_t *u1 = new_useq(1, "L@[ohztp{2@V(u(x7fLt&x80", NULL);
+   useq_t *u2 = new_useq(2, "$Ee6xkB+.Q;Nk)|w[KQ;", NULL);
    test_assert_critical(u1 != NULL);
    test_assert_critical(u2 != NULL);
 
@@ -1430,7 +1443,7 @@ test_starcode_6
    test_assert(strcmp(u2->seq, "    $Ee6xkB+.Q;Nk)|w[KQ;") == 0);
    test_assert(med == 20);
 
-   useq_t *u3 = new_useq(23, "0sdfd:'!'@{1$Ee6xkB+.Q;[Nk)|w[KQ;");
+   useq_t *u3 = new_useq(23, "0sdfd:'!'@{1$Ee6xkB+.Q;[Nk)|w[KQ;", NULL);
    test_assert_critical(u3 != NULL);
    push(u3, &useqS);
    test_assert(useqS->nitems == 3);
@@ -1549,43 +1562,43 @@ test_starcode_9
    test_assert_critical(lut != NULL);
 
    // Insert a too short string.
-   useq_t *u = new_useq(0, "");
+   useq_t *u = new_useq(0, "", NULL);
    test_assert(lut_insert(lut, u));
    destroy_useq(u);
 
    // Insert the following k-mers: ACGT|AGCG|CTAT|AGCGA|TCA
-   u = new_useq(0, "ACGTAGCGCTATAGCGATCA");
+   u = new_useq(0, "ACGTAGCGCTATAGCGATCA", NULL);
    test_assert_critical(u != NULL);
    test_assert(lut_insert(lut, u) == 0);
    test_assert(lut_search(lut, u) == 1);
    destroy_useq(u);
 
-   u = new_useq(0, "CGTAGCGCTATAGCGATCAA");
+   u = new_useq(0, "CGTAGCGCTATAGCGATCAA", NULL);
    test_assert_critical(u != NULL);
    test_assert(lut_search(lut, u) == 1);
    destroy_useq(u);
 
-   u = new_useq(0, "AAAAAGCGCCCCCCCCCCCC");
+   u = new_useq(0, "AAAAAGCGCCCCCCCCCCCC", NULL);
    test_assert_critical(u != NULL);
    test_assert(lut_search(lut, u) == 1);
    destroy_useq(u);
 
-   u = new_useq(0, "CCCCCCCCCCCCCCCAGCGA");
+   u = new_useq(0, "CCCCCCCCCCCCCCCAGCGA", NULL);
    test_assert_critical(u != NULL);
    test_assert(lut_search(lut, u) == 1);
    destroy_useq(u);
 
-   u = new_useq(0, "CCCCCCCCCAGCGACCCCCC");
+   u = new_useq(0, "CCCCCCCCCAGCGACCCCCC", NULL);
    test_assert_critical(u != NULL);
    test_assert(lut_search(lut, u) == 1);
    destroy_useq(u);
 
-   u = new_useq(0, "CCCCCCCCAGCGACCCCCCC");
+   u = new_useq(0, "CCCCCCCCAGCGACCCCCCC", NULL);
    test_assert_critical(u != NULL);
    test_assert(lut_search(lut, u) == 0);
    destroy_useq(u);
 
-   u = new_useq(0, "AAAAAAAAAAAAAAAAAAAA");
+   u = new_useq(0, "AAAAAAAAAAAAAAAAAAAA", NULL);
    test_assert_critical(u != NULL);
    test_assert(lut_search(lut, u) == 0);
    destroy_useq(u);
@@ -1602,7 +1615,7 @@ test_starcode_9
       for (int j = 0 ; j < 20 ; j++) {
          seq[j] = untranslate[(int)(1 + 4*drand48())];
       } 
-      u = new_useq(0, seq);
+      u = new_useq(0, seq, NULL);
       test_assert(lut_insert(lut, u) == 0);
       test_assert(lut_search(lut, u) == 1);
       destroy_useq(u);
@@ -1619,7 +1632,7 @@ test_starcode_9
          char nt = untranslate[1 + (int)((i >> (2*j)) & 3)];
          seq[j] = seq[j+4] = seq[j+8] = seq[j+12] = nt;   
       }
-      u = new_useq(0, seq);
+      u = new_useq(0, seq, NULL);
       test_assert_critical(u != NULL);
       test_assert(lut_insert(lut, u) == 0);
       destroy_useq(u);
@@ -1644,7 +1657,7 @@ test_starcode_9
       for (int j = 0 ; j < 64 ; j++) {
          seq[j] = untranslate[(int)(1 + 4*drand48())];
       } 
-      u = new_useq(0, seq);
+      u = new_useq(0, seq, NULL);
       test_assert_critical(u != NULL);
       test_assert(lut_insert(lut, u) == 0);
       destroy_useq(u);
@@ -1792,7 +1805,7 @@ test_seqsort
 
    // Basic cases.
    for (int i = 0 ; i < 9 ; i++) {
-      push(new_useq(1, "A"), &useqS);
+      push(new_useq(1, "A", NULL), &useqS);
    }
    test_assert(useqS->nitems == 9);
    test_assert(seqsort((useq_t **) useqS->items, 9, 1) == 1);
@@ -1808,7 +1821,7 @@ test_seqsort
 
    useqS->nitems = 0;
    for (int i = 0 ; i < 9 ; i++) {
-      push(new_useq(1, i % 2 ? "A":"B"), &useqS);
+      push(new_useq(1, i % 2 ? "A":"B", NULL), &useqS);
    }
    test_assert(useqS->nitems == 9);
    test_assert(seqsort((useq_t **) useqS->items, 9, 1) == 2);
@@ -1846,7 +1859,7 @@ test_seqsort
 
    useq_t *to_sort_1[10];
    for (int i = 0 ; i < 10 ; i++) {
-      to_sort_1[i] = new_useq(1, sequences_1[i]);
+      to_sort_1[i] = new_useq(1, sequences_1[i], NULL);
    }
 
    test_assert(seqsort(to_sort_1, 10, 1) == 10);
@@ -1874,7 +1887,7 @@ test_seqsort
 
    useq_t *to_sort_2[10];
    for (int i = 0 ; i < 10 ; i++) {
-      to_sort_2[i] = new_useq(1, sequences_2[i]);
+      to_sort_2[i] = new_useq(1, sequences_2[i], NULL);
    }
 
    test_assert(seqsort(to_sort_2, 10, 1) == 10);
@@ -1895,7 +1908,7 @@ test_seqsort
 
    useq_t *to_sort_3[6];
    for (int i = 0 ; i < 6 ; i++) {
-      to_sort_3[i] = new_useq(1, sequences_3[i]);
+      to_sort_3[i] = new_useq(1, sequences_3[i], NULL);
    }
 
    test_assert(seqsort(to_sort_3, 6, 1) == 2);
@@ -1968,7 +1981,7 @@ test_seqsort
 
       useqS->nitems = 0;
       for (int i = 0 ; i < 35 ; i++) {
-         push(new_useq(1, seq[i]), &useqS);
+         push(new_useq(1, seq[i], NULL), &useqS);
       }
 
       test_assert(seqsort((useq_t **) useqS->items, 35, t) == 10);

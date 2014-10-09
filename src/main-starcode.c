@@ -34,11 +34,14 @@ char *USAGE = "Usage:\n"
 "  starcode [-i] input [-o output]\n"
 "    -v --verbose: verbose\n"
 "    -d --dist: maximum Levenshtein distance (default 3)\n"
-"    -s --spheres: cluster as sphere instead of message passing\n"
 "    -t --threads: number of concurrent threads (default 1)\n"
-//"    -f --format: output 'rel' or 'counts' (default)\n"
 "    -i --input: input file (default stdin)\n"
-"    -o --output: output file (default stdout)";
+"    -o --output: output file (default stdout)\n"
+"\n"
+"  mutually exclusive options\n"
+"    -s --sphere: sphere clustering (default message passing)\n"
+"       --print-pairs: print matching pairs (no clustering)\n"
+"       --non-redundant: print non-redundant sequences (no clustering)\n";
 
 void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
 
@@ -64,15 +67,18 @@ main(
    // Backtrace handler
    signal(SIGSEGV, SIGSEGV_handler); 
 
+   // Set flags.
+   static int pp_flag = 0;
+   static int nr_flag = 0;
+   static int sp_flag = 0;
+   static int vb_flag = 0;
+
    // Unset flags (value -1).
-   int verbose_flag = -1;
-//   int format_flag = -1;
-   int dist_flag = -1;
-   int threads_flag = -1;
-   int cluster_flag = -1;
+   int dist = -1;
+   int threads = -1;
+
    // Unset options (value 'UNSET').
    char * const UNSET = "unset";
-//   char *format_option = UNSET;
    char *input = UNSET;
    char *output = UNSET;
 
@@ -80,123 +86,84 @@ main(
    while (1) {
       int option_index = 0;
       static struct option long_options[] = {
-         {"verbose", no_argument,       0, 'v'},
-         {"help",    no_argument,       0, 'h'},
-         {"spheres", no_argument,       0, 's'},
-//       {"format",  required_argument, 0, 'f'},
-         {"dist",    required_argument, 0, 'd'},
-         {"input",   required_argument, 0, 'i'},
-         {"output",  required_argument, 0, 'o'},
-         {"threads", required_argument, 0, 't'},
+         {"print-pairs",       no_argument,       &pp_flag,  1 },
+         {"non-redundant",     no_argument,       &nr_flag,  1 },
+         {"sphere-clustering", no_argument,       &sp_flag,  1 },
+         {"verbose",           no_argument,       &vb_flag,  1 },
+         {"dist",              required_argument,        0, 'd'},
+         {"help",              no_argument,              0, 'h'},
+         {"input",             required_argument,        0, 'i'},
+         {"output",            required_argument,        0, 'o'},
+         {"threads",           required_argument,        0, 't'},
          {0, 0, 0, 0}
       };
 
-      c = getopt_long(argc, argv, "d:i:f:t:ho:vs",
+      c = getopt_long(argc, argv, "d:hi:o:t:s",
             long_options, &option_index);
  
-      /* Detect the end of the options. */
+      // Done parsing options? //
       if (c == -1) break;
-  
+
       switch (c) {
+      case 0:
+         // A flag was set. //
+         break;
+
       case 'd':
-         if (dist_flag < 0) {
-            dist_flag = atoi(optarg);
+         if (dist < 0) {
+            dist = atoi(optarg);
          }
          else {
-            fprintf(stderr, "distance option set more than once\n");
-            say_usage();
-            return 1;
-         }
-         break;
-
-      case 't':
-         if (threads_flag < 0) {
-            threads_flag = atoi(optarg);
-         }
-         else {
-            fprintf(stderr, "thread option set more than once\n");
-            say_usage();
-            return 1;
-         }
-         break;            
-
-      case 'i':
-         if (input == UNSET) {
-            input = optarg;
-         }
-         else {
-            fprintf(stderr, "input option set more than once\n");
-            say_usage();
-            return 1;
-         }
-         break;
-
-// The current version of starcode has a single output format.
-// Possible options would be to suppress the cluster composition
-// in third column, or replace it by a compressed representation
-// of the alignment (e.g. gem output).
-/*
-      case 'f':
-         if (format_option == UNSET) {
-            if (strcmp(optarg, "counts") == 0) {
-               format_flag = 0;
-            }
-            else if (strcmp(optarg, "rel") == 0) {
-               format_flag = 1;
-            }
-            else {
-               fprintf(stderr, "invalid format option\n");
-               say_usage();
-               return 1;
-            }
-            format_option = optarg;
-         }
-         else {
-            fprintf(stderr, "format option set more than once\n");
-            say_usage();
-            return 1;
-         }
-         break;
-*/
-  
-      case 'o':
-         if (output == UNSET) {
-            output = optarg;
-         }
-         else {
-            fprintf(stderr, "output option set more than once\n");
-            say_usage();
-            return 1;
-         }
-         break;
-
-      case 's':
-         if (cluster_flag < 0) {
-            cluster_flag = 1;
-         }
-         else {
-            fprintf(stderr, "spheres option set more than once\n");
-            say_usage();
-            return 1;
-         }
-         break;
-
-      case 'v':
-         if (verbose_flag < 0) {
-            verbose_flag = 1;
-         }
-         else {
-            fprintf(stderr, "verbose option set more than once\n");
+            fprintf(stderr, "--distance set more than once\n\n");
             say_usage();
             return 1;
          }
          break;
 
       case 'h':
+         // User asked for help. //
          say_usage();
          return 0;
- 
+
+      case 'i':
+         if (input == UNSET) {
+            input = optarg;
+         }
+         else {
+            fprintf(stderr, "--input set more than once\n\n");
+            say_usage();
+            return 1;
+         }
+         break;
+
+      case 'o':
+         if (output == UNSET) {
+            output = optarg;
+         }
+         else {
+            fprintf(stderr, "--output set more than once\n\n");
+            say_usage();
+            return 1;
+         }
+         break;
+
+      case 's':
+         sp_flag = 1;
+         break;
+
+      case 't':
+         if (threads < 0) {
+            threads = atoi(optarg);
+         }
+         else {
+            fprintf(stderr, "--thread set more than once\n\n");
+            say_usage();
+            return 1;
+         }
+         break;
+
       default:
+         // Cannot parse. //
          say_usage();
          return 1;
 
@@ -209,11 +176,38 @@ main(
          input = argv[optind];
       }
       else {
-         fprintf(stderr, "too many options\n");
+         fprintf(stderr, "too many options\n\n");
          say_usage();
          return 1;
       }
    }
+
+   // Check options compatibility. //
+   if (pp_flag && nr_flag) {
+      fprintf(stderr, "--print-pairs and --non-redundant are incompatible\n\n");
+      say_usage();
+      return 1;
+   }
+
+   if (pp_flag && sp_flag) {
+      fprintf(stderr, "--print-pairs and --spheres are incompatible\n\n");
+      say_usage();
+      return 1;
+   }
+
+   if (nr_flag && sp_flag) {
+      fprintf(stderr, "--non-redundant and --spheres are incompatible\n\n");
+      say_usage();
+      return 1;
+   }
+
+   int output_type;
+
+        if (pp_flag) output_type = PRINT_PAIRS;
+   else if (nr_flag) output_type = PRINT_NRED;
+   else if (sp_flag) output_type = SPHERES_OUTPUT;
+   else              output_type = DEFAULT_OUTPUT;
+
 
    FILE *inputf;
    FILE *outputf;
@@ -221,7 +215,7 @@ main(
    if (input != UNSET) {
       inputf = fopen(input, "r");
       if (inputf == NULL) {
-         fprintf(stderr, "cannot open file %s\n", input);
+         fprintf(stderr, "cannot open file %s\n\n", input);
          say_usage();
          return 1;
       }
@@ -233,7 +227,7 @@ main(
    if (output != UNSET) {
       outputf = fopen(output, "w");
       if (outputf == NULL) {
-         fprintf(stderr, "cannot write to file %s\n", output);
+         fprintf(stderr, "cannot write to file %s\n\n", output);
          say_usage();
          return 1;
       }
@@ -242,22 +236,19 @@ main(
       outputf = stdout;
    }
 
-   // Set default flags.
-   if (verbose_flag < 0) verbose_flag = 0;
-//   if (format_flag < 0) format_flag = 0;
-   if (dist_flag < 0) dist_flag = 3;
-   if (threads_flag < 0) threads_flag = 1;
-   if (cluster_flag < 0) cluster_flag = 0;
+   // Set default options.
+   if (dist < 0) dist = 3;
+   if (threads < 0) threads = 1;
 
-   int exitcode = starcode(
-                      inputf,
-                      outputf,
-                      dist_flag,
-//                      format_flag,
-                      verbose_flag,
-                      threads_flag,
-                      cluster_flag
-                  );
+   int exitcode =
+   starcode(
+       inputf,
+       outputf,
+       dist,
+       vb_flag,
+       threads,
+       output_type
+   );
 
    if (inputf != stdin) fclose(inputf);
    if (outputf != stdout) fclose(outputf);

@@ -78,6 +78,7 @@ typedef struct sortargs_t sortargs_t;
 struct useq_t {
   int              count;
   char          *  seq;
+  char 		*  info;
   gstack_t      ** matches;
   struct useq_t *  canonical;
 };
@@ -120,7 +121,7 @@ struct mtjob_t {
    int                end;
    int                tau;
    int                build;
-   int		      clusters;
+   int		      output;
    int                queryid;
    int                trieid;
    gstack_t         * useqS;
@@ -148,7 +149,7 @@ int        lut_insert (lookup_t *, useq_t *);
 int        lut_search (lookup_t *, useq_t *); 
 void       message_passing_clustering (gstack_t*, int);
 lookup_t * new_lookup (int, int, int);
-useq_t   * new_useq (int, char *);
+useq_t   * new_useq (int, char *, char *);
 int        pad_useq (gstack_t*, int*);
 mtplan_t * plan_mt (int, int, int, int, gstack_t *, const int);
 void       run_plan (mtplan_t *, int, int);

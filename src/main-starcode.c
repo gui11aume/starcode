@@ -98,7 +98,7 @@ main(
          {0, 0, 0, 0}
       };
 
-      c = getopt_long(argc, argv, "d:hi:o:t:s",
+      c = getopt_long(argc, argv, "d:hi:o:st:v",
             long_options, &option_index);
  
       // Done parsing options? //
@@ -160,6 +160,10 @@ main(
             say_usage();
             return 1;
          }
+         break;
+
+      case 'v':
+         vb_flag = 1;
          break;
 
       default:

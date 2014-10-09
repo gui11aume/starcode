@@ -765,10 +765,172 @@ nukesort
 
 
 gstack_t *
+read_rawseq
+(
+   FILE     * inputf,
+   gstack_t * uSQ
+)
+{
+
+   ssize_t nread;
+   size_t nchar = M;
+   char copy[MAXBRCDLEN];
+   char *line = malloc(M * sizeof(char));
+   if (line == NULL) {
+      alert();
+      krash();
+   }
+
+   char *seq = NULL;
+   int count = 0;
+   int lineno = 0;
+
+   while ((nread = getline(&line, &nchar, inputf)) != -1) {
+      lineno++;
+      if (line[nread-1] == '\n') line[nread-1] = '\0';
+      if (sscanf(line, "%s\t%d", copy, &count) != 2) {
+         count = 1;
+         seq = line;
+      }
+      else {
+         seq = copy;
+      }
+      if (strlen(seq) > MAXBRCDLEN) {
+         fprintf(stderr, "max sequence length exceeded (%d)\n",
+               MAXBRCDLEN);
+         fprintf(stderr, "offending sequence:\n%s\n", seq);
+         abort();
+      }
+      useq_t *new = new_useq(count, seq, NULL);
+      if (new == NULL) {
+         alert();
+         krash();
+      }
+      push(new, &uSQ);
+   }
+
+   free(line);
+   return uSQ;
+
+}
+
+
+gstack_t *
+read_fasta
+(
+   FILE     * inputf,
+   gstack_t * uSQ
+)
+{
+
+   ssize_t nread;
+   size_t nchar = M;
+   char *line = malloc(M * sizeof(char));
+   if (line == NULL) {
+      alert();
+      krash();
+   }
+
+   char *header = NULL;
+   int lineno = 0;
+
+   while ((nread = getline(&line, &nchar, inputf)) != -1) {
+      lineno++;
+      if (lineno % 2 == 1) {
+         header = strdup(line);
+         if (header == NULL) {
+            alert();
+            krash();
+         }
+      }
+      else {
+         if (line[nread-1] == '\n') line[nread-1] = '\0';
+         if (strlen(line) > MAXBRCDLEN) {
+            fprintf(stderr, "max sequence length exceeded (%d)\n",
+                  MAXBRCDLEN);
+            fprintf(stderr, "offending sequence:\n%s\n", line);
+            abort();
+         }
+         useq_t *new = new_useq(1, line, header);
+         if (new == NULL) {
+            alert();
+            krash();
+         }
+         push(new, &uSQ);
+      }
+   }
+
+   free(line);
+   return uSQ;
+
+}
+
+
+gstack_t *
+read_fastq
+(
+   FILE     * inputf,
+   gstack_t * uSQ
+)
+{
+
+   ssize_t nread;
+   size_t nchar = M;
+   char *line = malloc(M * sizeof(char));
+   if (line == NULL) {
+      alert();
+      krash();
+   }
+
+   char seq[M] = {0};
+   char header[2*M] = {0};
+   int lineno = 0;
+
+   while ((nread = getline(&line, &nchar, inputf)) != -1) {
+      lineno++;
+      if (lineno % 4 == 1) {
+         strncpy(header, line, M);
+         if (header == NULL) {
+            alert();
+            krash();
+         }
+      }
+      else if (lineno % 4 == 2) {
+         if (line[nread-1] == '\n') line[nread-1] = '\0';
+         if (strlen(line) > MAXBRCDLEN) {
+            fprintf(stderr, "max sequence length exceeded (%d)\n",
+                  MAXBRCDLEN);
+            fprintf(stderr, "offending sequence:\n%s\n", seq);
+            abort();
+         }
+         strncpy(seq, line, M);
+      }
+      else if (lineno % 4 == 3) {
+         int status = snprintf(header, 2*M, "%s%s", header, line);
+         if (status < 0 || status > 2*M - 1) {
+            alert();
+            krash();
+         }
+         useq_t *new = new_useq(1, seq, header);
+         if (new == NULL) {
+            alert();
+            krash();
+         }
+         push(new, &uSQ);
+      }
+   }
+
+   free(line);
+   return uSQ;
+
+}
+
+
+gstack_t *
 read_file
 (
-   FILE *inputf,
-   const int verbose
+   FILE      * inputf,
+   const int   verbose
 )
 {
 
@@ -791,77 +953,23 @@ read_file
          format = RAW;
          if (verbose) fprintf(stderr, "raw format detected\n");
    }
+
    if (ungetc(c, inputf) == EOF) {
       alert();
       krash();
    }
 
-   char *seq = NULL;
-   char copy[MAXBRCDLEN];
-   ssize_t nread;
-   size_t nchar = M;
-   gstack_t *useqS = new_gstack();
-   if (useqS == NULL) {
+   gstack_t *uSQ = new_gstack();
+   if (uSQ == NULL) {
       alert();
       krash();
    }
 
-   char *line = malloc(M * sizeof(char));
-   if (line == NULL) {
-      alert();
-      krash();
-   }
-   int count = 0;
-   int lineno = 0;
+   if (format == RAW)   return read_rawseq(inputf, uSQ);
+   if (format == FASTA) return read_fasta(inputf, uSQ);
+   if (format == FASTQ) return read_fastq(inputf, uSQ);
 
-   // Read sequences from input file.
-   char *header = NULL;
-   while ((nread = getline(&line, &nchar, inputf)) != -1) {
-      lineno++;
-
-      if (format == FASTA && lineno % 2 == 1) {
-         header = strdup(line);
-         if (header == NULL) {
-            alert();
-            krash();
-         }
-         continue;
-      }
-
-      if (format == FASTQ && lineno % 4 != 2) {
-         if (lineno % 4 == 1) {
-            header = strdup(line);
-            if (header == NULL) {
-               alert();
-               krash();
-            }
-         }
-         continue;
-      }
-
-      if (line[nread-1] == '\n') line[nread-1] = '\0';
-      if (sscanf(line, "%s\t%d", copy, &count) != 2) {
-         count = 1;
-         seq = line;
-      }
-      else {
-         seq = copy;
-      }
-      if (strlen(seq) > MAXBRCDLEN) {
-         fprintf(stderr, "max sequence length exceeded (%d) \n", M-1);
-         fprintf(stderr, "offending sequence:\n%s\n", seq);
-         abort();
-      }
-      useq_t *new = new_useq(count, seq, header);
-      if (new == NULL) {
-         alert();
-         krash();
-      }
-      push(new, &useqS);
-   }
-
-   free(line);
-   return useqS;
+   return NULL;
 
 }
 

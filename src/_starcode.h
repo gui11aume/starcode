@@ -62,7 +62,12 @@ struct useq_t;
 struct c_t;
 struct match_t;
 
-typedef enum {UNSET, FASTA, FASTQ, RAW} format_t;
+typedef enum {
+   FASTA,
+   FASTQ,
+   RAW,
+   UNSET,
+} format_t;
 
 typedef struct useq_t useq_t;
 typedef struct c_t ustack_t;
@@ -121,7 +126,6 @@ struct mtjob_t {
    int                end;
    int                tau;
    int                build;
-   int		      output;
    int                queryid;
    int                trieid;
    gstack_t         * useqS;
@@ -151,7 +155,7 @@ void       message_passing_clustering (gstack_t*, int);
 lookup_t * new_lookup (int, int, int);
 useq_t   * new_useq (int, char *, char *);
 int        pad_useq (gstack_t*, int*);
-mtplan_t * plan_mt (int, int, int, int, gstack_t *, const int);
+mtplan_t * plan_mt (int, int, int, int, gstack_t *);
 void       run_plan (mtplan_t *, int, int);
 gstack_t * read_file (FILE *, int);
 int        seq2id (char *, int);

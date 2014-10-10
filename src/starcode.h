@@ -29,10 +29,12 @@
 #define _GNU_SOURCE
 #include <stdio.h>
 
-#define DEFAULT_OUTPUT 0
-#define SPHERES_OUTPUT 1
-#define PRINT_PAIRS    2
-#define PRINT_NRED     3
+typedef enum {
+   DEFAULT_OUTPUT,
+   SPHERES_OUTPUT,
+   PRINT_PAIRS,
+   PRINT_NRED
+} output_t;
 
 int starcode(FILE*, FILE*, const int, const int, const int, const int);
 

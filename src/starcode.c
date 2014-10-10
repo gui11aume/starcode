@@ -91,18 +91,29 @@ starcode
          // If print non redundant sequences, just print the
          // canonicals with their info.
          for (int i = 0 ; i < uSQ->nitems ; i++) {
-            const char nostring[] = "";
             useq_t *u = (useq_t *) uSQ->items[i];
             if (u->canonical == NULL) break;
             if (u->canonical != u) continue;
-            fprintf(OUTPUTF, "%s%s\n",
-                  u->info == NULL ? nostring : u->info, u->seq);
+
+            if (FORMAT == RAW) {
+               fprintf(OUTPUTF, "%s\n", u->seq);
+            }
+            else if (FORMAT == FASTA) {
+               fprintf(OUTPUTF, "%s\n%s\n", u->info, u->seq);
+            }
+            else if (FORMAT == FASTQ) {
+               char header[M] = {0};
+               char quality[M] = {0};
+               sscanf(u->info, "%s\n%s", header, quality);
+               fprintf(OUTPUTF, "%s\n%s\n+\n%s\n",
+                     header, u->seq, quality);
+            }
          }
 
       }
 
+      // Format output starcode style.
       else {
-
          useq_t *first = (useq_t *) uSQ->items[0];
          useq_t *canonical = first->canonical;
 
@@ -892,7 +903,8 @@ read_fastq
    }
 
    char seq[M] = {0};
-   char header[2*M] = {0};
+   char header[M] = {0};
+   char info[2*M] = {0};
    int lineno = 0;
 
    while ((nread = getline(&line, &nchar, inputf)) != -1) {
@@ -916,15 +928,15 @@ read_fastq
          }
          strncpy(seq, line, M);
       }
-      else if (lineno % 4 == 3) {
+      else if (lineno % 4 == 0) {
          if (OUTPUTT != PRINT_PAIRS) {
-            int status = snprintf(header, 2*M, "%s\n%s", header, line);
+            int status = snprintf(info, 2*M, "%s\n%s", header, line);
             if (status < 0 || status > 2*M - 1) {
                alert();
                krash();
             }
          }
-         useq_t *new = new_useq(1, seq, header);
+         useq_t *new = new_useq(1, seq, info);
          if (new == NULL) {
             alert();
             krash();

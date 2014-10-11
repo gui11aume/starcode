@@ -66,6 +66,7 @@ typedef enum {
    FASTA,
    FASTQ,
    RAW,
+   PE_FASTQ,
    UNSET,
 } format_t;
 
@@ -157,7 +158,7 @@ useq_t   * new_useq (int, char *, char *);
 int        pad_useq (gstack_t*, int*);
 mtplan_t * plan_mt (int, int, int, int, gstack_t *);
 void       run_plan (mtplan_t *, int, int);
-gstack_t * read_file (FILE *, int);
+gstack_t * read_file (FILE *, FILE *, int);
 int        seq2id (char *, int);
 gstack_t * seq2useq (gstack_t*, int);
 int        seqsort (useq_t **, int, int);

@@ -26,45 +26,49 @@
 #include "starcode.h"
 #include "_starcode.h"
 
-//    Globals    //
-static FILE     * OUTPUTF = NULL;           // output file
-static format_t   FORMAT  = UNSET;          // input format
-static output_t   OUTPUTT = DEFAULT_OUTPUT; // output type
+//    Global variables    //
+static FILE     * OUTPUTF1 = NULL;           // output file 1
+static FILE     * OUTPUTF2 = NULL;           // output file 2
+static format_t   FORMAT   = UNSET;          // input format
+static output_t   OUTPUTT  = DEFAULT_OUTPUT; // output type
 
 
 int
 starcode
 (
-   FILE *inputf,
-   FILE *outputf,
+   FILE *inputf1,
+   FILE *inputf2,
+   FILE *outputf1,
+   FILE *outputf2,
    const int tau,
    const int verbose,
-         int maxthreads,
+         int thrmax,
    const int outputt
 )
 {
 
-   OUTPUTF = outputf;
+   OUTPUTF1 = outputf1;
+   OUTPUTF2 = outputf2;
    OUTPUTT = outputt;
 
    if (verbose) fprintf(stderr, "reading input files\n");
-   gstack_t *uSQ = read_file(inputf, verbose);
+   gstack_t *uSQ = read_file(inputf1, inputf2, verbose);
    if (uSQ == NULL || uSQ->nitems < 1) {
       fprintf(stderr, "input file empty\n");
       return 1;
    }
 
    // Sort/reduce.
-   uSQ->nitems = seqsort((useq_t **) uSQ->items, uSQ->nitems, maxthreads);
+   uSQ->nitems = seqsort((useq_t **) uSQ->items, uSQ->nitems, thrmax);
 
    // Get number of tries.
-   int ntries = 3 * maxthreads + (maxthreads % 2 == 0);
+   int ntries = 3 * thrmax + (thrmax % 2 == 0);
    if (uSQ->nitems < ntries) {
       ntries = 1;
-      maxthreads = 1;
+      thrmax = 1;
    }
  
-   // Pad sequences. (And return the median size)
+   // Pad sequences (and return the median size).
    int med = -1;
    int height = pad_useq(uSQ, &med);
    
@@ -72,7 +76,7 @@ starcode
    mtplan_t *mtplan = plan_mt(tau, height, med, ntries, uSQ);
 
    // Run the query.
-   run_plan(mtplan, verbose, maxthreads);
+   run_plan(mtplan, verbose, thrmax);
    if (verbose) fprintf(stderr, "starcode progress: 100.00%%\n");
 
    // Remove padding characters.
@@ -81,13 +85,12 @@ starcode
    if (OUTPUTT == DEFAULT_OUTPUT || OUTPUTT == PRINT_NRED) {
 
       // Cluster the pairs.
-      message_passing_clustering(uSQ, maxthreads);
+      message_passing_clustering(uSQ, thrmax);
 
       // Sort in canonical order.
       qsort(uSQ->items, uSQ->nitems, sizeof(useq_t *), canonical_order);
 
       if (OUTPUTT == PRINT_NRED) {
-
          // If print non redundant sequences, just print the
          // canonicals with their info.
          for (int i = 0 ; i < uSQ->nitems ; i++) {
@@ -96,20 +99,45 @@ starcode
             if (u->canonical != u) continue;
 
             if (FORMAT == RAW) {
-               fprintf(OUTPUTF, "%s\n", u->seq);
+               fprintf(OUTPUTF1, "%s\n", u->seq);
             }
             else if (FORMAT == FASTA) {
-               fprintf(OUTPUTF, "%s\n%s\n", u->info, u->seq);
+               fprintf(OUTPUTF1, "%s\n%s\n", u->info, u->seq);
             }
             else if (FORMAT == FASTQ) {
                char header[M] = {0};
                char quality[M] = {0};
                sscanf(u->info, "%s\n%s", header, quality);
-               fprintf(OUTPUTF, "%s\n%s\n+\n%s\n",
+               fprintf(OUTPUTF1, "%s\n%s\n+\n%s\n",
                      header, u->seq, quality);
             }
-         }
+            else if (FORMAT == PE_FASTQ) {
+               // TODO: generate two headers, send each to
+               // different output files.
+               char head1[M] = {0};
+               char head2[M] = {0};
+               char qual1[M] = {0};
+               char qual2[M] = {0};
+               char seq1[M] = {0};
+               char seq2[M] = {0};
 
+               // Split the sequences.
+               char *c1 = strchr(u->seq, '-');
+               char *c2 = strrchr(u->seq, '-');
+               strncpy(seq1, u->seq, (c1 - u->seq));
+               strcpy(seq2, c2+1);
+
+               // Split the info field.
+               sscanf(u->info, "%s\n%s\n%s\n%s",
+                     head1, qual1, head2, qual2);
+
+               // Print to separate files.
+               fprintf(OUTPUTF1, "%s\n%s\n+\n%s\n",
+                     head1, seq1, qual1);
+               fprintf(OUTPUTF2, "%s\n%s\n+\n%s\n",
+                     head2, seq2, qual2);
+            }
+         }
       }
 
       // Format output starcode style.
@@ -120,23 +148,42 @@ starcode
          // If the first canonical is NULL they all are.
          if (first->canonical == NULL) return 0;
 
-         fprintf(OUTPUTF, "%s\t%d\t%s",
-            first->canonical->seq, first->canonical->count, first->seq);
+         if (FORMAT == PE_FASTQ) {
+            fprintf(OUTPUTF1, "%s\t%d\t%s",
+               first->canonical->info, first->canonical->count,
+               first->info);
+         }
+         else {
+            fprintf(OUTPUTF1, "%s\t%d\t%s",
+               first->canonical->seq, first->canonical->count,
+               first->seq);
+         }
 
          for (int i = 1 ; i < uSQ->nitems ; i++) {
             useq_t *u = (useq_t *) uSQ->items[i];
             if (u->canonical == NULL) break;
             if (u->canonical != canonical) {
                canonical = u->canonical;
-               fprintf(OUTPUTF, "\n%s\t%d\t%s",
-                     canonical->seq, canonical->count, u->seq);
+               if (FORMAT == PE_FASTQ) {
+                  fprintf(OUTPUTF1, "\n%s\t%d\t%s",
+                        canonical->info, canonical->count, u->info);
+               }
+               else {
+                  fprintf(OUTPUTF1, "\n%s\t%d\t%s",
+                        canonical->seq, canonical->count, u->seq);
+               }
             }
             else {
-               fprintf(OUTPUTF, ",%s", u->seq);
+               if (FORMAT == PE_FASTQ) {
+                  fprintf(OUTPUTF1, ",%s", u->info);
+               }
+               else {
+                  fprintf(OUTPUTF1, ",%s", u->seq);
+               }
             }
          }
 
-         fprintf(OUTPUTF, "\n");
+         fprintf(OUTPUTF1, "\n");
 
       }
 
@@ -145,7 +192,7 @@ starcode
    else if (OUTPUTT == SPHERES_OUTPUT) {
 
       // Cluster the pairs.
-      sphere_clustering(uSQ, maxthreads);
+      sphere_clustering(uSQ, thrmax);
 
       // Sort in count order.
       qsort(uSQ->items, uSQ->nitems, sizeof(useq_t *), count_order);
@@ -155,30 +202,31 @@ starcode
          useq_t *useq = (useq_t *) uSQ->items[i];
          if (useq->canonical != useq) break;
 
-         fprintf(OUTPUTF, "%s\t", useq->seq);
+         fprintf(OUTPUTF1, "%s\t", useq->seq);
          if (useq->matches == NULL) {
-            fprintf(OUTPUTF, "%d\t%s\n", useq->count, useq->seq);
+            fprintf(OUTPUTF1, "%d\t%s\n", useq->count, useq->seq);
             continue;  
          }
 
-         fprintf(OUTPUTF, "%d\t%s", useq->count, useq->seq);
+         fprintf(OUTPUTF1, "%d\t%s", useq->count, useq->seq);
 
          gstack_t *matches;
          for (int j = 0 ; (matches = useq->matches[j]) != TOWER_TOP ; j++) {
             for (int k = 0 ; k < matches->nitems ; k++) {
                useq_t *match = (useq_t *) matches->items[k];
-               fprintf(OUTPUTF, ",%s", match->seq);
+               fprintf(OUTPUTF1, ",%s", match->seq);
             }
          }
 
-         fprintf(OUTPUTF, "\n");
+         fprintf(OUTPUTF1, "\n");
 
       }
 
    }
 
    // Do not free anything.
-   OUTPUTF = NULL;
+   OUTPUTF1 = NULL;
+   OUTPUTF2 = NULL;
    return 0;
 
 }
@@ -188,7 +236,7 @@ run_plan
 (
    mtplan_t *mtplan,
    const int verbose,
-   const int maxthreads
+   const int thrmax
 )
 {
    // Count total number of jobs.
@@ -205,7 +253,7 @@ run_plan
       pthread_mutex_lock(mtplan->mutex);     
 
       // Check whether trie is idle and there are available threads.
-      if (mttrie->flag == TRIE_FREE && mtplan->active < maxthreads) {
+      if (mttrie->flag == TRIE_FREE && mtplan->active < thrmax) {
 
          // No more jobs on this trie.
          if (mttrie->currentjob == mttrie->njobs) {
@@ -233,7 +281,7 @@ run_plan
       }
 
       // If max thread number is reached, wait for a thread.
-      while (mtplan->active == maxthreads) {
+      while (mtplan->active == thrmax) {
          pthread_cond_wait(mtplan->monitor, mtplan->mutex);
       }
 
@@ -270,7 +318,6 @@ do_query
    useq_t * last_query = NULL;
    for (int i = job->start ; i <= job->end ; i++) {
       useq_t *query = (useq_t *) useqS->items[i];
-      // Do lookup.
       int do_search = lut_search(lut, query) == 1;
 
       // Insert the new sequence in the lut and trie, but let
@@ -307,8 +354,12 @@ do_query
             while(query->seq[start] == last_query->seq[start]) start++;
          }
 
-         // Clear hit stack.
-         for (int j = 0 ; hits[j] != TOWER_TOP ; j++) hits[j]->nitems = 0;
+         // Clear hit stack. //
+         for (int j = 0 ; hits[j] != TOWER_TOP ; j++) {
+            hits[j]->nitems = 0;
+         }
+
+         // Search the trie. //
          int err = search(trie, query->seq, tau, hits, start, trail);
          if (err) {
             alert();
@@ -317,83 +368,58 @@ do_query
 
          for (int j = 0 ; hits[j] != TOWER_TOP ; j++) {
             if (hits[j]->nitems > hits[j]->nslots) {
-               fprintf(stderr, "warning: incomplete search results (%s)\n",
+               fprintf(stderr, "warning: incomplete search (%s)\n",
                        query->seq);
                break;
             }
          }
 
-         // If only the pairs are requested, they are printed on the fly.
-         if (OUTPUTT == PRINT_PAIRS) {
-            for (int dist = 1 ; dist < tau+1 ; dist++) {
+         // Link matching pairs for clustering.
+         // Skip dist = 0, as this would be self.
+         for (int dist = 1 ; dist < tau+1 ; dist++) {
             for (int j = 0 ; j < hits[dist]->nitems ; j++) {
 
                useq_t *match = (useq_t *) hits[dist]->items[j];
+               // We'll always use parent's mutex.
+               useq_t *parent = match->count > query->count ? match : query;
+               useq_t *child  = match->count > query->count ? query : match;
+               int mutexid;
 
-               // Output lines from different threads can be
-               // interleaved but they cannot be mixed because
-               // of implicit file locking.
-               if (FORMAT == FASTA || FORMAT == FASTQ) {
-                  // The header of fastq files must have been
-                  // formatted accordingly at reading time.
-                  fprintf(OUTPUTF, "%s,%s:%d\n",
-                        query->info+1, match->info+1, dist);
+               if (OUTPUTT == SPHERES_OUTPUT) {
+                  // The parent is modified, use the parent mutex.
+                  mutexid = match->count > query->count ? job->trieid : job->queryid;
+                  pthread_mutex_lock(job->mutex + mutexid);
+                  if (addmatch(parent, child, dist, tau)) {
+                     fprintf(stderr,
+                           "Please contact guillaume.filion@gmail.com "
+                           "for support with this issue.\n");
+                     abort();
+                  }
+                  pthread_mutex_unlock(job->mutex + mutexid);
                }
+
                else {
-                  fprintf(OUTPUTF, "%s,%s:%d\n",
-                        query->seq, match->seq, dist);
-               }
-            }
-            }
-         }
-
-         // Else link matching pairs for clustering.
-         else {
-            // Skip dist = 0, as this would be self.
-            for (int dist = 1 ; dist < tau+1 ; dist++) {
-               for (int j = 0 ; j < hits[dist]->nitems ; j++) {
-
-                  useq_t *match = (useq_t *) hits[dist]->items[j];
-                  // We'll always use parent's mutex.
-                  useq_t *parent = match->count > query->count ? match : query;
-                  useq_t *child  = match->count > query->count ? query : match;
-                  int mutexid;
-
-                  if (OUTPUTT == SPHERES_OUTPUT) {
-                     // The parent is modified, use the parent mutex.
-                     mutexid = match->count > query->count ? job->trieid : job->queryid;
-                     pthread_mutex_lock(job->mutex + mutexid);
-                     if (addmatch(parent, child, dist, tau)) {
-                        fprintf(stderr,
-                              "Please contact guillaume.filion@gmail.com "
-                              "for support with this issue.\n");
-                        abort();
-                     }
-                     pthread_mutex_unlock(job->mutex + mutexid);
+                  // If clustering is done by message passing, do not link
+                  // pair if counts are on the same order of magnitude.
+                  int mincount = child->count;
+                  int maxcount = parent->count;
+                  if (maxcount < PARENT_TO_CHILD_FACTOR * mincount) continue;
+                  // The child is modified, use the child mutex.
+                  mutexid = match->count > query->count ? job->queryid : job->trieid;
+                  pthread_mutex_lock(job->mutex + mutexid);
+                  if (addmatch(child, parent, dist, tau)) {
+                     fprintf(stderr,
+                           "Please contact guillaume.filion@gmail.com "
+                           "for support with this issue.\n");
+                     abort();
                   }
-
-                  else {
-                     // If clustering is done by message passing, do not link
-                     // pair if counts are on the same order of magnitude.
-                     int mincount = child->count;
-                     int maxcount = parent->count;
-                     if (maxcount < PARENT_TO_CHILD_FACTOR * mincount) continue;
-                     // The child is modified, use the child mutex.
-                     mutexid = match->count > query->count ? job->queryid : job->trieid;
-                     pthread_mutex_lock(job->mutex + mutexid);
-                     if (addmatch(child, parent, dist, tau)) {
-                        fprintf(stderr,
-                              "Please contact guillaume.filion@gmail.com "
-                              "for support with this issue.\n");
-                        abort();
-                     }
-                     pthread_mutex_unlock(job->mutex + mutexid);
-                  }
+                  pthread_mutex_unlock(job->mutex + mutexid);
                }
             }
          }
 
          last_query = query;
+
       }
 
       if (job->build) {
@@ -572,7 +598,7 @@ void
 sphere_clustering
 (
    gstack_t *useqS,
-   const int maxthreads
+   const int thrmax
 )
 {
    // Sort in count order.
@@ -604,7 +630,7 @@ void
 message_passing_clustering
 (
    gstack_t *useqS,
-   const int maxthreads
+   const int thrmax
 )
 {
    // Transfer counts to parents recursively.
@@ -623,7 +649,7 @@ seqsort
 (
  useq_t ** data,
  int       numels,
- int       maxthreads
+ int       thrmax
 )
 // SYNOPSIS:                                                              
 //   Recursive merge sort for 'useq_t' arrays, tailored for the
@@ -635,7 +661,7 @@ seqsort
 // PARAMETERS:                                                            
 //   data:       an array of pointers to each element.                    
 //   numels:     number of elements, i.e. size of 'data'.                 
-//   maxthreads: number of threads.                                       
+//   thrmax: number of threads.                                       
 //                                                                        
 // RETURN:                                                                
 //   Number of unique elements.                               
@@ -662,7 +688,7 @@ seqsort
    args.repeats = 0;
 
    // Allocate a number of threads that is a power of 2.
-   while ((maxthreads >> (args.thread + 1)) > 0) args.thread++;
+   while ((thrmax >> (args.thread + 1)) > 0) args.thread++;
 
    nukesort(&args);
 
@@ -852,19 +878,13 @@ read_fasta
    char *header = NULL;
    int lineno = 0;
 
+   int const readh = OUTPUTT == PRINT_NRED;
    while ((nread = getline(&line, &nchar, inputf)) != -1) {
       lineno++;
       // Strip newline character.
       if (line[nread-1] == '\n') line[nread-1] = '\0';
 
-      if (lineno % 2 == 1) {
-         header = strdup(line);
-         if (header == NULL) {
-            alert();
-            krash();
-         }
-      }
-      else {
+      if (lineno %2 == 0) {
          if (strlen(line) > MAXBRCDLEN) {
             fprintf(stderr, "max sequence length exceeded (%d)\n",
                   MAXBRCDLEN);
@@ -877,6 +897,13 @@ read_fasta
             krash();
          }
          push(new, &uSQ);
+      }
+      else if (readh) {
+         header = strdup(line);
+         if (header == NULL) {
+            alert();
+            krash();
+         }
       }
    }
 
@@ -907,29 +934,26 @@ read_fastq
    char info[2*M] = {0};
    int lineno = 0;
 
+   int const readh = OUTPUTT == PRINT_NRED;
    while ((nread = getline(&line, &nchar, inputf)) != -1) {
       lineno++;
       // Strip newline character.
       if (line[nread-1] == '\n') line[nread-1] = '\0';
 
-      if (lineno % 4 == 1) {
+      if (readh && lineno % 4 == 1) {
          strncpy(header, line, M);
-         if (header == NULL) {
-            alert();
-            krash();
-         }
       }
       else if (lineno % 4 == 2) {
          if (strlen(line) > MAXBRCDLEN) {
             fprintf(stderr, "max sequence length exceeded (%d)\n",
                   MAXBRCDLEN);
-            fprintf(stderr, "offending sequence:\n%s\n", seq);
+            fprintf(stderr, "offending sequence:\n%s\n", line);
             abort();
          }
          strncpy(seq, line, M);
       }
       else if (lineno % 4 == 0) {
-         if (OUTPUTT != PRINT_PAIRS) {
+         if (readh) {
             int status = snprintf(info, 2*M, "%s\n%s", header, line);
             if (status < 0 || status > 2*M - 1) {
                alert();
@@ -952,36 +976,148 @@ read_fastq
 
 
 gstack_t *
+read_PE_fastq
+(
+   FILE     * inputf1,
+   FILE     * inputf2,
+   gstack_t * uSQ
+)
+{
+
+   char c1 = fgetc(inputf1);
+   char c2 = fgetc(inputf2);
+   if (c1 != '@' || c2 != '@') {
+      fprintf(stderr, "input not a pair of fastq files\n");
+      abort();
+   }
+   if (ungetc(c1, inputf1) == EOF || ungetc(c2, inputf2) == EOF) {
+      alert();
+      krash();
+   }
+
+   ssize_t nread;
+   size_t nchar = M;
+   char *line1 = malloc(M * sizeof(char));
+   char *line2 = malloc(M * sizeof(char));
+   if (line1 == NULL && line2 == NULL) {
+      alert();
+      krash();
+   }
+
+   char seq1[M] = {0};
+   char seq2[M] = {0};
+   char seq[2*M+8] = {0};
+   char header1[M] = {0};
+   char header2[M] = {0};
+   char info[4*M] = {0};
+   int lineno = 0;
+
+   int const readh = OUTPUTT == PRINT_NRED;
+   while ((nread = getline(&line1, &nchar, inputf1)) != -1) {
+      lineno++;
+      // Strip newline character.
+      if (line1[nread-1] == '\n') line1[nread-1] = '\0';
+
+      // Read line from second file and strip newline.
+      if ((nread = getline(&line2, &nchar, inputf2)) == -1) {
+         fprintf(stderr, "non conformable paired-end fastq files\n");
+         abort();
+      }
+      if (line2[nread-1] == '\n') line2[nread-1] = '\0';
+
+      if (readh && lineno % 4 == 1) {
+         // No check that the headers match each other. At the
+         // time of this writing, there are already different
+         // formats to link paired-end record. We assume that
+         // the users know what they do.
+         strncpy(header1, line1, M);
+         strncpy(header2, line2, M);
+      }
+      else if (lineno % 4 == 2) {
+         if (strlen(line1) > MAXBRCDLEN || strlen(line2) > MAXBRCDLEN) {
+            fprintf(stderr, "max sequence length exceeded (%d)\n",
+                  MAXBRCDLEN);
+            fprintf(stderr, "offending sequences:\n%s\n%s\n",
+                  line1, line2);
+            abort();
+         }
+         strncpy(seq1, line1, M);
+         strncpy(seq2, line2, M);
+      }
+      else if (lineno % 4 == 0) {
+         if (readh) {
+            int o = snprintf(info, 4*M, "%s\n%s\n%s\n%s",
+                  header1, line1, header2, line2);
+            if (o < 0 || o > 4*M-1) {
+               alert();
+               krash();
+            }
+         }
+         else {
+            // No need for the headers, the 'info' member is
+            // used to hold a string representation of the pair.
+            int o = snprintf(info, 2*M, "%s/%s", seq1, seq2);
+            if (o < 0 || o > 2*M-1) {
+               alert();
+               krash();
+            }
+         }
+         int o = snprintf(seq, 2*M+8, "%s---------%s", seq1, seq2);
+         if (o < 0 || o > 2*M+7) {
+            alert();
+            krash();
+         }
+         useq_t *new = new_useq(1, seq, info);
+         if (new == NULL) {
+            alert();
+            krash();
+         }
+         push(new, &uSQ);
+      }
+   }
+
+   free(line1);
+   free(line2);
+   return uSQ;
+
+}
+
+
+gstack_t *
 read_file
 (
-   FILE      * inputf,
+   FILE      * inputf1,
+   FILE      * inputf2,
    const int   verbose
 )
 {
 
-   // Read first line of the file to guess format.
-   // Store in global variable FORMAT.
-   char c = fgetc(inputf);
-   switch(c) {
-      case EOF:
-         // Empty file.
-         return NULL;
-      case '>':
-         FORMAT = FASTA;
-         if (verbose) fprintf(stderr, "FASTA format detected\n");
-         break;
-      case '@':
-         FORMAT = FASTQ;
-         if (verbose) fprintf(stderr, "FASTQ format detected\n");
-         break;
-      default:
-         FORMAT = RAW;
-         if (verbose) fprintf(stderr, "raw format detected\n");
-   }
+   if (inputf2 != NULL) FORMAT = PE_FASTQ;
+   else {
+      // Read first line of the file to guess format.
+      // Store in global variable FORMAT.
+      char c = fgetc(inputf1);
+      switch(c) {
+         case EOF:
+            // Empty file.
+            return NULL;
+         case '>':
+            FORMAT = FASTA;
+            if (verbose) fprintf(stderr, "FASTA format detected\n");
+            break;
+         case '@':
+            FORMAT = FASTQ;
+            if (verbose) fprintf(stderr, "FASTQ format detected\n");
+            break;
+         default:
+            FORMAT = RAW;
+            if (verbose) fprintf(stderr, "raw format detected\n");
+      }
 
-   if (ungetc(c, inputf) == EOF) {
-      alert();
-      krash();
+      if (ungetc(c, inputf1) == EOF) {
+         alert();
+         krash();
+      }
    }
 
    gstack_t *uSQ = new_gstack();
@@ -990,9 +1126,10 @@ read_file
       krash();
    }
 
-   if (FORMAT == RAW)   return read_rawseq(inputf, uSQ);
-   if (FORMAT == FASTA) return read_fasta(inputf, uSQ);
-   if (FORMAT == FASTQ) return read_fastq(inputf, uSQ);
+   if (FORMAT == RAW)      return read_rawseq(inputf1, uSQ);
+   if (FORMAT == FASTA)    return read_fasta(inputf1, uSQ);
+   if (FORMAT == FASTQ)    return read_fastq(inputf1, uSQ);
+   if (FORMAT == PE_FASTQ) return read_PE_fastq(inputf1, inputf2, uSQ);
 
    return NULL;
 

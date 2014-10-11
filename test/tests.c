@@ -1743,7 +1743,7 @@ test_starcode_10
 
    // Read raw file.
    FILE *f = fopen("test_file.txt", "r");
-   gstack_t *useqS = read_file(f, 0);
+   gstack_t *useqS = read_file(f, NULL, 0);
    test_assert(useqS->nitems == 35);
    for (int i = 0 ; i < useqS->nitems ; i++) {
       useq_t * u = (useq_t *) useqS->items[i];
@@ -1760,7 +1760,7 @@ test_starcode_10
 
    // Read fasta file.
    f = fopen("test_file.fasta", "r");
-   useqS = read_file(f, 0);
+   useqS = read_file(f, NULL, 0);
    test_assert(useqS->nitems == 5);
    for (int i = 0 ; i < useqS->nitems ; i++) {
       useq_t * u = (useq_t *) useqS->items[i];
@@ -1776,8 +1776,8 @@ test_starcode_10
    fclose(f);
 
    // Read fastq file.
-   f = fopen("test_file.fastq", "r");
-   useqS = read_file(f, 0);
+   f = fopen("test_file1.fastq", "r");
+   useqS = read_file(f, NULL, 0);
    test_assert(useqS->nitems == 5);
    for (int i = 0 ; i < useqS->nitems ; i++) {
       useq_t * u = (useq_t *) useqS->items[i];
@@ -1791,6 +1791,43 @@ test_starcode_10
    }
    free(useqS);
    fclose(f);
+
+   char *PE_expected[]= {
+      "AGGGCTTACAAGTATAGGCC---------AAGGGCTTACAAGTATAGGC",
+      "TGCGCCAAGTACGATTTCCG---------ATGCGCCAAGTACGATTTCC",
+      "CCTCATTATTTGTCGCAATG---------ACCTCATTATTTGTCGCAAT",
+      "AGGGCTTACAAGTATAGGCC---------AAGGGCTTACAAGTATAGGC",
+      "AGGGCTTACAAGTATAGGCC---------AAGGGCTTACAAGTATAGGC",
+   };
+
+   char *PE_fastq_headers[] = {
+      "AGGGCTTACAAGTATAGGCC/AAGGGCTTACAAGTATAGGC",
+      "TGCGCCAAGTACGATTTCCG/ATGCGCCAAGTACGATTTCC",
+      "CCTCATTATTTGTCGCAATG/ACCTCATTATTTGTCGCAAT",
+      "AGGGCTTACAAGTATAGGCC/AAGGGCTTACAAGTATAGGC",
+      "AGGGCTTACAAGTATAGGCC/AAGGGCTTACAAGTATAGGC",
+   };
+
+   // Read paired-end fastq file.
+   FILE *f1 = fopen("test_file1.fastq", "r");
+   FILE *f2 = fopen("test_file2.fastq", "r");
+   useqS = read_file(f1, f2, 0);
+   test_assert(useqS->nitems == 5);
+   for (int i = 0 ; i < useqS->nitems ; i++) {
+      useq_t * u = (useq_t *) useqS->items[i];
+      test_assert(u->count == 1);
+      test_assert(strcmp(u->seq, PE_expected[i]) == 0);
+      test_assert(strcmp(u->info, PE_fastq_headers[i]) == 0);
+   }
+
+   // Clean.
+   for (int i = 0 ; i < useqS->nitems ; i++) {
+      destroy_useq(useqS->items[i]);
+   }
+   free(useqS);
+   fclose(f1);
+   fclose(f2);
+
 
 
 }

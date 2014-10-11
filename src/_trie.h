@@ -5,6 +5,12 @@
 #define EOS -1             // End Of String, for 'dash()'.
 // Translation tables between letters and numbers.
 static const char untranslate[7] = "NACGT N";
+// Translation table to insert nodes in the trie.
+//          ' ': PAD (5)
+//     'a', 'A': 1
+//     'c', 'C': 2
+//     'g', 'G': 3
+//     't', 'T': 4
 static const int translate[256] = { 
    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -23,13 +29,23 @@ static const int translate[256] = {
    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 };
+// Translation table to query a sequence in the trie.
 // In the table below, non DNA letters are set to a numerical
 // value of 6, which will always cause of mismatch with
-// sequences translated from the table above.
+// sequences translated from the table above. The only
+// exception is "-", which is used to as a separator
+// between different sequences. This and 'PAD' are the only
+// non DNA symbols that match with themselves.
+//          ' ': PAD (5)
+//          '-': 0
+//     'a', 'A': 1
+//     'c', 'C': 2
+//     'g', 'G': 3
+//     't', 'T': 4
 static const int altranslate[256] = { 
    6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
    6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
- PAD,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+ PAD,6,6,6,6,6,6,6,6,6,6,6,6,0,6,6,
    6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
    6,1,6,2,6,6,6,3,6,6,6,6,6,6,6,6,
    6,6,6,6,4,6,6,6,6,6,6,6,6,6,6,6,

@@ -27,21 +27,29 @@
 #include <getopt.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include "starcode.h"
 
-char *USAGE = "Usage:\n"
-"  starcode [-i] input [-o output]\n"
+char *USAGE =
+"\n"
+"Usage:\n"
+"  starcode\n"
 "    -v --verbose: verbose\n"
 "    -d --dist: maximum Levenshtein distance (default 3)\n"
 "    -t --threads: number of concurrent threads (default 1)\n"
+"    -s --sphere: sphere clustering (default message passing)\n"
+"\n"
+"  input/output options (single file)\n"
 "    -i --input: input file (default stdin)\n"
 "    -o --output: output file (default stdout)\n"
 "\n"
-"  mutually exclusive options\n"
-"    -s --sphere: sphere clustering (default message passing)\n"
-"       --print-pairs: print matching pairs (no clustering)\n"
-"       --non-redundant: print non-redundant sequences (no clustering)\n";
+"  input options (paired-end fastq files)\n"
+"    -1 --input1: input file 1\n"
+"    -2 --input2: input file 2\n"
+"\n"
+"  output format options\n"
+"       --non-redundant: print non-redundant sequences\n";
 
 void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
 
@@ -58,6 +66,37 @@ void SIGSEGV_handler(int sig) {
    exit(1);
 }
 
+
+char *
+outname
+(
+   char *path
+)
+{
+
+   static char name[320] = {0};
+   if (strlen(path) > 310) {
+      fprintf(stderr, "input file name too long (%s)\n", path);
+      abort();
+   }
+
+   // Find final dot, append "-starcode" just before.
+   // If no final dot, just append starcode as suffix.
+   char *c = strrchr(path, '.');
+   if (c == NULL) {
+      sprintf(name, "%s-starcode", path);
+   }
+   else {
+      *c = '\0';
+      sprintf(name, "%s-starcode.%s", path, c+1);
+      *c = '.';
+   }
+
+   return (char *) name;
+
+}
+
+
 int
 main(
    int argc,
@@ -68,7 +107,6 @@ main(
    signal(SIGSEGV, SIGSEGV_handler); 
 
    // Set flags.
-   static int pp_flag = 0;
    static int nr_flag = 0;
    static int sp_flag = 0;
    static int vb_flag = 0;
@@ -79,26 +117,29 @@ main(
 
    // Unset options (value 'UNSET').
    char * const UNSET = "unset";
-   char *input = UNSET;
-   char *output = UNSET;
+   char * input   = UNSET;
+   char * input1  = UNSET;
+   char * input2  = UNSET;
+   char * output  = UNSET;
 
    int c;
    while (1) {
       int option_index = 0;
       static struct option long_options[] = {
-         {"print-pairs",       no_argument,       &pp_flag,  1 },
          {"non-redundant",     no_argument,       &nr_flag,  1 },
          {"sphere-clustering", no_argument,       &sp_flag,  1 },
          {"verbose",           no_argument,       &vb_flag,  1 },
          {"dist",              required_argument,        0, 'd'},
          {"help",              no_argument,              0, 'h'},
          {"input",             required_argument,        0, 'i'},
+         {"input1",            required_argument,        0, '1'},
+         {"input2",            required_argument,        0, '2'},
          {"output",            required_argument,        0, 'o'},
          {"threads",           required_argument,        0, 't'},
          {0, 0, 0, 0}
       };
 
-      c = getopt_long(argc, argv, "d:hi:o:st:v",
+      c = getopt_long(argc, argv, "1:2:d:hi:o:st:v",
             long_options, &option_index);
  
       // Done parsing options? //
@@ -109,12 +150,34 @@ main(
          // A flag was set. //
          break;
 
+      case '1':
+         if (input1 == UNSET) {
+            input1 = optarg;
+         }
+         else {
+            fprintf(stderr, "--input1 set more than once\n");
+            say_usage();
+            return 1;
+         }
+         break;
+
+      case '2':
+         if (input2 == UNSET) {
+            input2 = optarg;
+         }
+         else {
+            fprintf(stderr, "--input2 set more than once\n");
+            say_usage();
+            return 1;
+         }
+         break;
+
       case 'd':
          if (dist < 0) {
             dist = atoi(optarg);
          }
          else {
-            fprintf(stderr, "--distance set more than once\n\n");
+            fprintf(stderr, "--distance set more than once\n");
             say_usage();
             return 1;
          }
@@ -130,7 +193,7 @@ main(
             input = optarg;
          }
          else {
-            fprintf(stderr, "--input set more than once\n\n");
+            fprintf(stderr, "--input set more than once\n");
             say_usage();
             return 1;
          }
@@ -141,7 +204,7 @@ main(
             output = optarg;
          }
          else {
-            fprintf(stderr, "--output set more than once\n\n");
+            fprintf(stderr, "--output set more than once\n");
             say_usage();
             return 1;
          }
@@ -156,7 +219,7 @@ main(
             threads = atoi(optarg);
          }
          else {
-            fprintf(stderr, "--thread set more than once\n\n");
+            fprintf(stderr, "--thread set more than once\n");
             say_usage();
             return 1;
          }
@@ -176,68 +239,111 @@ main(
    }
 
    if (optind < argc) {
-      if ((optind == argc - 1) && (input == UNSET)) {
+      // If no input is specified, assume first positional argument
+      // is the name of the input file.
+      if ((optind == argc-1) && (input == UNSET && input1 == UNSET)) {
          input = argv[optind];
       }
       else {
-         fprintf(stderr, "too many options\n\n");
+         fprintf(stderr, "too many options\n");
          say_usage();
          return 1;
       }
    }
 
    // Check options compatibility. //
-   if (pp_flag && nr_flag) {
-      fprintf(stderr, "--print-pairs and --non-redundant are incompatible\n\n");
-      say_usage();
-      return 1;
-   }
-
-   if (pp_flag && sp_flag) {
-      fprintf(stderr, "--print-pairs and --spheres are incompatible\n\n");
-      say_usage();
-      return 1;
-   }
-
    if (nr_flag && sp_flag) {
-      fprintf(stderr, "--non-redundant and --spheres are incompatible\n\n");
+      fprintf(stderr, "--non-redundant and --spheres are incompatible\n");
+      say_usage();
+      return 1;
+   }
+   if (input != UNSET && (input1 != UNSET || input2 != UNSET)) {
+      fprintf(stderr, "--input and --input1/2 are incompatible\n");
+      say_usage();
+      return 1;
+   }
+   if (input1 == UNSET && input2 != UNSET) {
+      fprintf(stderr, "--input1 set without --input2\n");
+      say_usage();
+      return 1;
+   }
+   if (input2 == UNSET && input1 != UNSET) {
+      fprintf(stderr, "--input2 set without --input1\n");
+      say_usage();
+      return 1;
+   }
+   if (nr_flag && output != UNSET &&
+         (input1 != UNSET || input2 != UNSET)) {
+      fprintf(stderr, "cannot specify --output for paired-end "
+            "fastq file with --non-redundant\n");
       say_usage();
       return 1;
    }
 
+   // Set output type. //
    int output_type;
-
-        if (pp_flag) output_type = PRINT_PAIRS;
-   else if (nr_flag) output_type = PRINT_NRED;
+        if (nr_flag) output_type = PRINT_NRED;
    else if (sp_flag) output_type = SPHERES_OUTPUT;
    else              output_type = DEFAULT_OUTPUT;
 
+   // Set input file(s). //
+   FILE *inputf1 = NULL;
+   FILE *inputf2 = NULL;
 
-   FILE *inputf;
-   FILE *outputf;
+   // Set output file(s). //
+   FILE *outputf1 = NULL;
+   FILE *outputf2 = NULL;
 
    if (input != UNSET) {
-      inputf = fopen(input, "r");
-      if (inputf == NULL) {
-         fprintf(stderr, "cannot open file %s\n\n", input);
+      inputf1 = fopen(input, "r");
+      if (inputf1 == NULL) {
+         fprintf(stderr, "cannot open file %s\n", input);
+         say_usage();
+         return 1;
+      }
+   }
+   else if (input1 != UNSET) {
+      inputf1 = fopen(input1, "r");
+      if (inputf1 == NULL) {
+         fprintf(stderr, "cannot open file %s\n", input1);
+         say_usage();
+         return 1;
+      }
+      inputf2 = fopen(input2, "r");
+      if (inputf2 == NULL) {
+         fprintf(stderr, "cannot open file %s\n", input2);
          say_usage();
          return 1;
       }
    }
    else {
-      inputf = stdin;
+      inputf1 = stdin;
    }
 
    if (output != UNSET) {
-      outputf = fopen(output, "w");
-      if (outputf == NULL) {
-         fprintf(stderr, "cannot write to file %s\n\n", output);
+      outputf1 = fopen(output, "w");
+      if (outputf1 == NULL) {
+         fprintf(stderr, "cannot write to file %s\n", output);
+         say_usage();
+         return 1;
+      }
+   }
+   else if (nr_flag && input1 != UNSET && input2 != UNSET) {
+      outputf1 = fopen(outname(input1), "w");
+      if (outputf1 == NULL) {
+         fprintf(stderr, "cannot write to file %s\n", outname(input1));
+         say_usage();
+         return 1;
+      }
+      outputf2 = fopen(outname(input2), "w");
+      if (outputf2 == NULL) {
+         fprintf(stderr, "cannot write to file %s\n", outname(input2));
          say_usage();
          return 1;
       }
    }
    else {
-      outputf = stdout;
+      outputf1 = stdout;
    }
 
    // Set default options.
@@ -246,16 +352,20 @@ main(
 
    int exitcode =
    starcode(
-       inputf,
-       outputf,
+       inputf1,
+       inputf2,
+       outputf1,
+       outputf2,
        dist,
        vb_flag,
        threads,
        output_type
    );
 
-   if (inputf != stdin) fclose(inputf);
-   if (outputf != stdout) fclose(outputf);
+   if (inputf1 != stdin)   fclose(inputf1);
+   if (inputf2 != NULL)    fclose(inputf2);
+   if (outputf1 != stdout) fclose(outputf1);
+   if (outputf2 != NULL)   fclose(outputf2);
 
    return exitcode;
 

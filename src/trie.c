@@ -136,7 +136,7 @@ poucet
 )
 // SYNOPSIS:                                                              
 //   Back end recursive "poucet search" algorithm. Most of the time is    
-//   spent in this function. The focus node sets the values for an L-     
+//   spent in this function. The focus node sets the values of  an L-     
 //   shaped section (but with the angle on the right side) of the dynamic 
 //   programming table for its children. One of the arms of the L is      
 //   identical for all the children and is calculated separately. The     
@@ -144,10 +144,8 @@ poucet
 //   member of the children. The path of the last 8 nodes leading to the  
 //   focus node is encoded by a 32 bit integer, which allows to perform   
 //   dynamic programming without parent pointer.                          
-//   The tails of the nodes are constrained to be leaves so that tails    
-//   and queries have the same length. This is done by adding a "magic"   
-//   node (in position 5) corresponding to a dummy prefix (printed as a   
-//   white space). All the leaves of the trie are at a depth called the   
+//
+//   All the leaves of the trie are at a the same depth called the   
 //   "height", which is the depth at which the recursion is stopped to    
 //   check for hits. If the maximum edit distance 'tau' is exceeded the   
 //   search is interrupted. On the other hand, if the search has passed   
@@ -155,6 +153,27 @@ poucet
 //   a 'dash()' which checks whether an exact suffix can be found.        
 //   While trailing, the nodes are pushed in the g_stack 'pebbles' so     
 //   they can serve as starting points for future searches.               
+//
+//   Since not all the sequences have the same length, they are prefixed
+//   with the 'PAD' character (value 5, printed as white space) so that
+//   the total length is equal to the height of the trie. This imposes
+//   an important modification to the recursion, indicated by the label
+//   "PAD exception" on two different lines of the code below. Without
+//   this modification, "AAAAATA" and "AAAAA" would be aligned this way.
+//
+//                               AAAAATA
+//                               x||||x|
+//                               _AAAAAA
+//
+//   However, the best alignment is the following.
+//
+//                               AAAAATA
+//                               |||||x|
+//                               AAAAA_A
+//
+//   The solution is to initialize the alignment score to 0 whenever the
+//   padding character is met, which in effect is equivalent to ignoring
+//   starting the alignment after the PADs.
 //                                                                        
 // PARAMETERS:                                                            
 //   node: the focus node in the trie                                     
@@ -190,6 +209,7 @@ poucet
    if (maxa > 0) {
       // Special initialization for first character. If the previous
       // character was a PAD, there is no cost to start the alignment.
+      // This is the "PAD exeption" mentioned in the SYNOPSIS.
       mmatch = (arg.query[depth-1] == PAD ? 0 : pcache[maxa]) +
                   ((path >> 4*(maxa-1) & 15) != arg.query[depth]);
       shift = min(pcache[maxa-1], common[maxa]) + 1;
@@ -215,6 +235,7 @@ poucet
       // Horizontal arm of the L (need previous characters).
       if (maxa > 0) {
          // See comment above for initialization.
+         // This is the "PAD exeption" mentioned in the SYNOPSIS.
          mmatch = ((path & 15) == PAD ? 0 : pcache[-maxa]) +
                      (i != arg.query[depth-maxa]);
          shift = min(pcache[1-maxa], maxa+1) + 1;

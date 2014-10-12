@@ -287,7 +287,7 @@ assert_fail_non_critical
    int switch_stderr = *STDERR_OFF;
    if (switch_stderr) unredirect_stderr();
    if (N_ERROR_MESSAGES == MAX_N_ERROR_MESSAGES + 1) {
-      fprintf(stderr, "more than %d failed assertions... skipping\n",
+      fprintf(stderr, "more than %d failed assertions...\n",
             MAX_N_ERROR_MESSAGES);
    }
    else {

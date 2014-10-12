@@ -49,7 +49,7 @@ char *USAGE =
 "    -2 --input2: input file 2\n"
 "\n"
 "  output format options\n"
-"       --non-redundant: print non-redundant sequences\n";
+"       --non-redundant: remove redundant sequences\n";
 
 void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
 

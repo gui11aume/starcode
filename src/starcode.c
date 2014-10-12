@@ -315,7 +315,12 @@ do_query
       krash();
    }
 
+   // Define a constant to help the compiler recognize
+   // that only one of the two cases will ever be used
+   // in the loop below.
+   const int add_match_to_parent = OUTPUTT == SPHERES_OUTPUT;
    useq_t * last_query = NULL;
+
    for (int i = job->start ; i <= job->end ; i++) {
       useq_t *query = (useq_t *) useqS->items[i];
       int do_search = lut_search(lut, query) == 1;
@@ -377,45 +382,47 @@ do_query
          // Link matching pairs for clustering.
          // Skip dist = 0, as this would be self.
          for (int dist = 1 ; dist < tau+1 ; dist++) {
-            for (int j = 0 ; j < hits[dist]->nitems ; j++) {
+         for (int j = 0 ; j < hits[dist]->nitems ; j++) {
 
-               useq_t *match = (useq_t *) hits[dist]->items[j];
-               // We'll always use parent's mutex.
-               useq_t *parent = match->count > query->count ? match : query;
-               useq_t *child  = match->count > query->count ? query : match;
-               int mutexid;
+            useq_t *match = (useq_t *) hits[dist]->items[j];
+            // We'll always use parent's mutex.
+            useq_t *parent = match->count > query->count ? match : query;
+            useq_t *child  = match->count > query->count ? query : match;
+            int mutexid;
 
-               if (OUTPUTT == SPHERES_OUTPUT) {
-                  // The parent is modified, use the parent mutex.
-                  mutexid = match->count > query->count ? job->trieid : job->queryid;
-                  pthread_mutex_lock(job->mutex + mutexid);
-                  if (addmatch(parent, child, dist, tau)) {
-                     fprintf(stderr,
-                           "Please contact guillaume.filion@gmail.com "
-                           "for support with this issue.\n");
-                     abort();
-                  }
-                  pthread_mutex_unlock(job->mutex + mutexid);
+            if (add_match_to_parent) {
+               // The parent is modified, use the parent mutex.
+               mutexid = match->count > query->count ?
+                  job->trieid : job->queryid;
+               pthread_mutex_lock(job->mutex + mutexid);
+               if (addmatch(parent, child, dist, tau)) {
+                  fprintf(stderr,
+                        "Please contact guillaume.filion@gmail.com "
+                        "for support with this issue.\n");
+                  abort();
                }
-
-               else {
-                  // If clustering is done by message passing, do not link
-                  // pair if counts are on the same order of magnitude.
-                  int mincount = child->count;
-                  int maxcount = parent->count;
-                  if (maxcount < PARENT_TO_CHILD_FACTOR * mincount) continue;
-                  // The child is modified, use the child mutex.
-                  mutexid = match->count > query->count ? job->queryid : job->trieid;
-                  pthread_mutex_lock(job->mutex + mutexid);
-                  if (addmatch(child, parent, dist, tau)) {
-                     fprintf(stderr,
-                           "Please contact guillaume.filion@gmail.com "
-                           "for support with this issue.\n");
-                     abort();
-                  }
-                  pthread_mutex_unlock(job->mutex + mutexid);
-               }
+               pthread_mutex_unlock(job->mutex + mutexid);
             }
+
+            else {
+               // If clustering is done by message passing, do not link
+               // pair if counts are on the same order of magnitude.
+               int mincount = child->count;
+               int maxcount = parent->count;
+               if (maxcount < PARENT_TO_CHILD_FACTOR * mincount) continue;
+               // The child is modified, use the child mutex.
+               mutexid = match->count > query->count ?
+                  job->queryid : job->trieid;
+               pthread_mutex_lock(job->mutex + mutexid);
+               if (addmatch(child, parent, dist, tau)) {
+                  fprintf(stderr,
+                        "Please contact guillaume.filion@gmail.com "
+                        "for support with this issue.\n");
+                  abort();
+               }
+               pthread_mutex_unlock(job->mutex + mutexid);
+            }
+         }
          }
 
          last_query = query;

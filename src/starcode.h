@@ -29,6 +29,8 @@
 #define _GNU_SOURCE
 #include <stdio.h>
 
+#define STARCODE_MAX_TAU 8
+
 typedef enum {
    DEFAULT_OUTPUT,
    SPHERES_OUTPUT,

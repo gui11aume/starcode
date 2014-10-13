@@ -40,7 +40,7 @@ starcode
    FILE *inputf2,
    FILE *outputf1,
    FILE *outputf2,
-   const int tau,
+         int tau,
    const int verbose,
          int thrmax,
    const int outputt
@@ -69,8 +69,15 @@ starcode
    }
  
    // Pad sequences (and return the median size).
+   // Compute 'tau' from it in "auto" mode.
    int med = -1;
    int height = pad_useq(uSQ, &med);
+   if (tau < 0) {
+      tau = med > 160 ? 8 : 1 + 0.05*med;
+      if (verbose) {
+         fprintf(stderr, "setting dist to %d\n", tau);
+      }
+   }
    
    // Make multithreading plan.
    mtplan_t *mtplan = plan_mt(tau, height, med, ntries, uSQ);
@@ -1020,6 +1027,8 @@ read_PE_fastq
    int lineno = 0;
 
    int const readh = OUTPUTT == PRINT_NRED;
+   char sep[STARCODE_MAX_TAU+2] = {0};
+   memset(sep, '-', STARCODE_MAX_TAU+1);
    while ((nread = getline(&line1, &nchar, inputf1)) != -1) {
       lineno++;
       // Strip newline character.
@@ -1069,7 +1078,7 @@ read_PE_fastq
                krash();
             }
          }
-         int o = snprintf(seq, 2*M+8, "%s---------%s", seq1, seq2);
+         int o = snprintf(seq, 2*M+8, "%s%s%s", seq1, sep, seq2);
          if (o < 0 || o > 2*M+7) {
             alert();
             krash();

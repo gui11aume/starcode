@@ -36,7 +36,7 @@ char *USAGE =
 "Usage:\n"
 "  starcode\n"
 "    -v --verbose: verbose\n"
-"    -d --dist: maximum Levenshtein distance (default 3)\n"
+"    -d --dist: maximum Levenshtein distance (default auto)\n"
 "    -t --threads: number of concurrent threads (default 1)\n"
 "    -s --sphere: sphere clustering (default message passing)\n"
 "\n"
@@ -175,6 +175,11 @@ main(
       case 'd':
          if (dist < 0) {
             dist = atoi(optarg);
+            if (dist > STARCODE_MAX_TAU) {
+               fprintf(stderr, "--dist cannot exceed %d\n",
+                     STARCODE_MAX_TAU);
+               return 1;
+            }
          }
          else {
             fprintf(stderr, "--distance set more than once\n");
@@ -347,7 +352,6 @@ main(
    }
 
    // Set default options.
-   if (dist < 0) dist = 3;
    if (threads < 0) threads = 1;
 
    int exitcode =

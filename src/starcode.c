@@ -5,7 +5,7 @@
 **  Guillaume Filion     (guillaume.filion@gmail.com)
 **  Eduard Valera Zorita (ezorita@mit.edu)
 **
-** Last modified: July 8, 2014
+** Last modified: October 24, 2014
 **
 ** License: 
 **  This program is free software: you can redistribute it and/or modify
@@ -1423,10 +1423,13 @@ lut_search
 // SIDE-EFFECTS:
 //   None.
 {
-   int offset = lut->offset;
+   // Start from the end of the sequence. This will avoid potential
+   // misalignments on the first kmer due to insertions.
+   int offset = strlen(query->seq);
    // Iterate for all k-mers and for ins/dels.
-   for (int i = 0; i < lut->kmers; i++) {
-      for (int j = -i; j <= i; j++) {
+   for (int i = lut->kmers - 1; i >= 0; i--) {
+      offset -= lut->klen[i];
+      for (int j = -(lut->kmers - 1 - i); j <= lut->kmers - 1 - i; j++) {
          // If sequence contains 'N' seq2id will return -1.
          int seqid = seq2id(query->seq + offset + j, lut->klen[i]);
          // Make sure to never proceed passed the end of string.
@@ -1435,7 +1438,6 @@ lut_search
          // The lookup table proper is implemented as a bitmap.
          if ((lut->lut[i][seqid/8] >> (seqid%8)) & 1) return 1;
       }
-      offset += lut->klen[i];
    }
 
    return 0;
@@ -1451,7 +1453,7 @@ lut_insert
 )
 {
 
-   int offset = lut->offset;
+   int offset = lut->offset + lut->kmers - 1;
    for (int i = 0; i < lut->kmers; i++) {
       int seqid = seq2id(query->seq + offset, lut->klen[i]);
       // The lookup table proper is implemented as a bitmap.

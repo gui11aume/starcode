@@ -2170,7 +2170,7 @@ test_starcode_9
    test_assert(lut_insert(lut, u));
    destroy_useq(u);
 
-   // Insert the following k-mers: ACGT|AGCG|CTAT|AGCGA|TCA
+   // Insert the following k-mers: ACG|TAGC|GCTA|TAGC|GATCA
    u = new_useq(0, "ACGTAGCGCTATAGCGATCA", NULL);
    test_assert_critical(u != NULL);
    test_assert(lut_insert(lut, u) == 0);
@@ -2182,22 +2182,27 @@ test_starcode_9
    test_assert(lut_search(lut, u) == 1);
    destroy_useq(u);
 
-   u = new_useq(0, "AAAAAGCGCCCCCCCCCCCC", NULL);
+   u = new_useq(0, "AAAATAGCGCCCCCCCCCCC", NULL);
    test_assert_critical(u != NULL);
    test_assert(lut_search(lut, u) == 1);
    destroy_useq(u);
 
-   u = new_useq(0, "CCCCCCCCCCCCCCCAGCGA", NULL);
+   u = new_useq(0, "CCCCCCCCCCCCCCCGATCA", NULL);
    test_assert_critical(u != NULL);
    test_assert(lut_search(lut, u) == 1);
    destroy_useq(u);
 
-   u = new_useq(0, "CCCCCCCCCAGCGACCCCCC", NULL);
+   u = new_useq(0, "CCCCCGCTACCCCCCCCCCC", NULL);
    test_assert_critical(u != NULL);
    test_assert(lut_search(lut, u) == 1);
    destroy_useq(u);
 
-   u = new_useq(0, "CCCCCCCCAGCGACCCCCCC", NULL);
+   u = new_useq(0, "TAGCAAAAAAAAAAAAAAAA", NULL);
+   test_assert_critical(u != NULL);
+   test_assert(lut_search(lut, u) == 1);
+   destroy_useq(u);
+
+   u = new_useq(0, "CCCCCCCCCCCCCCGATCAC", NULL);
    test_assert_critical(u != NULL);
    test_assert(lut_search(lut, u) == 0);
    destroy_useq(u);
@@ -2230,11 +2235,11 @@ test_starcode_9
    // Insert every 4-mer.
    lut = new_lookup(19, 19, 3);
    test_assert_critical(lut != NULL);
-   char seq[20] = "AAAAAAAAAAAAAAAAAAA";
+   char seq[20] = "AAAAAAAAAAAAAAAAAAA"; //AAA|AAAA|AAAA|AAAA
    for (int i = 0 ; i < 256 ; i++) {
       for (int j = 0 ; j < 4 ; j++) {
          char nt = untranslate[1 + (int)((i >> (2*j)) & 3)];
-         seq[j] = seq[j+4] = seq[j+8] = seq[j+12] = nt;   
+         seq[j+3] = seq[j+7] = seq[j+11] = seq[j+15] = nt;   
       }
       u = new_useq(0, seq, NULL);
       test_assert_critical(u != NULL);

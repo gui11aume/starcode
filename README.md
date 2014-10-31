@@ -1,4 +1,4 @@
-## Starcode: An exact algorithm for sequence clustering ##
+## Starcode: Sequence clustering based on all-pairs search ##
 ---
 ## Contents: ##
     1. What is starcode?
@@ -30,9 +30,11 @@ II. Source file list
 
 * **main-starcode.c**        Starcode main file (parameter parsing).
 * **starcode.c**             Main starcode algorithm.
-* **starcode.h**             Main starcode algorithm header file.
+* **starcode.h**             Main starcode algorithm public header file.
+* **_starcode.h**            Main starcode algorithm private header file.
 * **trie.c**                 Trie search and construction functions.
-* **trie.h**                 Trie functions header file.
+* **trie.h**                 Trie public header file.
+* **_trie.h**                Trie private header file.
 * **Makefile**               Make instruction file.
 
 
@@ -65,24 +67,17 @@ Starcode runs on Linux and Mac. It has not been tested on Windows.
 
 List of arguments:
 
-  > starcode [-vs] [-d#] [-t#] [-i] INPUT_FILE [-o OUTPUT_FILE]
+  > starcode [options] {[-i] INPUT_FILE | -1 PAIRED_END_FILE1 -2 PAIRED_END_FILE2} [-o OUTPUT_FILE]
   
   **-v or --verbose**
 
      Verbose. Prints verbose information to the standard error channel.
 
-  **-i or --input** *file*
-
-     Specifies input file.
-
-  **-o or --output** *file*
-
-     Specifies output file. When not set, standard output is used instead.
-
   **-d or --distance** *distance*
 
      Defines the maximum Levenshtein distance for clustering.
-     Default is 3.
+     When not set it is automatically computed as:
+     min(8, 2 + [median seq length]/20)
 
   **-t or --threads** *threads*
 
@@ -97,7 +92,30 @@ List of arguments:
   **-h or --help**
 
      Prints usage information.
+
+  **-o or --output** *file*
+
+     Specifies output file. When not set, standard output is used instead.
+
+  **--non-redundant**
+  
+     Removes redundant sequences from the output. Only the canonical sequence
+     of each cluster is returned.
+
+
+Single-file mode:
+
+  **-i or --input** *file*
+
+     Specifies input file.
+
+Paired-end fastq files:
    
+  **-1** *file1* **-2** *file2*
+
+     Specifies two paired-end FASTQ files for paired-end clustering mode.
+
+Standard input is used when neither **-i** nor **-1/-2** are set.
 
 V. File formats
 ---------------
@@ -144,26 +162,40 @@ V. File formats
     TGACTCTATCAGCTAC                    39
 
 
-####  V.I.III. FASTA ####
+####  V.I.III. FASTA/FASTQ ####
 
-  Starcode supports FASTA files as well. Note, however, that the only
-  relevant information for starcode is the sequence itself and the FASTA
-  labels will not be used to identify the sequences in the output file.
-  The sequences do not need to be sorted and may be repeated.
+  Starcode supports FASTA and FASTQ files as well. Note, however, that
+  starcode does not use the quality factors and the only relevant
+  information is the sequence itself. The FASTA/FASTQ labels will not
+  be used to identify the sequences in the output file. The sequences do
+  not need to be sorted and may be repeated.
 
-  Example:
+  Example FASTA:
 
-    >sequence 1 label
+    > FASTA sequence 1 label
     ATGCATCGATCACTCATCAGCTACAG
-    >sequence 2 label
+    > FASTA sequence 2 label
     TATCGACTATCTACGACTACATCA
-    >sequence 3 label
+    > FASTA sequence 3 label
     ATCATCACTCTAGCAGCGTACTCGCA
-    >sequence 4 label
+    > FASTA sequence 4 label
     ATGCATCGATTACTCATCAGCTACAG
 
+  Example FASTQ:
 
-### V.II. Output format: ###
+    @ FASTQ sequence 1 label
+    CATCGAGCAGCTATGCAGCTACGAGT
+    +
+    -$#'%-#.&)%#)"".)--'*()$)%
+    @ FASTQ sequence 2 label
+    TACTGCTGATATTCAGCTCACACC
+    +
+    ,*#%+#&*$-#,''+*)'&.,).,
+
+
+### V.II. Output formats: ###
+
+#### V.II.I Standard output format: ####
 
   Starcode prints a line for each detected cluster with the following
   format:
@@ -198,6 +230,22 @@ V. File formats
     ACGCGAGCGGAA    155       ACGCGAGCGGAA
     TAAGCTAGGGGT    16        TAAGCTAGGGGT
     ACTTTAGCGGAA    1         ACTTTAGCGGAA
+
+#### V.II.II Non-redundant output format: ####
+
+  In non-redundant output mode, starcode only prints the canonical
+  sequence of each cluster, one per line. Following the example from
+  the previous section, the output with distance 3 (-d3) would be:
+
+      TAGCTAGACGTA
+      ACGCGAGCGGAA
+    
+  whereas for -d2:
+
+      TAGCTAGACGTA
+      ACGCGAGCGGAA
+      TAAGCTAGGGGT
+      ACTTTAGCGGAA
 
 
 VI. License

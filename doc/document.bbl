@@ -9,6 +9,17 @@ Akhtar, W., de~Jong, J., Pindyurin, A.~V., Pagie, L., Meuleman, W., de~Ridder,
   integrated in parallel.}
 \newblock {\em {Cell}\/}, {\bf 154}(4), 914--27.
 
+\bibitem[Bao {\em et~al.}(2011)Bao, Jiang, Kaloshian, and Girke]{pmid21810899}
+Bao, E., Jiang, T., Kaloshian, I., and Girke, T. (2011).
+\newblock {SEED: efficient clustering of next-generation sequences.}
+\newblock {\em {Bioinformatics}\/}, {\bf 27}(18), 2502--9.
+
+\bibitem[Chong {\em et~al.}(2012)Chong, Ruan, and Wu]{pmid22942077}
+Chong, Z., Ruan, J., and Wu, C.-I. (2012).
+\newblock {Rainbow: an integrated tool for efficient clustering and assembling
+  RAD-seq reads.}
+\newblock {\em {Bioinformatics}\/}, {\bf 28}(21), 2732--7.
+
 \bibitem[Daubner {\em et~al.}(2013)Daubner, Cléry, and Allain]{pmid23253355}
 Daubner, G.~M., Cléry, A., and Allain, F. H.-T. (2013).
 \newblock {RRM-RNA recognition: NMR or crystallography…and new findings.}
@@ -20,11 +31,6 @@ Dohm, J.~C., Lottaz, C., Borodina, T., and Himmelbauer, H. (2008).
 \newblock {Substantial biases in ultra-short read data sets from
   high-throughput DNA sequencing.}
 \newblock {\em {Nucleic Acids Res.}}, {\bf 36}(16), e105.
-
-\bibitem[Edgar(2010)Edgar]{pmid20709691}
-Edgar, R.~C. (2010).
-\newblock {Search and clustering orders of magnitude faster than BLAST.}
-\newblock {\em {Bioinformatics}\/}, {\bf 26}(19), 2460--1.
 
 \bibitem[Eid {\em et~al.}(2009)Eid, Fehr, Gray, Luong, Lyle, Otto, Peluso,
   Rank, Baybayan, Bettman, Bibillo, Bjornson, Chaudhuri, Christians, Cicero,
@@ -51,28 +57,10 @@ Fu, L., Niu, B., Zhu, Z., Wu, S., and Li, W. (2012).
   data.}
 \newblock {\em {Bioinformatics}\/}, {\bf 28}(23), 3150--2.
 
-\bibitem[Langmead and Salzberg(2012)Langmead and Salzberg]{pmid22388286}
-Langmead, B. and Salzberg, S.~L. (2012).
-\newblock {Fast gapped-read alignment with Bowtie 2.}
-\newblock {\em {Nat. Methods}\/}, {\bf 9}(4), 357--9.
-
-\bibitem[Li and Durbin(2009)Li and Durbin]{pmid19451168}
-Li, H. and Durbin, R. (2009).
-\newblock {Fast and accurate short read alignment with Burrows-Wheeler
-  transform.}
-\newblock {\em {Bioinformatics}\/}, {\bf 25}(14), 1754--60.
-
 \bibitem[MacKay(2002)MacKay]{mackay}
 MacKay, D. J.~C. (2002).
 \newblock {\em Information Theory, Inference \& Learning Algorithms\/}.
 \newblock Cambridge University Press, New York, NY, USA.
-
-\bibitem[Marco-Sola {\em et~al.}(2012)Marco-Sola, Sammeth, Guigó, and
-  Ribeca]{pmid23103880}
-Marco-Sola, S., Sammeth, M., Guigó, R., and Ribeca, P. (2012).
-\newblock {The GEM mapper: fast, accurate and versatile alignment by
-  filtration.}
-\newblock {\em {Nat. Methods}\/}, {\bf 9}(12), 1185--8.
 
 \bibitem[Margulies {\em et~al.}(2005)Margulies, Egholm, Altman, Attiya, Bader,
   Bemben, Berka, Braverman, Chen, Chen, Dewell, Du, Fierro, Gomes, Godwin, He,
@@ -119,11 +107,6 @@ Pandit, S., Zhou, Y., Shiue, L., Coutinho-Mansfield, G., Li, H., Qiu, J.,
   in regulated splicing.}
 \newblock {\em {Mol. Cell}\/}, {\bf 50}(2), 223--35.
 
-\bibitem[{R Core Team}(2014){R Core Team}]{R}
-{R Core Team} (2014).
-\newblock {\em R: A Language and Environment for Statistical Computing\/}.
-\newblock R Foundation for Statistical Computing, Vienna, Austria.
-
 \bibitem[Ray {\em et~al.}(2009)Ray, Kazan, Chan, Castillo, Chaudhry, Talukder,
   Blencowe, Morris, and Hughes]{pmid19561594}
 Ray, D., Kazan, H., Chan, E.~T., Castillo, L.~P., Chaudhry, S., Talukder, S.,
@@ -141,6 +124,11 @@ Schepers, K., Swart, E., van Heijst, J. W.~J., Gerlach, C., Castrucci, M., Sie,
 \newblock {Dissecting T cell lineage relationships by cellular barcoding.}
 \newblock {\em {J. Exp. Med.}}, {\bf 205}(10), 2309--18.
 
+\bibitem[Shimizu and Tsuda(2011)Shimizu and Tsuda]{pmid21148542}
+Shimizu, K. and Tsuda, K. (2011).
+\newblock {SlideSort: all pairs similarity search for short reads.}
+\newblock {\em {Bioinformatics}\/}, {\bf 27}(4), 464--70.
+
 \bibitem[Smith {\em et~al.}(1999)Smith, Gwinn, and Salzberg]{pmid10673000}
 Smith, H.~O., Gwinn, M.~L., and Salzberg, S.~L. (1999).
 \newblock {DNA uptake signal sequences in naturally transformable bacteria.}
@@ -150,5 +138,10 @@ Smith, H.~O., Gwinn, M.~L., and Salzberg, S.~L. (1999).
 Ukkonen, E. (1995).
 \newblock On-line construction of suffix trees.
 \newblock {\em Algorithmica\/}, {\bf 14}(3), 249--260.
+
+\bibitem[Wu and Manber(1992)Wu and Manber]{WuManber1992}
+Wu, S. and Manber, U. (1992).
+\newblock Fast text searching: Allowing errors.
+\newblock {\em Commun. ACM\/}, {\bf 35}(10), 83--91.
 
 \end{thebibliography}

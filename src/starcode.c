@@ -853,17 +853,21 @@ read_rawseq
       else {
          seq = copy;
       }
-      if (strlen(seq) > MAXBRCDLEN) {
+      size_t seqlen = strlen(seq);
+      if (seqlen > MAXBRCDLEN) {
          fprintf(stderr, "max sequence length exceeded (%d)\n",
                MAXBRCDLEN);
          fprintf(stderr, "offending sequence:\n%s\n", seq);
          abort();
       }
-      useq_t *new = new_useq(count, seq, NULL);
-      if (new == NULL) {
-         alert();
-         krash();
+      for (size_t i = 0 ; i < seqlen ; i++) {
+         if (!valid_DNA_char[(int)seq[i]]) {
+            fprintf(stderr, "invalid input\n");
+            fprintf(stderr, "offending sequence:\n%s\n", seq);
+            abort();
+         }
       }
+      useq_t *new = new_useq(count, seq, NULL);
       push(new, &uSQ);
    }
 
@@ -899,11 +903,19 @@ read_fasta
       if (line[nread-1] == '\n') line[nread-1] = '\0';
 
       if (lineno %2 == 0) {
-         if (strlen(line) > MAXBRCDLEN) {
+         size_t seqlen = strlen(line);
+         if (seqlen > MAXBRCDLEN) {
             fprintf(stderr, "max sequence length exceeded (%d)\n",
                   MAXBRCDLEN);
             fprintf(stderr, "offending sequence:\n%s\n", line);
             abort();
+         }
+         for (size_t i = 0 ; i < seqlen ; i++) {
+            if (!valid_DNA_char[(int)line[i]]) {
+               fprintf(stderr, "invalid input\n");
+               fprintf(stderr, "offending sequence:\n%s\n", line);
+               abort();
+            }
          }
          useq_t *new = new_useq(1, line, header);
          if (new == NULL) {
@@ -958,11 +970,19 @@ read_fastq
          strncpy(header, line, M);
       }
       else if (lineno % 4 == 2) {
-         if (strlen(line) > MAXBRCDLEN) {
+         size_t seqlen = strlen(line);
+         if (seqlen > MAXBRCDLEN) {
             fprintf(stderr, "max sequence length exceeded (%d)\n",
                   MAXBRCDLEN);
             fprintf(stderr, "offending sequence:\n%s\n", line);
             abort();
+         }
+         for (size_t i = 0 ; i < seqlen ; i++) {
+            if (!valid_DNA_char[(int)line[i]]) {
+               fprintf(stderr, "invalid input\n");
+               fprintf(stderr, "offending sequence:\n%s\n", line);
+               abort();
+            }
          }
          strncpy(seq, line, M);
       }
@@ -1050,12 +1070,28 @@ read_PE_fastq
          strncpy(header2, line2, M);
       }
       else if (lineno % 4 == 2) {
-         if (strlen(line1) > MAXBRCDLEN || strlen(line2) > MAXBRCDLEN) {
+         size_t seqlen1 = strlen(line1);
+         size_t seqlen2 = strlen(line2);
+         if (seqlen1 > MAXBRCDLEN || seqlen2 > MAXBRCDLEN) {
             fprintf(stderr, "max sequence length exceeded (%d)\n",
                   MAXBRCDLEN);
             fprintf(stderr, "offending sequences:\n%s\n%s\n",
                   line1, line2);
             abort();
+         }
+         for (size_t i = 0 ; i < seqlen1 ; i++) {
+            if (!valid_DNA_char[(int)line1[i]]) {
+               fprintf(stderr, "invalid input\n");
+               fprintf(stderr, "offending sequence:\n%s\n", line1);
+               abort();
+            }
+         }
+         for (size_t i = 0 ; i < seqlen2 ; i++) {
+            if (!valid_DNA_char[(int)line2[i]]) {
+               fprintf(stderr, "invalid input\n");
+               fprintf(stderr, "offending sequence:\n%s\n", line2);
+               abort();
+            }
          }
          strncpy(seq1, line1, M);
          strncpy(seq2, line2, M);
@@ -1501,6 +1537,7 @@ new_useq
 )
 {
 
+   // Check input.
    if (seq == NULL) return NULL;
 
    useq_t *new = calloc(1, sizeof(useq_t));

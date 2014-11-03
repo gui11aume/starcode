@@ -101,7 +101,7 @@ genome and in protein-RNA interaction experiments.
 \subsection{Inexact string matching using tries}
 The matching method of starcode is based on a variation of the
 Needleman-Wunsch (NW) algorithm \citep{pmid5420325}. In the
-original algorithm (Figure~\ref{fig:NW}a), the Levenshtein
+original algorithm (Figure \ref{fig:NW}a), the Levenshtein
 distance between two sequences is found by applying a recurrence
 relation throughout a matrix of $mn$ terms (the edit matrix),
 where $m$ and $n$ are the respective sequence lengths. The complexity
@@ -136,14 +136,14 @@ whether the sequences are $\tau$-matches (\textit{i.e.} their distance
 is less then or equal to a fixed threshold $\tau$).
 In that case, the complexity can be reduced to $O(\tau \min(m,n))$.
 Instead of computing all the terms of the edit matrix, it is initialized
-as shown on Figure~\ref{fig:NW}b and only the terms around the diagonal
+as shown on Figure \ref{fig:NW}b and only the terms around the diagonal
 are computed. If a diagonal term has a value greater than $\tau$,
 the process is halted because the sequences are not $\tau$-matches.
 
 This method can be used to match sequences against a prefix tree,
 also known as a trie \citep{ukkonen}. The terms of the edit matrix
 are updated row-wise while a depth-first search traverses the trie
-(Figure~\ref{fig:trie}). Every time a node is visited,
+(Figure \ref{fig:trie}). Every time a node is visited,
 a row is computed, and every time the search backtracks, a row is
 erased. If the threshold value $\tau$
 is exceeded for a diagonal term, the Levenshtein distance for all the
@@ -160,7 +160,7 @@ is computed only once.
 \centerline{\includegraphics{trie.pdf}}
 \caption{NW algorithm on tries. Each sequence of the index is a
 path in the trie. The query GTTGCA is written at the top of the matrix,
-which is initialized as shown on Figure~\ref{fig:NW}b. The trie is
+which is initialized as shown on Figure \ref{fig:NW}b. The trie is
 traversed by a depth-first search (red path). At each
 depth, the node added to the path is written on the left of the edit
 matrix and the row is computed. Checkpoints from 1 to 4 (circled red
@@ -187,7 +187,7 @@ meets some difficulty. Indeed, on the $k$-th row, the terms on the
 right side of the diagonal depend on characters that are not shared
 between the two queries. This issue is solved by storing in each
 node a combination of row and column terms that form an angle shape,
-looking like a horizontally flipped L (Figure~\ref{fig:poucet}).
+looking like a horizontally flipped L (Figure \ref{fig:poucet}).
 Using this structure, the computation intermediates stored in a
 node at depth $k$ depend only on the first $k$ characters of the
 query.
@@ -203,7 +203,7 @@ algorithm ``poucet''.
 \begin{figure}[!tpb]
 \centerline{\includegraphics{poucet.pdf}}
 \caption{Poucet search algorithm. The algorithm proceeds with the
-same principles as shown on Figure~\ref{fig:trie} with the difference
+same principles as shown on Figure \ref{fig:trie} with the difference
 that the edit matrix is not updated row-wise, but along a horizontally
 flipped L. As the depth-first search proceeds, these values
 are stored in the nodes of the trie. Since the values in the vertical
@@ -246,7 +246,7 @@ segments shared between the query and a $\tau$-match can be shifted
 up to $\tau$ nucleotides. For this reason, shifted segments are
 looked up in the indexes according to the following scheme ensuring
 that no match can be missed.
-(Figure~\ref{fig:filtration}). The rightmost segment is looked up
+(Figure \ref{fig:filtration}). The rightmost segment is looked up
 in the $\tau$+1-th index, the second rightmost segment and the
 contiguous segments shifted by 1 nucleotides are are looked up in the
 $\tau$-th index and so on until the first segment and its
@@ -375,7 +375,8 @@ lowest read count. The sequences with a positive read count at
 the end of the process are considered canonical. Clusters consist
 of all the sequences transferring their read counts to the same
 canonical sequence (sequence transferring their read counts to
-different canonicals are discarded).
+different canonicals are discarded). Note that the radius of the
+clusters can be higher than the maximum distance used for matching.
 
 Since no sequencing technology has an error rate higher than 20\%,
 it is expected that sequences appearing from sequencing errors will
@@ -400,36 +401,52 @@ Intel Xeon E5-2687W v2 system with 256~GB of DDR3-RAM at 1866~Mhz
 
 \section{Results}
 
-\subsection{Basic performance}
+\subsection{Presentation and basic performance}
 \label{performance}
-We measured basic performance and scalability metrics of starcode on a
-dataset of pseudo random sequences (Figure~\ref{fig:perf}). The standard
-configuration consists of a set of 1,000,000 sequences of length 40 running
-on 1 thread and with a maximum Levenshtein distance of 3. To test the
-scalability as a function of a single parameter, only the parameter under
-study was modified whereas the others were kept constant. 
+Starcode is a general purpose DNA sequence clustering tool with a
+strong focus on error correction. Errors are assumed to be mismatches,
+insertions or deletions (the implementation presented here matches
+sequences with up to 8 errors). The input sequences can be single
+or paired-end reads, with an upper limit of 1024 nucleotides (512
+for paired-end). Sequences may be of variable length, they may
+be trimmed and filtered for quality or not. Input formats may be raw
+sequence, fasta or fastq (in which case starcode ignores the quality).
+By default, starcode outputs sequence clusters, it can also be used
+to filter out redundant sequences from input files. By default,
+clustering is performed under the assumption that divergence occurs
+from experimental errors (sequencing errors, PCR mutations
+\textit{etc}), a more general algorithm is also available for other
+clustering problems (an example of which is given in section
+\ref{section:motifs}).
 
-Figure~\ref{fig:perf}a shows the running time of starcode as a
-function of the number of input sequences $n$. In double logarithmic scale
-the trend is a straight line with slope 1.5, suggesting that the
-running time complexity of starcode is lower than quadratic (unlike
-the naive implementation of all-pairs search).
-Figure~\ref{fig:perf}b shows that the running time grows exponentially
+We show the basic performance and scalability of starcode on a
+dataset of pseudo random sequences (Figure \ref{fig:perf}). The standard
+configuration is a set of 1,000,000 sequences of length 40, running
+on 1 thread and with a maximum Levenshtein distance of 3. Only one
+parameter is modified whereas the others were kept constant. 
+
+Figure \ref{fig:perf}a shows the running time of starcode as a
+function of the number of input sequences $n$. In double logarithmic
+scale the trend is a straight line with slope 1.5, suggesting that the
+running time complexity of starcode is lower than quadratic (the
+naive implementation of all-pairs search). Note that the sequences of
+this dataset have no match, see section \ref{section:benchmark} for
+an evaluation of the performance on more realistic datasets.
+Figure \ref{fig:perf}b shows that the running time grows exponentially
 as a function of the maximum Levenshtein distance used for clustering.
 The reason is that the trie fans out exponentially and the search bails
 out at a greater depth as the maximum distance increases.
 As a function of the sequence length, the running time first increases 
-but then plummets and stays low (Figure~\ref{fig:perf}c). Beyond a
+but then plummets and stays low (Figure \ref{fig:perf}c). Beyond a
 threshold length, the filtering algorithm starts to be efficient, and
 most of the queries are resolved without searching the trie.
-Finally, we show the scalability of starcode with increasing
-number of threads in Figure~\ref{fig:perf}d. The search algorithm is fully
+Finally, we show the scalability of starcode with increasing number
+of threads in Figure \ref{fig:perf}d. The search algorithm is fully
 parallel and the relative performance increases linearly up to 12 threads.
 The bending observed thereafter has two sources. The first is 
 that the input reading and clustering steps are brief but not parallel,
 the second is that there is insufficient memory bandwidth to satisfy
 the increased demand of memory accesses due to hardware limitations.
-
 
 \begin{figure}[!tpb]
 % Basic performance figure.
@@ -443,6 +460,7 @@ performance increase for different number of parallel threads.
 \end{figure}
 
 \subsection{Benchmark}
+\label{section:benchmark}
 We benchmarked starcode against the sequence clustering algorithms
 slidesort \citep{pmid21148542}, seed \citep{pmid21810899},
 rainbow \citep{pmid22942077} and cd-hit \citep{pmid23060610}. Even though
@@ -468,7 +486,7 @@ not known (pairs of statellites in the same cluster may be 3-matches
 or not). For this reason we only compared the number of pairs found
 by starcode with the number of pairs found by slidesort. The 
 outcome of the test is summarized in
-Figure~\ref{fig:benchmark}.
+Figure \ref{fig:benchmark}.
 
 \begin{figure}[!tpb]
   \centerline{\includegraphics[scale=0.47]{benchmark.pdf}}
@@ -493,9 +511,18 @@ However, this was clearly not the case when we ran additional tests
 on smaller datasets where naive pairwise comparisons is feasible
 (the starcode repository contains such a dataset along with the
 instructions to reproduce our observations, see
-http://github.com/gui11aume/starcode/misc). In conclusion, starcode
-was the only tool to achieve perfect precision.
+http://github.com/gui11aume/starcode/misc).
 
+The running time of the different tools as a function of the size
+of the clusters is shown on Figure \ref{fig:benchmark}c. For seed
+and cd-hit it decreases as the cluster size increases, whereas
+for starcode and slidesort it increases. In spite of this trend,
+the performance of starcode remains competitive, even for clusters
+of 1 million sequences. The memory usage is shown in Figure
+\ref{fig:benchmark}c.
+In conclusion, starcode was the only tool to achieve perfect precision
+on these datasets. It also maintains competitive performance in
+running time and memory usage.
 
 %\begin{table}[h]
 %\centering
@@ -511,7 +538,10 @@ was the only tool to achieve perfect precision.
 %\end{table}
 
 %% Biological datasets %%
-
+The performance on artificial data is not always in agreement with
+the performance on experimental datasets. In typical experiments,
+the sizes of the clusters may be uneven, and the reads may contain
+near constant regions that may degrade the performance.
 We benchmarked sequence clustering algorithms on the problem of
 clustering TRIP barcodes \citep{pmid23953119}. Briefly, the principle
 of TRIP (Thousands of Reporters Integrated in Parallel) is to tag
@@ -642,6 +672,7 @@ more memory-demanding than alternative tools.
 %thereby obviates the need for such arbitrary heuristics.
 
 \subsection{Identifying enriched sequence motifs}
+\label{section:motifs}
 Sequence motifs are thought to play an important role in DNA metabolism.
 Key regulators, such as transcription factors, nucleosomes and non
 coding RNAs have sequence preferences targeting them to the sites where
@@ -724,13 +755,13 @@ overhead if the dataset is dense. As counterintuitive as it may seem,
 long queries will usually impose a lower memory footprint because the
 matches between the sequences are more sparse. We have shown that the
 running time will also be shorter thanks to the lookup table
-search (Figure~\ref{fig:perf}c).
+search (Figure \ref{fig:perf}c).
 
 Perhaps the most surprising element of this study is that an exact
 algorithm can compete with extremely fast heuristics. This will no
 longer be true when clustering divergent sequences because the Levenshtein
 distance will have to be increased, leading to exponentially longer
-running times (Figure~\ref{fig:perf}b). However, for the imporant
+running times (Figure \ref{fig:perf}b). However, for the imporant
 practical case that the divergence is driven by sequencing errors,
 starcode illustrates that there is still room for algorithmic innovations
 that can outperform heuristics. The idea of the poucet search seems

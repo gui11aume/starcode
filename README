@@ -77,7 +77,7 @@ List of arguments:
   -d or --distance distance
      Defines the maximum Levenshtein distance for clustering.
      When not set it is automatically computed as:
-     min(8, 2 + [median seq length]/20)
+     min(8, 2 + [median seq length]/30)
 
   -t or --threads threads
      Defines the maximum number of parallel threads.

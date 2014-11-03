@@ -393,13 +393,51 @@ $\tau$-matches, which forms a cluster of radius $\tau$ (hence the
 name). Claimed sequences are immediately removed, so that they can
 belong to only one cluster.
 
-\subsection{Benchmark conditions}
-All the tests were performed on a 16-core dual-processor
-Intel Xeon E5-2687W v2 system with 256~GB of DDR3-RAM at 1866~Mhz
 
 \end{methods}
 
 \section{Results}
+
+\subsection{Benchmark conditions}
+All the tests were performed on a 16-core dual-processor
+Intel Xeon E5-2687W v2 system with 256~GB of DDR3-RAM at
+1866~Mhz. Command-line parameters were set equivalently in all
+softwares to run in single-core mode allowing up to 3 mismatches for
+input sequences of length 50. Execution options used in simulation and
+real datasets are summarized in Table \ref{tab:params1} and Table
+\ref{tab:params2}, respectively.
+
+\begin{table}[h]
+\centering
+\caption{Software execution options used in simulation benchmark.}
+%\resizebox{\columnwidth}{!}{
+\begin{tabular}{l|l}
+    \bf{software} & \bf{execution options}\\
+    \hline
+    starcode & \texttt{starcode -d3}\\
+    slidesort & \texttt{slidesort\_v2 -d 3 -t E -c DNA}\\
+    CD-HIT 4.6.1 & \texttt{cd-hit-est -n 9 -c 0.9 -M 0 -r 0}\\
+    SEED & \texttt{SEED --mismatch 3}\\
+\end{tabular}
+%}
+\label{tab:params1}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Software execution options used in real data benchmark.}
+%\resizebox{\columnwidth}{!}{
+\begin{tabular}{l|l}
+    \bf{software} & \bf{execution options}\\
+    \hline
+    starcode & \texttt{starcode -d3}\\ 
+    slidesort & \texttt{slidesort\_v2 -d 3 -u -t E -c DNA}\\
+    CD-HIT 4.6.1 & \texttt{cd-hit-est -n 8 -c 0.94 -M 0}\\
+    SEED & \texttt{SEED --mismatch 3 --shift 3}\\ 
+\end{tabular}
+%}
+\label{tab:params2}
+\end{table}
 
 \subsection{Presentation and basic performance}
 \label{performance}
@@ -524,18 +562,6 @@ In conclusion, starcode was the only tool to achieve perfect precision
 on these datasets. It also maintains competitive performance in
 running time and memory usage.
 
-%\begin{table}[h]
-%\centering
-%\caption{Software execution parameters (benchmark 1)}
-%\resizebox{\columnwidth}{!}{
-%\begin{tabular}{|l|l|}
-%    \hline
-%    starcode & \texttt{-d3 -t12 -s}\\ \hline
-%    CD-HIT 4.6.1 & \texttt{cd-hit-est -n 7 -c .925 -T 12 -M 0 -r 0 -A 40}\\ \hline
-%\end{tabular}
-%}
-%\label{tab:params1}
-%\end{table}
 
 %% Biological datasets %%
 The performance on artificial data is not always in agreement with
@@ -562,13 +588,12 @@ Dataset 3 consist of Illumina paired-end reads.
 \centering
 \caption{Summary of the biological datasets used for benchmarking.
 All the datasets are Illumina reads.}
-\begin{tabular}{|l|l|l|l|}
-    \hline
+\begin{tabular}{l|l c r}
     \textit{dataset}   & \textit{read count} &
     \textit{read length} & \textit{type} \\ \hline
-    dataset 1 & 16,457,527   & 50  & single      \\ \hline
-    dataset 2 & 127,675,537  & 50  & single      \\ \hline
-    dataset 3 & 2,460,226    & 100  & paired-end \\ \hline
+    dataset 1 & 16,457,527   & 50  & single      \\
+    dataset 2 & 127,675,537  & 50  & single      \\
+    dataset 3 & 2,460,226    & 100  & paired-end \\
 \end{tabular}
 \label{tab:biobench_properties}
 \end{table}
@@ -587,15 +612,14 @@ orders of magnitude higher than the running time of starcode.
 \caption{Running time (in seconds) of the software on three biological
 datasets. Runs longer than 10 days were interrupted. A dash indicates
 that the software cannot be used for this dataset.}
-\begin{tabular}{|l|l|l|l|}
-    \hline
+\begin{tabular}{l|c c c}
     \textit{software}   & \textit{dataset 1} &
       \textit{dataset 2} & \textit{dataset 3} \\ \hline
-    starcode   & 171         & 2,898       & 44    \\ \hline
-    seed       & 135,959     & 60,374      & -     \\ \hline
-    sidesort   & 632,168     & $>$ 10 days & -     \\ \hline
-    rainbow    & -           & -           & 306   \\ \hline
-    cd-hit-est & $>$ 10 days & 512,591     & -     \\ \hline
+    starcode   & 171         & 2,898       & 44    \\
+    seed       & 135,959     & 60,374      & -     \\
+    sidesort   & 632,168     & $>$ 10 days & -     \\
+    rainbow    & -           & -           & 306   \\
+    cd-hit-est & $>$ 10 days & 512,591     & -     \\
 \end{tabular}
 \label{tab:biobench_runtime}
 \end{table}
@@ -613,15 +637,14 @@ more memory-demanding than alternative tools.
 \begin{table}[h]
 \centering
 \caption{Memory usage (in Gb).}
-\begin{tabular}{|l|l|l|l|}
-    \hline
+\begin{tabular}{l|c c c}
     \textit{software}   & \textit{dataset 1} &
       \textit{dataset 2} & \textit{dataset 3} \\ \hline
-    starcode   & 9.4 & 30.9 & 5.2 \\ \hline
-    seed       & 4.1 & 53.9 & -   \\ \hline
-    sidesort   & 1.9 & 13.9 & -   \\ \hline
-    rainbow    & -   & -  & 0.5   \\ \hline
-    cd-hit-est & 3.8 & 28.5 & -   \\ \hline
+    starcode   & 9.4 & 30.9 & 5.2 \\
+    seed       & 4.1 & 53.9 & -   \\
+    sidesort   & 1.9 & 13.9 & -   \\
+    rainbow    & -   & -  & 0.5   \\
+    cd-hit-est & 3.8 & 28.5 & -   \\
 \end{tabular}
 \label{tab:biobench_memory}
 \end{table}

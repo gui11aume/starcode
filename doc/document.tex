@@ -719,19 +719,14 @@ Starocde is a solid algorithm for sequence clustering based on
 all-pairs matching. It achieves high precision, and on experimental
 datasets it can be faster than popular heuristics. By design,
 starcode is tailored to process high throughput sequencing data
-on multi-core platforms.
-Our benchmark shows that
-starcode achieves perfect clustering on short random sequences in less
-time than what is considered acceptable for heuristic searches. We also
-show that starcode outperforms next generation read mappers in this
-context. The software tools used for this benchmark are usually not
-used for barcode or random sequence clustering. In this respect,
-starcode fills a need arising from the development of barcoding
-technologies.
+on multi-core platforms with sufficient amount of memory. Due to its
+superior precision and faster running time, it fills a gap among
+available software, by allowing to take full advantage of middle
+to high end hardware.
 
-The speed of starcode also makes it useful for other clustering
-tasks, such as identifying enriched motifs in microbial genomes and
-in experimental data. Here we have given two examples of such
+The speed and precision of starcode also makes it useful for other
+clustering tasks, such as identifying enriched motifs in microbial
+genomes and in experimental data. Here we have given two examples of such
 applications. In the first, we recover a known enriched 12-mer in the
 genome of \textit{Neisseria meningitidis}. In the second, we recover
 the motif of the human RNA binding protein SRSF1 and notice that it
@@ -741,31 +736,18 @@ consecutive RNA Recognition Motifs (RRM) that are known to bind
 3-4 nucleotides in a row\citep{pmid23253355}. The Levenshtein distance,
 which incorporates insertions and deletions is more likely to capture
 bi-partite binding motifs than position weight matrix representations.
-The use of a clustering method to tackle this problem is unusual, but it 
+The use of a clustering method to tackle this problem is unusual, but it
 it illustrates the potential advantages of distance-based approaches.
 
-The current version of starcode has been primarily optimized for speed.
-The memory footprint depends on the number of sequences to cluster
-(because the sequences of the input set are loaded in memory as a set of
-of tries) and on the mean number of matches per sequence. Every match is
-stored in memory until the clustering phase, which may represent a large
-overhead if the dataset is dense. As counterintuitive as it may seem,
-long queries will usually impose a lower memory footprint because the
-matches between the sequences are more sparse. We have shown that the
-running time will also be shorter thanks to the lookup table
-search (Figure \ref{fig:perf}c).
-
-Perhaps the most surprising element of this study is that an exact
-algorithm can compete with extremely fast heuristics. This will no
-longer be true when clustering divergent sequences because the Levenshtein
-distance will have to be increased, leading to exponentially longer
-running times (Figure \ref{fig:perf}b). However, for the imporant
-practical case that the divergence is driven by sequencing errors,
-starcode illustrates that there is still room for algorithmic innovations
-that can outperform heuristics. The idea of the poucet search seems
-simple in retrospect, yet it is a powerful way to tap into the data
-structuration provided by string sorting. This principle could find some
-applications in algorithms used in various fields.
+One of the reasons why starcode appears to be faster than alternative
+tools is that it is designed to cluster relatively similar sequences.
+When clustering related but
+divergent sequences, the Levenshtein distance will have to be increased,
+leading to exponentially longer running times (Figure \ref{fig:perf}b).
+However, for the imporant practical case of correcting errors introduced
+by sequencing, starcode illustrates that there is still room for
+developing algorithms that are both faster and more accurate than
+the current state of the art.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

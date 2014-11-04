@@ -381,22 +381,17 @@ clusters can be higher than the maximum distance used for matching.
 Since no sequencing technology has an error rate higher than 20\%,
 it is expected that sequences appearing from sequencing errors will
 always have 5 times or lower read count than the canonical sequence.
-Otherwise, sequences are more likely unrelated, or both derived from
-the same canonical sequence. 
+Otherwise, sequences are more likely unrelated, or both are derived
+from the same canonical sequence. 
 
 For other sequence clustering problems, starcode implements a
-multi-purpose algorithm called ``sphere clustering''
-\citep{pmid23953119}. In sphere clustering, sequences are sorted by
+multi-purpose algorithm called ``sphere clustering''.
+In sphere clustering, sequences are sorted by
 frequency of occurrence. Starting from the most
 frequent, each sequence becomes canonical and claims all its
 $\tau$-matches, which forms a cluster of radius $\tau$ (hence the
 name). Claimed sequences are immediately removed, so that they can
 belong to only one cluster.
-
-
-\end{methods}
-
-\section{Results}
 
 \subsection{Benchmark conditions}
 All the tests were performed on a 16-core dual-processor
@@ -416,8 +411,8 @@ real datasets are summarized in Table \ref{tab:params1} and Table
     \hline
     starcode & \texttt{starcode -d3}\\
     slidesort & \texttt{slidesort\_v2 -d 3 -t E -c DNA}\\
-    CD-HIT 4.6.1 & \texttt{cd-hit-est -n 9 -c 0.9 -M 0 -r 0}\\
-    SEED & \texttt{SEED --mismatch 3}\\
+    cd-hit 4.6.1 & \texttt{cd-hit-est -n 9 -c 0.9 -M 0 -r 0}\\
+    seed & \texttt{SEED --mismatch 3}\\
 \end{tabular}
 %}
 \label{tab:params1}
@@ -432,12 +427,17 @@ real datasets are summarized in Table \ref{tab:params1} and Table
     \hline
     starcode & \texttt{starcode -d3}\\ 
     slidesort & \texttt{slidesort\_v2 -d 3 -u -t E -c DNA}\\
-    CD-HIT 4.6.1 & \texttt{cd-hit-est -n 8 -c 0.94 -M 0}\\
-    SEED & \texttt{SEED --mismatch 3 --shift 3}\\ 
+    cd-hit 4.6.1 & \texttt{cd-hit-est -n 8 -c 0.94 -M 0}\\
+    seed & \texttt{SEED --mismatch 3 --shift 3}\\ 
 \end{tabular}
 %}
 \label{tab:params2}
 \end{table}
+
+
+\end{methods}
+
+\section{Results}
 
 \subsection{Presentation and basic performance}
 \label{performance}
@@ -448,12 +448,12 @@ sequences with up to 8 errors). The input sequences can be single
 or paired-end reads, with an upper limit of 1024 nucleotides (512
 for paired-end). Sequences may be of variable length, they may
 be trimmed and filtered for quality or not. Input formats may be raw
-sequence, fasta or fastq (in which case starcode ignores the quality).
+sequence, FASTA or FASTQ (in which case starcode ignores the quality).
 By default, starcode outputs sequence clusters, it can also be used
 to filter out redundant sequences from input files. By default,
 clustering is performed under the assumption that divergence occurs
 from experimental errors (sequencing errors, PCR mutations
-\textit{etc}), a more general algorithm is also available for other
+\textit{etc}.), a more general algorithm is also available for other
 clustering problems (an example of which is given in section
 \ref{section:motifs}).
 
@@ -506,7 +506,8 @@ slidesort is an all-pairs search algorithm, it was included in the
 benchmark because sequence comparison is the most computationally
 intensive step of the sequence clustering problem. Rainbow runs
 exclusively on paired-end reads, while the other tools run on single
-reads.
+reads, for this reason all the tools could not be run no the same
+dataset.
 
 %% Synthetic data %%
 The performance of sequence clustering algorithms can be sensitive
@@ -518,7 +519,9 @@ tools on a known cluster structure. We generated 4 datasets of 1 million
 of 100 repeats of the same centroid sequence, plus satellites
 derived from the centroid by incorporating 3 errors including at
 most 1 indel. The number of satellites per cluster ranged from
-999900 to 900. Evaluating the exactness of slidesort on these datasets
+999900 to 900. Rainbow was not tested on this benchmark because
+the generated data is single reads. In addition, evaluating the
+exactness of slidesort 
 was problematic because the number of 3-matches in each dataset is
 not known (pairs of statellites in the same cluster may be 3-matches
 or not). For this reason we only compared the number of pairs found
@@ -527,15 +530,19 @@ outcome of the test is summarized in
 Figure \ref{fig:benchmark}.
 
 \begin{figure}[!tpb]
-  \centerline{\includegraphics[scale=0.47]{benchmark.pdf}}
-\caption{Accuracy of the sequence clustering and all-pairs search
-algorithms. Starcode, seed and cd-hit were bencmarked on 4 datasets
-with the same number of sequences, but different number of clusters
-(see main text). \textbf{a} Starcode identifies the correct number
-of clusters, while seed and cd-hit identify about 40 false positives
-per true positive. \textbf{b} Slidesort identifies 5-10\% less
-pairs than starcode. In both panels, the red line is first
-bisector.}
+\centerline{\includegraphics[scale=0.47]{benchmark.pdf}}
+\caption{Benchmark results on artificial datasets of known cluster
+structure (see main text). \textbf{a} Accuracy measured by the number
+of identified clusters. Starcode identifies the correct
+number of clusters, while seed and cd-hit identify about 40 false
+positives per true positive. The red line is the first bisector and
+indicates perfect results. \textbf{b} Accuracy measured by the
+number of identified pairs. Slidesort identifies 5-10\% less pairs
+than starcode. The red line indicates a ratio of 1. \textbf{c}
+Running time of the different tools. As the size of the clusters
+the running time of starcode increases but remains competitive.
+\textbf{d} Memory usage of the different tools. The memory usage
+of starcode decreases as the size of the cluster increases.}
 \label{fig:benchmark}
 \end{figure}
 
@@ -557,17 +564,22 @@ and cd-hit it decreases as the cluster size increases, whereas
 for starcode and slidesort it increases. In spite of this trend,
 the performance of starcode remains competitive, even for clusters
 of 1 million sequences. The memory usage is shown in Figure
-\ref{fig:benchmark}c.
+\ref{fig:benchmark}c. The smallest memory footprint is achieved by
+slidesort and cd-hit. The memory usage of starcode is the highest
+for clusters of size 1000, but it decreases and becomes lower than
+the memory usage of seed as the size of the cluster increases.
+
 In conclusion, starcode was the only tool to achieve perfect precision
-on these datasets. It also maintains competitive performance in
-running time and memory usage.
+on these datasets. It also maintains a competitive performance in
+terms of running time and memory usage.
 
 
 %% Biological datasets %%
 The performance on artificial data is not always in agreement with
-the performance on experimental datasets. In typical experiments,
-the sizes of the clusters may be uneven, and the reads may contain
-near constant regions that may degrade the performance.
+the performance on experimental datasets. Typical experiments present
+additional difficulties. For instance,
+the sizes of the clusters may be uneven and the reads may contain near
+constant regions that may degrade the performance of the algorithm.
 We benchmarked sequence clustering algorithms on the problem of
 clustering TRIP barcodes \citep{pmid23953119}. Briefly, the principle
 of TRIP (Thousands of Reporters Integrated in Parallel) is to tag
@@ -582,7 +594,7 @@ consist of Illumina single reads; they differ by the total read count
 and by the empirical cluster sizes. According to the output of starcode,
 the largest clusters of dataset 1 contain approximately 2,000 sequences,
 while dataset 2 contains 4 clusters with more than 1 million sequences.
-Dataset 3 consist of Illumina paired-end reads.
+Dataset 3 consist of paired-end reads.
 
 \begin{table}[h]
 \centering
@@ -598,12 +610,12 @@ All the datasets are Illumina reads.}
 \label{tab:biobench_properties}
 \end{table}
 
-The running times of starcode, seed, slidesort, rainbow and cd-hit-est
+The running times of starcode, seed, slidesort, rainbow and cd-hit
 are summarized in Table~\ref{tab:biobench_runtime}. Starcode was faster
 than the other tools on all the datasets. Seed came in second position
 on datasets 1 and 2, with a running time approximately 800 and 20 times
 greater, respectively. Rainbow came in second position on dataset 3,
-but it is the only other tool able cluster paired-end reads. We did not
+but it is the only other tool able to cluster paired-end reads. We did not
 record the exact running times past 10 days since this is several
 orders of magnitude higher than the running time of starcode.
 
@@ -629,14 +641,11 @@ shown in Table~\ref{tab:biobench_memory}. The values represent the
 peak memory usage throughout the run on the datasets described above.
 On datasets 1 and 3, starcode had a significantly larger memory usage
 than the best tool, while on dataset 2 it used significantly less
-memory than seed and approximately as much as cd-hit. A large portion
-of the memory usage of starcode is dedicated to the trie structures
-used in the poucet search, which explains why starcode is in general
-more memory-demanding than alternative tools.
+memory than seed and approximately as much as cd-hit.
 
 \begin{table}[h]
 \centering
-\caption{Memory usage (in Gb).}
+\caption{Memory usage (in GB).}
 \begin{tabular}{l|c c c}
     \textit{software}   & \textit{dataset 1} &
       \textit{dataset 2} & \textit{dataset 3} \\ \hline
@@ -650,52 +659,10 @@ more memory-demanding than alternative tools.
 \end{table}
 
 
-%\subsection{Clustering TRIP barcodes}
-%In the course of setting up the TRIP technology in our laboratory
-%\citep{pmid23953119}, we realized the need to develop efficient
-%algorithms to cluster similar sequences. Briefly, the principle of TRIP
-%(Thousands of Reporters Integrated in Parallel) is to tag reporter
-%transcripts with random barcodes and measure the abundance of barcodes
-%in the RNA as a proxy for gene expression. There is no reference to
-%match aberrant barcodes against, because the tagging sequences are
-%unknown. Instead, barcodes are matched against each other and clustered
-%by similarity to infer canonical sequences.
-%
-%We tested the efficiency of starcode on the TRIP dataset from
-%\cite{pmid23953119}. In the experiment labeled mPGKA, we identified
-%24.1 million (91\%) barcode-containing reads out of 26.6 million,
-%consisting of approximately 223,000 and 220,000 unique barcode sequences
-%for PCR replicates 1 and 2, respectively. Following the authors, we kept
-%only the barcodes with at least 5 counts and performed clustering as
-%described: ``First we sorted barcodes according to their counts. Then,
-%for each barcode (starting from the most frequent one), we identified
-%and removed all its mutant versions, defined as barcodes within a Hamming
-%distance of 2.'' We implemented this method, here on referred to as the
-%``sequential algorithm'' with the function call
-%\texttt{stringDist(method='lv', maxDist=2)} from R the package
-%\texttt{stringDist} \citep{R}.  When replacing the Hamming distance by
-%the Levenshtein
-%distance, starcode produced exactly the same output as the sequential
-%algorithm. The running time of starcode averaged over the replicates was
-%2.90 seconds, \textit{versus} more than 3 minutes 40 seconds, which
-%represents a 75-fold speedup.
-%
-%The performance of the sequential algorithm relies on the arbitrary
-%exclusion of reads with less than 5 counts, the main purpose of which
-%is to reduce the computational burden. When all barcodes were kept,
-%the average running time of starcode was 10.27 seconds, \textit{versus}
-%$>$ 6 hours for the sequential algorithm. Using the Hamming distance,
-%as the authors originally suggested, decreased the average running time
-%of the sequential algorithm to about 3 hours and 30 minutes (and
-%the output differed from that of starcode). Note that in all the cases
-%mentioned above, starcode was run with a single core to compare the
-%algorithms based on similar computer resources. In conclusion, the
-%barcode clustering problem can be simplified by various tricks, but
-%starcode brings down the running time to nearly instantaneous, and
-%thereby obviates the need for such arbitrary heuristics.
-
 \subsection{Identifying enriched sequence motifs}
 \label{section:motifs}
+As a sequence clustering algorithm, starcode can also be used for
+other applications, such as the identification of enriched motifs.
 Sequence motifs are thought to play an important role in DNA metabolism.
 Key regulators, such as transcription factors, nucleosomes and non
 coding RNAs have sequence preferences targeting them to the sites where
@@ -704,10 +671,12 @@ regulators and the mechanisms they are involved in. However, the
 sequence motifs are not strictly identical at different sites, hence
 they are better identified by inexact matching. This problem becomes
 computationally difficult for long motifs (above 12-13 nucleotides)
-because of the combinatorial scaling. But as motifs become longer, the
-problem of identifying abundant inexact matches becomes similar to
-barcode clustering. We reasoned that starcode could also be used for
-the task of identifying biologically meaningful sequence motifs.
+because of the combinatorial scaling.
+
+%But as motifs become longer, the
+%problem of identifying abundant inexact matches becomes similar to
+%barcode clustering. We reasoned that starcode could also be used for
+%the task of identifying biologically meaningful sequence motifs.
 
 We set up a test based on the meningitis-causing agent
 \textit{Neisseria meningitidis}. The genome of this bacterium is
@@ -715,8 +684,10 @@ interspersed with a frequent 12 bp sequence known as DNA uptake
 sequence \citep{pmid10673000}. We extracted the 12-mers from both
 orientations of  the 2.19 Mb genome, yielding 4.39 million 12-mers,
 consisting of 2.77 million unique sequences. Clustering the 12-mers
-with starcode within a Levenshtein distance of 2 took less than 45
-seconds with 12 threads. We identified the known DNA uptake sequence
+with starcode within a Levenshtein distance of 2,
+%took less than 45
+%seconds with 12 threads. We identified the known DNA uptake sequence
+we identified the known DNA uptake sequence
 of \textit{Neisseria meningitidis} (ATGCCGTCTGAA) as the most abundant
 12-mer, with 1466 exact and 2096 inexact hits. This result testifies
 to the fact that starcode can be used to identify biologically
@@ -732,9 +703,11 @@ and extracted the 10-mers from the microarray probes. The 10-mers were
 given a score equal to the rank of the probe they belong, and enriched
 motifs were found using the sphere clustering of starcode with maximum
 Levenshtein distance 2. The score of the most enriched 10-mer is thus
-the sum of the ranks of all 10-mers within this distance. Clustering
-the 6.3 million extracted 10-mers with 12 threads took about 20 seconds
-for each replicate.  The most enriched 10-mers were AGGACACGGA,
+the sum of the ranks of all 10-mers within this distance.
+%Clustering
+%the 6.3 million extracted 10-mers with 12 threads took about 20 seconds
+%for each replicate.  The most enriched 10-mers were AGGACACGGA,
+Among the 6 replicates, the most enriched 10-mers were AGGACACGGA,
 AGGACACGGA, AGGACGGAGG, AGGACGGAGG, AGGACACGGA and AGGATACAGG. Except
 for the last replicate, the motifs consist of AGGAC and GGA, with a
 spacer of variable length. This suggests that the binding of SRSF1 to
@@ -742,10 +715,12 @@ RNA may involve a spacer sequence, which would explain the disagreement
 between the motifs derived from 6-mers or 7-mers.
 
 \section{Discussion and conclusion}
-Through the parallel poucet search algorithm, starcode implements an
-exact sequence clustering algorithm that can be faster than popular
-heuristics. By design, starcode is tailored to process high throughput
-sequencing data on multi-core platforms. Our benchmark shows that
+Starocde is a solid algorithm for sequence clustering based on
+all-pairs matching. It achieves high precision, and on experimental
+datasets it can be faster than popular heuristics. By design,
+starcode is tailored to process high throughput sequencing data
+on multi-core platforms.
+Our benchmark shows that
 starcode achieves perfect clustering on short random sequences in less
 time than what is considered acceptable for heuristic searches. We also
 show that starcode outperforms next generation read mappers in this

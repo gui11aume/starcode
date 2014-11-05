@@ -34,7 +34,7 @@ trace and quantify transcripts or lineages, since spurious barcodes
 introduce inexistent entities. The reference population of random
 barcodes is unknown and in this case, error correction amounts
 to performing a pairwise comparison of all the barcodes,
-which is unfeasible for excessive computationally complexity.
+which is unfeasible for excessive computational complexity.
 
 \section{Results:}
 Here we address this problem and describe an exact algorithm to
@@ -60,7 +60,7 @@ Sequencing technologies never achieve perfect precision. For instance,
 the Illumina platform \citep{pmid16056220} has a 1-2\% error rate
 consisting of substitutions \citep{pmid18660515, pmid21576222}
 and the PacBio platform has a 15\% error rate consisting of insertions
-and deletions \citep{pmid19023044}. The throughput of such technologies
+and deletions \citep{pmid19023044}. The enormous throughput of such technologies
 has recently created additional needs to develop efficient error
 correction algorithms.
 
@@ -85,16 +85,18 @@ clusters of random barcodes, which typically have a star shape.
 Starcode is based on all-pairs search, \textit{i.e.} all the pairs
 of sequences below a given Levenshtein distance are identified during
 the graph construction phase. Matching is carried out by lossless
-filtration, followed by a trie search.  The novelty of the algorithm
-is the poucet strategy, which uses the redundancy of alphabetically
-sorted sequences to avoid unnecessary recomputations and gain speed.
+filtration, followed by an exhaustive search on the branches of a
+prefix trie.  The novelty of the algorithm is the poucet strategy,
+which uses the redundancy of alphabetically sorted sequences to avoid
+unnecessary recomputations and gain speed. 
 
 In this article we present and benchmark starcode. We show that on
-real biological datasets, starcode is faster than existing sequence
-clustering software. Even though starcode was designed for error
-correction, we show that it can be used for other problems. As an
-illustration, we use it to identify enriched motifs in a bacterial
-genome and in protein-RNA interaction experiments.
+real biological datasets, starcode is orders of magnitude faster than
+existing sequence clustering software. Even though starcode was
+designed for error correction, we also show that it can be used for
+other problems. As an illustration, we use it to identify enriched
+motifs in a bacterial genome and in protein-RNA interaction
+experiments.
 
 \begin{methods}
 \section{Methods}
@@ -220,38 +222,40 @@ $k$ with the current query.}
 \subsection{Lossless filtration}
 When a query has no match, it is advantageous to omit the trie
 search. To this end, starcode uses a partition
-approach similar to that described by \cite{WuManber1992}. If the
-query is partitioned in $\tau+1$ segments, every $\tau$-match
-contains at least one of those (assuming that all the segments
-have length at least $\tau$). Indeed, there are at most $\tau$
-differences between the query and the match, so at least one segment
-is unmodified. In the $\tau$-match, the position of the shared
-segment is at most $\tau$ nucleotides on the left or on the right
-of its position in the query.
+approach similar to that described by \cite{WuManber1992}. The query
+is initially partitioned in $\tau+1$ segments. Assuming that all the
+segments have length at least $\tau$, then every $\tau$-match present
+in the database will contain at least a verbatim copy of one of the
+query segments. Indeed, there are at most $\tau$ editions between
+the query and the match to be distributed in $\tau+1$ regions, so at
+least one segment is unmodified. Due to potential insertions and
+deletions in the preceding segments, the shared segment may be shifted
+up to $\tau$ nucleotides on the left (all insertions) or on the right
+(all deletions) from its original position in the query.
 
-These observations are the basis of a filtration method that proceeds
-as follows. Every time a sequence is added to the trie, its segments
-are added to $\tau+1$ different indexes. More specifically, the
-first $\tau$ nucleotides of the sequence are removed, and the rest
-of the sequence is partitioned in $\tau+1$ segments of sizes
-differing by at most 1 (the longer segments always in 3' for
-consistency). The first fragments are added to the first index,
-the second fragments to the second index \textit{etc}.
+These observations are the basis of a filtration method with 100\%
+specificity. More precisely, the segments are defined as follows:
+the first $\tau$ nucleotides of the sequence are removed, and the rest
+of the sequence is partitioned in $\tau+1$ segments of sizes differing
+by at most 1 (the longer segments always in 3' for consistency). Every
+time a sequence is added to the trie, it is partitioned and its
+segments are added to $\tau+1$ different indexes. The first fragments
+are added to the first index, the second fragments to the second index,
+\textit{etc}. Before the search, the query is partitioned in the same
+way and its segments are looked up in the indexes. In case no match is
+found, this query has no $\tau$-match in the current database,
+therefore the trie search is omitted. Conversely, if at least one
+segment is found, the trie search must performed.
 
-Before the search, segments of the query are looked up in
-the indexes, and in case no match is found, the trie search is
-omitted because this query has no $\tau$-match. If at least one
-segment is found, the trie search is performed. As mentioned above,
-segments shared between the query and a $\tau$-match can be shifted
-up to $\tau$ nucleotides. For this reason, shifted segments are
-looked up in the indexes according to the following scheme ensuring
-that no match can be missed.
-(Figure \ref{fig:filtration}). The rightmost segment is looked up
-in the $\tau$+1-th index, the second rightmost segment and the
-contiguous segments shifted by 1 nucleotides are are looked up in the
-$\tau$-th index and so on until the first segment and its
-contiguous segments shifted by up to $\tau$ nucleotides are
-looked up in the first index.
+As mentioned above, segments shared between the query and a
+$\tau$-match may be found shifted up to $\tau$ nucleotides. For this
+reason, shifted segments of the query are looked up in the indexes
+according to the scheme of Figure \ref{fig:filtration}, which ensures
+that no match can be missed: the rightmost segment is looked up in the
+$\tau$+1-th index, the second rightmost segment and the contiguous
+segments shifted by 1 nucleotides are are looked up in the $\tau$-th
+index and so on, until the first segment and its contiguous segments
+shifted by up to $\tau$ nucleotides are looked up in the first index.
 
 \begin{figure}[!tpb]
 \centerline{\includegraphics{filtration.pdf}}
@@ -294,12 +298,12 @@ the pseudocode shown in Algorithms~\ref{alg:starcode} and
     \State $height \gets$ \textsc{determine} maximum sequence length
     \State \textsc{pad} sequences up to $height$
     \State \textsc{sort} sequences alphabetically
-    \State $k \gets$ \textsc{compute} lookup word lengths
+    \State $k \gets$ \textsc{compute} filter segment lengths
     \State $trie \gets$ \textsc{create} an empty trie of height $height$
     \State \textsc{insert} root node of $trie$ in $pebbles$ at depth 0
     \ForAll{sequences}
     \State $seq \gets$ \textsc{get} next sequence
-    \If{at least one $k$-mer of $seq$ is in the lookup table}
+    \If{at least one $k$-mer of $seq$ is in the filter index}
     \State $seed \gets$ \textsc{length} of shared prefix
     between current and next sequence
     \State $start \gets$ \textsc{length} of shared prefix
@@ -315,7 +319,7 @@ the pseudocode shown in Algorithms~\ref{alg:starcode} and
     \State $lastseq \gets seq$
     \EndIf
     \State \textsc{insert} $seq$ path in $trie$
-    \State \textsc{insert} $seq$ $k$-mers into the lookup table
+    \State \textsc{insert} $seq$ $k$-mers into the filter index
     \EndFor
   \end{algorithmic}
 \end{algorithm}
@@ -351,15 +355,15 @@ the pseudocode shown in Algorithms~\ref{alg:starcode} and
 
 \subsection{Parallelization}
 Queries are sorted and partitioned in contiguous blocks.
-The matching step then proceeds in two phases. In the first, a
+The matching step then proceeds in two phases. In the build phase, a
 distinct trie is built from the sequences of each block according
 to the algorithm described above. In the second, all the sequence
-blocks are queried against the tries. If the queries are partitioned
-in $N$ blocks, the first phase consists of $N$ seek and construct
-jobs, wile the second consists of $N(N-1)/2$ query jobs. In each
-phase, the jobs show little dependency on each other, so the
-matching algorithm can be efficiently parallelized provided $N$
-is larger than the number of independent threads.
+blocks are queried against all the other tries. If the queries are
+partitioned in $N$ blocks, the first phase consists of $N$ seek and
+construct jobs, wile the second consists of $N(N-1)/2$ query jobs. In
+each phase, the jobs show no dependency on each other, so the
+matching algorithm can be efficiently parallelized provided $N$ is
+larger than the number of independent threads.
 
 \subsection{Clustering}
 The default clustering algorithm of starcode is designed to correct
@@ -398,20 +402,20 @@ All the tests were performed on a 16-core dual-processor
 Intel Xeon E5-2687W v2 system with 256~GB of DDR3-RAM at
 1866~Mhz. Command-line parameters were set equivalently in all
 softwares to run in single-core mode allowing up to 3 mismatches for
-input sequences of length 50. Execution options used in simulation and
-real datasets are summarized in Table \ref{tab:params1} and Table
-\ref{tab:params2}, respectively.
+input sequences of length 50. Tables \ref{tab:params1} and
+\ref{tab:params2} summarize the execution options used in simulation
+and real data sets, respectively.
 
 \begin{table}[h]
 \centering
 \caption{Software execution options used in simulation benchmark.}
 %\resizebox{\columnwidth}{!}{
 \begin{tabular}{l|l}
-    \bf{software} & \bf{execution options}\\
+    \bf{software} & \bf{command-line options}\\
     \hline
     starcode & \texttt{starcode -d3}\\
     slidesort & \texttt{slidesort\_v2 -d 3 -t E -c DNA}\\
-    cd-hit 4.6.1 & \texttt{cd-hit-est -n 9 -c 0.9 -M 0 -r 0}\\
+    cd-hit-est & \texttt{cd-hit-est -n 9 -c 0.9 -M 0 -r 0}\\
     seed & \texttt{SEED --mismatch 3}\\
 \end{tabular}
 %}
@@ -423,12 +427,13 @@ real datasets are summarized in Table \ref{tab:params1} and Table
 \caption{Software execution options used in real data benchmark.}
 %\resizebox{\columnwidth}{!}{
 \begin{tabular}{l|l}
-    \bf{software} & \bf{execution options}\\
+    \bf{software} & \bf{command-line options}\\
     \hline
     starcode & \texttt{starcode -d3}\\ 
     slidesort & \texttt{slidesort\_v2 -d 3 -u -t E -c DNA}\\
-    cd-hit 4.6.1 & \texttt{cd-hit-est -n 8 -c 0.94 -M 0}\\
+    cd-hit-est & \texttt{cd-hit-est -n 8 -c 0.94 -M 0}\\
     seed & \texttt{SEED --mismatch 3 --shift 3}\\ 
+    rainbow & \texttt{rainbow cluster -m 3}
 \end{tabular}
 %}
 \label{tab:params2}
@@ -447,21 +452,25 @@ insertions or deletions (the implementation presented here matches
 sequences with up to 8 errors). The input sequences can be single
 or paired-end reads, with an upper limit of 1024 nucleotides (512
 for paired-end). Sequences may be of variable length, they may
-be trimmed and filtered for quality or not. Input formats may be raw
-sequence, FASTA or FASTQ (in which case starcode ignores the quality).
-By default, starcode outputs sequence clusters, it can also be used
-to filter out redundant sequences from input files. By default,
-clustering is performed under the assumption that divergence occurs
-from experimental errors (sequencing errors, PCR mutations
-\textit{etc}.), a more general algorithm is also available for other
-clustering problems (an example of which is given in section
-\ref{section:motifs}).
+be trimmed and filtered for quality or not. File formats compatible
+with starcode are: raw sequence, raw sequence with count, FASTA or
+FASTQ (in which case starcode ignores the quality). Starcode has two
+output formats: cluster and non-redundant. In cluster mode, starcode
+returns detailed information of the clustering results, i.e. canonical
+sequences, cluster sizes and the complete list of their constituent
+sequences. In non-redundant mode, only the canonical sequences are
+printed. The second mode is especially useful to filter out redundant
+sequences from input files. By default, clustering is performed under
+the assumption that divergence occurs from experimental errors
+(sequencing errors, PCR mutations \textit{etc}.), a more general
+algorithm is also available for other clustering problems (an example
+of which is given in section \ref{section:motifs}).
 
 We show the basic performance and scalability of starcode on a
 dataset of pseudo random sequences (Figure \ref{fig:perf}). The standard
 configuration is a set of 1,000,000 sequences of length 40, running
-on 1 thread and with a maximum Levenshtein distance of 3. Only one
-parameter is modified whereas the others were kept constant. 
+on 1 thread and with a maximum Levenshtein distance of 3. In each
+test, only one parameter is modified while the others are kept constant.
 
 Figure \ref{fig:perf}a shows the running time of starcode as a
 function of the number of input sequences $n$. In double logarithmic
@@ -483,8 +492,8 @@ of threads in Figure \ref{fig:perf}d. The search algorithm is fully
 parallel and the relative performance increases linearly up to 12 threads.
 The bending observed thereafter has two sources. The first is 
 that the input reading and clustering steps are brief but not parallel,
-the second is that there is insufficient memory bandwidth to satisfy
-the increased demand of memory accesses due to hardware limitations.
+the second is due to hardware limitations, i.e. there is insufficient
+memory bandwidth to satisfy the increased demand of parallel memory accesses.
 
 \begin{figure}[!tpb]
 % Basic performance figure.
@@ -505,7 +514,7 @@ rainbow \citep{pmid22942077} and cd-hit \citep{pmid23060610}. Even though
 slidesort is an all-pairs search algorithm, it was included in the
 benchmark because sequence comparison is the most computationally
 intensive step of the sequence clustering problem. Rainbow runs
-exclusively on paired-end reads, while the other tools run on single
+exclusively on paired-end reads, whereas the other tools run on single
 reads, for this reason all the tools could not be run no the same
 dataset.
 
@@ -549,29 +558,36 @@ of starcode decreases as the size of the cluster increases.}
 While starcode achieves perfect clustering on all 4 datasets, the
 clustering achieved by seed and cd-hit is incomplete. Both tools
 identify approximately 40 false clusters per true cluster on all
-the datasets. We also observed that slidesort found 5-10\% less
-3-matches than starcode on all the datasets. We were surprised by
+the datasets (Figure \ref{fig:benchmark}a). We also observed that
+slidesort found 5-10\% less 3-matches than starcode on all the
+datasets (Figure \ref{fig:benchmark}b). We were surprised by 
 this result because slidesort is claimed to be an exact algorithm.
 However, this was clearly not the case when we ran additional tests
-on smaller datasets where naive pairwise comparisons is feasible
+on smaller datasets where naive pairwise comparisons are feasible
 (the starcode repository contains such a dataset along with the
 instructions to reproduce our observations, see
 http://github.com/gui11aume/starcode/misc).
 
 The running time of the different tools as a function of the size
-of the clusters is shown on Figure \ref{fig:benchmark}c. For seed
-and cd-hit it decreases as the cluster size increases, whereas
-for starcode and slidesort it increases. In spite of this trend,
-the performance of starcode remains competitive, even for clusters
-of 1 million sequences. The memory usage is shown in Figure
+of the clusters is shown on Figure \ref{fig:benchmark}c. The running
+time of slidesort and starcode show a linear and sub-linear increase,
+respectively. Seed and cd-hit run approximately in constant time
+regardless of the cluster size. In spite of this trend, the
+performance of starcode remains competitive, even for clusters of 1
+million sequences. The memory usage is shown in Figure
 \ref{fig:benchmark}c. The smallest memory footprint is achieved by
-slidesort and cd-hit. The memory usage of starcode is the highest
-for clusters of size 1000, but it decreases and becomes lower than
-the memory usage of seed as the size of the cluster increases.
+slidesort and cd-hit, with a maximum difference of an order of
+magnitude with respect to the other tools. Comparing with
+slidesort is not completely fair since it does not hold in memory the
+full graph necessary for clustering, which is by far the most memory
+demanding structure. The memory usage of starcode is the highest for
+clusters of size 1000, but it decreases and becomes lower than the
+memory usage of seed as the size of the cluster increases.
 
 In conclusion, starcode was the only tool to achieve perfect precision
-on these datasets. It also maintains a competitive performance in
-terms of running time and memory usage.
+on these datasets at a price of increased memory
+footprint. Considering the exactness of the output, starcode maintains
+a competitive performance in terms of running time.
 
 
 %% Biological datasets %%
@@ -579,14 +595,14 @@ The performance on artificial data is not always in agreement with
 the performance on experimental datasets. Typical experiments present
 additional difficulties. For instance,
 the sizes of the clusters may be uneven and the reads may contain near
-constant regions that may degrade the performance of the algorithm.
-We benchmarked sequence clustering algorithms on the problem of
-clustering TRIP barcodes \citep{pmid23953119}. Briefly, the principle
-of TRIP (Thousands of Reporters Integrated in Parallel) is to tag
-reporter transcripts with random barcodes and measure the abundance
-of barcodes in the RNA as a proxy for gene expression. There is no
-reference to match aberrant barcodes against, because the tagging
-sequences are unknown.
+constant regions that usually degrade the performance of filter-based
+algorithms. We benchmarked sequence clustering algorithms on the
+problem of clustering TRIP barcodes \citep{pmid23953119}. Briefly, the
+principle of TRIP (Thousands of Reporters Integrated in Parallel) is
+to tag reporter transcripts with random barcodes and measure the
+abundance of barcodes in the RNA as a proxy for gene expression. There
+is no reference to match aberrant barcodes against, because the
+tagging sequences are unknown.
 
 The basic properties of the datasets used for benchmarking are
 summarized in Table~\ref{tab:biobench_properties}. Datasets 1 and 2
@@ -594,7 +610,7 @@ consist of Illumina single reads; they differ by the total read count
 and by the empirical cluster sizes. According to the output of starcode,
 the largest clusters of dataset 1 contain approximately 2,000 sequences,
 while dataset 2 contains 4 clusters with more than 1 million sequences.
-Dataset 3 consist of paired-end reads.
+Dataset 3 consists of paired-end reads.
 
 \begin{table}[h]
 \centering
@@ -605,7 +621,7 @@ All the datasets are Illumina reads.}
     \textit{read length} & \textit{type} \\ \hline
     dataset 1 & 16,457,527   & 50  & single      \\
     dataset 2 & 127,675,537  & 50  & single      \\
-    dataset 3 & 2,460,226    & 100  & paired-end \\
+    dataset 3 & 2,460,226    & 50+50  & paired-end \\
 \end{tabular}
 \label{tab:biobench_properties}
 \end{table}

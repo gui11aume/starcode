@@ -1,11 +1,11 @@
-This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2014.4.27)  4 NOV 2014 16:23
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2014.11.3)  5 NOV 2014 11:07
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
 **document.tex
 (./document.tex
 LaTeX2e <2011/06/27>
-Babel <3.9h> and hyphenation patterns for 78 languages loaded.
+Babel <3.9h> and hyphenation patterns for 2 languages loaded.
 (./bioinfo.cls
 Document Class: bioinfo 2003/02/08 0.1
 (/usr/share/texlive/texmf-dist/tex/latex/base/inputenc.sty
@@ -414,18 +414,18 @@ Underfull \hbox (badness 1043) in paragraph at lines 67--75
 <NW.pdf, id=1, 227.62039pt x 142.26149pt>
 File: NW.pdf Graphic file (type pdf)
  <use NW.pdf>
-Package pdftex.def Info: NW.pdf used on input line 111.
+Package pdftex.def Info: NW.pdf used on input line 113.
 (pdftex.def)             Requested size: 227.61983pt x 142.26112pt.
 LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <8> not available
-(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 131.
-LaTeX Font Info:    Try loading font information for OMS+phv on input line 158.
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 133.
+LaTeX Font Info:    Try loading font information for OMS+phv on input line 160.
 
 
 (/usr/share/texlive/texmf-dist/tex/latex/psnfss/omsphv.fd
 File: omsphv.fd 
 )
 LaTeX Font Info:    Font shape `OMS/phv/m/n' in size <7> not available
-(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 158.
+(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 160.
  [1
 
 {/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}
@@ -435,18 +435,18 @@ LaTeX Font Info:    Font shape `OMS/phv/m/n' in size <7> not available
 <trie.pdf, id=22, 250.28908pt x 213.39726pt>
 File: trie.pdf Graphic file (type pdf)
  <use trie.pdf>
-Package pdftex.def Info: trie.pdf used on input line 160.
+Package pdftex.def Info: trie.pdf used on input line 162.
 (pdftex.def)             Requested size: 250.28847pt x 213.39673pt.
 
 <poucet.pdf, id=23, 241.84352pt x 170.7178pt>
 File: poucet.pdf Graphic file (type pdf)
  <use poucet.pdf>
-Package pdftex.def Info: poucet.pdf used on input line 204.
+Package pdftex.def Info: poucet.pdf used on input line 206.
 (pdftex.def)             Requested size: 241.84293pt x 170.71738pt.
 LaTeX Font Info:    Font shape `OT1/phv/bx/it' in size <8> not available
-(Font)              Font shape `OT1/phv/b/it' tried instead on input line 231.
+(Font)              Font shape `OT1/phv/b/it' tried instead on input line 235.
 LaTeX Font Info:    Font shape `OT1/phv/b/it' in size <8> not available
-(Font)              Font shape `OT1/phv/b/sl' tried instead on input line 231.
+(Font)              Font shape `OT1/phv/b/sl' tried instead on input line 235.
 
 Overfull \hbox (261.0pt too wide) has occurred while \output is active
 [][] 
@@ -464,16 +464,10 @@ Overfull \hbox (261.0pt too wide) has occurred while \output is active
 <filtration.pdf, id=117, 250.38544pt x 113.81522pt>
 File: filtration.pdf Graphic file (type pdf)
  <use filtration.pdf>
-Package pdftex.def Info: filtration.pdf used on input line 257.
+Package pdftex.def Info: filtration.pdf used on input line 261.
 (pdftex.def)             Requested size: 250.38481pt x 113.81493pt.
 LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <9> not available
-(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 286.
-
-Underfull \hbox (badness 2653) in paragraph at lines 365--380
-\OT1/ptm/m/n/8 The default clustering algorithm of starcode is designed to corr
-ect
- []
-
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 290.
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
@@ -486,29 +480,33 @@ Overfull \hbox (261.0pt too wide) has occurred while \output is active
 Overfull \vbox (1.0pt too high) has occurred while \output is active []
 
  [3 <./filtration.pdf>]
-Underfull \hbox (badness 4013) in paragraph at lines 387--395
+Underfull \hbox (badness 2653) in paragraph at lines 369--384
+\OT1/ptm/m/n/8 The default clustering algorithm of starcode is designed to corr
+ect
+ []
+
+
+Underfull \hbox (badness 4013) in paragraph at lines 391--399
 \OT1/ptm/m/n/8 purpose algorithm called ``sphere clustering''. In sphere cluste
 ring,
  []
 
-LaTeX Font Info:    Try loading font information for OT1+pcr on input line 412.
+LaTeX Font Info:    Try loading font information for OT1+pcr on input line 416.
 
 (/usr/share/texlive/texmf-dist/tex/latex/psnfss/ot1pcr.fd
 File: ot1pcr.fd 2001/06/04 font definitions for OT1/pcr.
 )
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+
 <scalability.pdf, id=147, 505.89pt x 505.89pt>
 File: scalability.pdf Graphic file (type pdf)
  <use scalability.pdf>
-Package pdftex.def Info: scalability.pdf used on input line 491.
+Package pdftex.def Info: scalability.pdf used on input line 500.
 (pdftex.def)             Requested size: 237.76833pt x 237.76833pt.
 
-Underfull \hbox (badness 7667) in paragraph at lines 502--511
+Underfull \hbox (badness 7667) in paragraph at lines 511--520
 \OT1/ptm/m/n/9 We benchmarked starcode against the sequence clustering
- []
-
-
-Underfull \hbox (badness 1590) in paragraph at lines 513--531
-[]\OT1/ptm/m/n/9 The performance of sequence clustering algorithms can be
  []
 
 
@@ -524,28 +522,16 @@ Overfull \hbox (261.0pt too wide) has occurred while \output is active
 [][] 
  []
 
-[4] <benchmark.pdf, id=152, 505.89pt x 505.89pt>
+[4]
+Underfull \hbox (badness 1590) in paragraph at lines 522--540
+[]\OT1/ptm/m/n/9 The performance of sequence clustering algorithms can be
+ []
+
+<benchmark.pdf, id=152, 505.89pt x 505.89pt>
 File: benchmark.pdf Graphic file (type pdf)
  <use benchmark.pdf>
-Package pdftex.def Info: benchmark.pdf used on input line 533.
+Package pdftex.def Info: benchmark.pdf used on input line 542.
 (pdftex.def)             Requested size: 237.76833pt x 237.76833pt.
-
-Underfull \hbox (badness 1184) in paragraph at lines 549--560
-\OT1/ptm/m/n/9 tools identify approximately 40 false clusters per true cluster
- []
-
-
-Underfull \hbox (badness 2293) in paragraph at lines 572--575
-\OT1/ptm/m/n/9 precision on these datasets. It also maintains a competitive
- []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-
-LaTeX Warning: `h' float specifier changed to `ht'.
-
 
 Overfull \hbox (261.0pt too wide) has occurred while \output is active
 [][] 
@@ -555,34 +541,40 @@ Overfull \hbox (261.0pt too wide) has occurred while \output is active
 Overfull \vbox (1.0pt too high) has occurred while \output is active []
 
  [5 <./scalability.pdf> <./benchmark.pdf>]
-Underfull \hbox (badness 1661) in paragraph at lines 664--675
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+
+Underfull \hbox (badness 1661) in paragraph at lines 680--691
 \OT1/ptm/m/n/9 for other applications, such as the identification of enriched
  []
 
 
-Underfull \hbox (badness 1253) in paragraph at lines 664--675
+Underfull \hbox (badness 1253) in paragraph at lines 680--691
 \OT1/ptm/m/n/9 targeting them to the sites where they act. Identifying those
  []
 
 Missing character: There is no   in font ptmr7t!
 
-Underfull \hbox (badness 1571) in paragraph at lines 696--716
+Underfull \hbox (badness 1571) in paragraph at lines 712--732
 \OT1/ptm/m/n/9 RNA GA-rich motifs, but there is some disagreement about
  []
 
 
-Underfull \hbox (badness 1783) in paragraph at lines 696--716
+Underfull \hbox (badness 1783) in paragraph at lines 712--732
 \OT1/ptm/m/n/9 the motif that it recognizes (Pandit \OT1/ptm/m/it/9 et al.\OT1/
 ptm/m/n/9 , 2013). For each
  []
 
 
-Underfull \hbox (badness 1708) in paragraph at lines 696--716
+Underfull \hbox (badness 1708) in paragraph at lines 712--732
 \OT1/ptm/m/n/9 10-mer is thus the sum of the ranks of all 10-mers within
  []
 
 
-Underfull \vbox (badness 10000) has occurred while \output is active []
+Underfull \hbox (badness 1147) in paragraph at lines 743--757
+\OT1/ptm/m/n/9 genomes and in experimental data. Here we have given two
+ []
 
 
 Overfull \hbox (261.0pt too wide) has occurred while \output is active
@@ -598,23 +590,38 @@ Overfull \hbox (261.0pt too wide) has occurred while \output is active
  []
 
 [6]
-Underfull \hbox (badness 2903) in paragraph at lines 784--790
+Underfull \hbox (badness 2521) in paragraph at lines 758--767
+\OT1/ptm/m/n/9 sequences. When clustering related but divergent sequences,
+ []
+
+
+Underfull \hbox (badness 2158) in paragraph at lines 758--767
+\OT1/ptm/m/n/9 the Levenshtein distance will have to be increased, leading
+ []
+
+
+Underfull \hbox (badness 1661) in paragraph at lines 758--767
+\OT1/ptm/m/n/9 to exponentially longer running times (Figure 5[]b). However,
+ []
+
+
+Underfull \hbox (badness 2903) in paragraph at lines 782--788
  \OT1/ptm/m/it/9 Funding[][] \OT1/ptm/m/n/9 The research leading to these resul
 ts has received
  []
 
 
-Underfull \hbox (badness 1983) in paragraph at lines 784--790
+Underfull \hbox (badness 1983) in paragraph at lines 782--788
 \OT1/ptm/m/n/9 and Knowledge) and the Spanish Ministry of Economy and
  []
 
 
-Underfull \hbox (badness 2903) in paragraph at lines 784--790
+Underfull \hbox (badness 2903) in paragraph at lines 782--788
 \OT1/ptm/m/n/9 (SEV-2012-0208). P.C. fellowship is partly financed by the
  []
 
 
-Underfull \hbox (badness 1502) in paragraph at lines 784--790
+Underfull \hbox (badness 1502) in paragraph at lines 782--788
 \OT1/ptm/m/n/9 Subprogram: predoctoral fellowships for the training of PhD
  []
 
@@ -629,38 +636,45 @@ Missing character: There is no ¦ in font ptmr7t!
 )
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-Extra height:20.24243pt when 502.37894pt
+Extra height:20.24243pt when 496.87894pt
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-Extra height:20.24243pt when 503.37894pt
+Extra height:20.24243pt when 497.87894pt
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-Extra height:20.24243pt when 504.37894pt
+Extra height:20.24243pt when 498.87894pt
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-Extra height:20.24243pt when 505.37894pt
+Extra height:20.24243pt when 499.87894pt
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-Extra height:20.24243pt when 506.37894pt
+Extra height:20.24243pt when 500.87894pt
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-Extra height:20.24243pt when 507.37894pt
+Extra height:20.24243pt when 501.87894pt
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-Extra height:0.0pt when 508.37894pt
-(2)Left:508.37894pt Right:508.75787pt Output:508.37894pt
-(2)Left:508.75787pt Right:508.75787pt Output:508.75787pt
+Extra height:20.24243pt when 502.87894pt
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+Extra height:20.24243pt when 503.87894pt
+Extra height:0.0pt when 504.87894pt
+(2)Left:504.87894pt Right:490.75787pt Output:504.87894pt
 - LAST -
 Extra skip:0.0pt
-Left:508.75787pt
-Right:508.75787pt
-Output:508.75787pt
+Left:504.87894pt
+Right:490.75787pt
+Output:504.87894pt
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
 
 Overfull \hbox (261.0pt too wide) has occurred while \output is active
 [][] 
@@ -677,12 +691,12 @@ LaTeX Font Warning: Size substitutions with differences
 
  ) 
 Here is how much of TeX's memory you used:
- 3994 strings out of 493304
- 51674 string characters out of 6139871
- 145379 words of memory out of 5000000
- 7324 multiletter control sequences out of 15000+600000
+ 3994 strings out of 495028
+ 51674 string characters out of 6181497
+ 140814 words of memory out of 5000000
+ 7075 multiletter control sequences out of 15000+600000
  54509 words of font info for 109 fonts, out of 8000000 for 9000
- 961 hyphenation exceptions out of 8191
+ 18 hyphenation exceptions out of 8191
  38i,11n,28p,1311b,371s stack positions out of 5000i,500n,10000p,200000b,80000s
 {/usr/share/texlive/texmf-dist/fonts/enc/dvips/base/8r.enc}</usr/share/texliv
 e/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb></usr/share/texlive/texmf
@@ -700,7 +714,7 @@ e/texmf-dist/fonts/type1/urw/helvetic/uhvb8a.pfb></usr/share/texlive/texmf-dist
 ic/uhvro8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmb8a.pfb>
 </usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></usr/share/tex
 live/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on document.pdf (7 pages, 1257887 bytes).
+Output written on document.pdf (7 pages, 1258490 bytes).
 PDF statistics:
  231 PDF objects out of 1000 (max. 8388607)
  124 compressed objects within 2 object streams

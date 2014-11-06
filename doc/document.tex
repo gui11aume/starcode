@@ -515,7 +515,7 @@ slidesort is an all-pairs search algorithm, it was included in the
 benchmark because sequence comparison is the most computationally
 intensive step of the sequence clustering problem. Rainbow runs
 exclusively on paired-end reads, whereas the other tools run on single
-reads, for this reason all the tools could not be run no the same
+reads, for this reason all the tools could not be run on the same
 dataset.
 
 %% Synthetic data %%
@@ -529,7 +529,7 @@ of 100 repeats of the same centroid sequence, plus satellites
 derived from the centroid by incorporating 3 errors including at
 most 1 indel. The number of satellites per cluster ranged from
 999900 to 900. Rainbow was not tested on this benchmark because
-the generated data is single reads. In addition, evaluating the
+the generated data are single reads. In addition, evaluating the
 exactness of slidesort 
 was problematic because the number of 3-matches in each dataset is
 not known (pairs of statellites in the same cluster may be 3-matches
@@ -570,7 +570,7 @@ http://github.com/gui11aume/starcode/misc).
 
 The running time of the different tools as a function of the size
 of the clusters is shown on Figure \ref{fig:benchmark}c. The running
-time of slidesort and starcode show a linear and sub-linear trends,
+time of slidesort and starcode show linear and sub-linear trends,
 respectively. Seed and cd-hit run approximately in constant time
 regardless of the cluster size. In spite of this result, the
 performance of starcode remains competitive, even for clusters of 1
@@ -608,7 +608,7 @@ The basic properties of the datasets used for benchmarking are
 summarized in Table~\ref{tab:biobench_properties}. Dataset 1
 (SRR950457) has been pre-processed to extract the barcode and remove
 the constant part of the reads. Only barcodes between 15 and 17
-nucleotides were included in the file. Dataset 2 (SRRHENCHI) consists
+nucleotides were included in the file. Dataset 2 (SRRxxxxxx) consists
 of raw Illumina single reads. These datasets differ by the read size,
 the total read count and by the empirical cluster sizes. According to
 the output of starcode, the largest clusters of dataset 1 contain
@@ -636,7 +636,7 @@ distance threshold for the first dataset to compensate for the reduced
 sequence length. Both starcode and slidesort were executed with
 the option '-d 2' and the identity for cd-hit was set to '-c 0.85'. We
 were not able to run seed on dataset 1 due to limitations on the
-minimum input sequence length. Starcode was faster than the other
+minimum sequence length. Starcode was significantly faster than the other
 tools on all the datasets. CD-HIT and seed came in second position
 with a running time approximately 35 and 20 times greater on datasets
 1 and 2, respectively. Rainbow was nearly an order of magnitude slower
@@ -676,8 +676,8 @@ step to perform future clustering.
 \centering
 \caption{Memory usage (in GB).}
 \begin{tabular}{l|c c c}
-    \textit{software}   & \textit{dataset 1} &
-      \textit{dataset 2} & \textit{dataset 3} \\ \hline
+    \textit{software}   & \textit{SRR950457} &
+      \textit{SRRxxxxxx} & \textit{SRR950477} \\ \hline
     starcode   & 0.65 & 30.9 & 5.2 \\
     seed       & -    & 53.9 & -   \\
     sidesort   & 1.30 & 13.9 & -   \\

@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2014.11.3)  5 NOV 2014 11:07
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2014.11.3)  6 NOV 2014 11:42
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -541,39 +541,35 @@ Overfull \hbox (261.0pt too wide) has occurred while \output is active
 Overfull \vbox (1.0pt too high) has occurred while \output is active []
 
  [5 <./scalability.pdf> <./benchmark.pdf>]
+Underfull \hbox (badness 1400) in paragraph at lines 633--646
+\OT1/ptm/m/n/9 threshold for the first dataset to compensate for the reduced
+ []
 
-LaTeX Warning: `h' float specifier changed to `ht'.
 
-
-Underfull \hbox (badness 1661) in paragraph at lines 680--691
+Underfull \hbox (badness 1661) in paragraph at lines 693--704
 \OT1/ptm/m/n/9 for other applications, such as the identification of enriched
  []
 
 
-Underfull \hbox (badness 1253) in paragraph at lines 680--691
+Underfull \hbox (badness 1253) in paragraph at lines 693--704
 \OT1/ptm/m/n/9 targeting them to the sites where they act. Identifying those
  []
 
 Missing character: There is no   in font ptmr7t!
 
-Underfull \hbox (badness 1571) in paragraph at lines 712--732
+Underfull \hbox (badness 1571) in paragraph at lines 725--745
 \OT1/ptm/m/n/9 RNA GA-rich motifs, but there is some disagreement about
  []
 
 
-Underfull \hbox (badness 1783) in paragraph at lines 712--732
+Underfull \hbox (badness 1783) in paragraph at lines 725--745
 \OT1/ptm/m/n/9 the motif that it recognizes (Pandit \OT1/ptm/m/it/9 et al.\OT1/
 ptm/m/n/9 , 2013). For each
  []
 
 
-Underfull \hbox (badness 1708) in paragraph at lines 712--732
+Underfull \hbox (badness 1708) in paragraph at lines 725--745
 \OT1/ptm/m/n/9 10-mer is thus the sum of the ranks of all 10-mers within
- []
-
-
-Underfull \hbox (badness 1147) in paragraph at lines 743--757
-\OT1/ptm/m/n/9 genomes and in experimental data. Here we have given two
  []
 
 
@@ -590,38 +586,43 @@ Overfull \hbox (261.0pt too wide) has occurred while \output is active
  []
 
 [6]
-Underfull \hbox (badness 2521) in paragraph at lines 758--767
+Underfull \hbox (badness 1147) in paragraph at lines 756--770
+\OT1/ptm/m/n/9 genomes and in experimental data. Here we have given two
+ []
+
+
+Underfull \hbox (badness 2521) in paragraph at lines 771--780
 \OT1/ptm/m/n/9 sequences. When clustering related but divergent sequences,
  []
 
 
-Underfull \hbox (badness 2158) in paragraph at lines 758--767
+Underfull \hbox (badness 2158) in paragraph at lines 771--780
 \OT1/ptm/m/n/9 the Levenshtein distance will have to be increased, leading
  []
 
 
-Underfull \hbox (badness 1661) in paragraph at lines 758--767
+Underfull \hbox (badness 1661) in paragraph at lines 771--780
 \OT1/ptm/m/n/9 to exponentially longer running times (Figure 5[]b). However,
  []
 
 
-Underfull \hbox (badness 2903) in paragraph at lines 782--788
+Underfull \hbox (badness 2903) in paragraph at lines 795--801
  \OT1/ptm/m/it/9 Funding[][] \OT1/ptm/m/n/9 The research leading to these resul
 ts has received
  []
 
 
-Underfull \hbox (badness 1983) in paragraph at lines 782--788
+Underfull \hbox (badness 1983) in paragraph at lines 795--801
 \OT1/ptm/m/n/9 and Knowledge) and the Spanish Ministry of Economy and
  []
 
 
-Underfull \hbox (badness 2903) in paragraph at lines 782--788
+Underfull \hbox (badness 2903) in paragraph at lines 795--801
 \OT1/ptm/m/n/9 (SEV-2012-0208). P.C. fellowship is partly financed by the
  []
 
 
-Underfull \hbox (badness 1502) in paragraph at lines 782--788
+Underfull \hbox (badness 1502) in paragraph at lines 795--801
 \OT1/ptm/m/n/9 Subprogram: predoctoral fellowships for the training of PhD
  []
 
@@ -634,44 +635,13 @@ Missing character: There is no â in font ptmr7t!
 Missing character: There is no € in font ptmr7t!
 Missing character: There is no ¦ in font ptmr7t!
 )
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:20.24243pt when 496.87894pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:20.24243pt when 497.87894pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:20.24243pt when 498.87894pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:20.24243pt when 499.87894pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:20.24243pt when 500.87894pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:20.24243pt when 501.87894pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:20.24243pt when 502.87894pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:20.24243pt when 503.87894pt
-Extra height:0.0pt when 504.87894pt
-(2)Left:504.87894pt Right:490.75787pt Output:504.87894pt
+Extra height:0.0pt when 580.6982pt
+(2)Left:580.6982pt Right:574.39641pt Output:580.6982pt
 - LAST -
 Extra skip:0.0pt
-Left:504.87894pt
-Right:490.75787pt
-Output:504.87894pt
+Left:580.6982pt
+Right:574.39641pt
+Output:580.6982pt
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
@@ -693,7 +663,7 @@ LaTeX Font Warning: Size substitutions with differences
 Here is how much of TeX's memory you used:
  3994 strings out of 495028
  51674 string characters out of 6181497
- 140814 words of memory out of 5000000
+ 144817 words of memory out of 5000000
  7075 multiletter control sequences out of 15000+600000
  54509 words of font info for 109 fonts, out of 8000000 for 9000
  18 hyphenation exceptions out of 8191
@@ -714,7 +684,7 @@ e/texmf-dist/fonts/type1/urw/helvetic/uhvb8a.pfb></usr/share/texlive/texmf-dist
 ic/uhvro8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmb8a.pfb>
 </usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></usr/share/tex
 live/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on document.pdf (7 pages, 1258490 bytes).
+Output written on document.pdf (7 pages, 1259766 bytes).
 PDF statistics:
  231 PDF objects out of 1000 (max. 8388607)
  124 compressed objects within 2 object streams

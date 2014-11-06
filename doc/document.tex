@@ -570,17 +570,17 @@ http://github.com/gui11aume/starcode/misc).
 
 The running time of the different tools as a function of the size
 of the clusters is shown on Figure \ref{fig:benchmark}c. The running
-time of slidesort and starcode show a linear and sub-linear increase,
+time of slidesort and starcode show a linear and sub-linear trends,
 respectively. Seed and cd-hit run approximately in constant time
-regardless of the cluster size. In spite of this trend, the
+regardless of the cluster size. In spite of this result, the
 performance of starcode remains competitive, even for clusters of 1
 million sequences. The memory usage is shown in Figure
 \ref{fig:benchmark}c. The smallest memory footprint is achieved by
 slidesort and cd-hit, with a maximum difference of an order of
-magnitude with respect to the other tools. Comparing with
+magnitude with respect to the other tools. Note that the comparison with
 slidesort is not completely fair since it does not hold in memory the
-full graph necessary for clustering, which is by far the most memory
-demanding structure. The memory usage of starcode is the highest for
+full graph necessary for clustering (which is by far the most memory
+demanding structure). The memory usage of starcode is the highest for
 clusters of size 1000, but it decreases and becomes lower than the
 memory usage of seed as the size of the cluster increases.
 
@@ -605,13 +605,17 @@ is no reference to match aberrant barcodes against, because the
 tagging sequences are unknown.
 
 The basic properties of the datasets used for benchmarking are
-summarized in Table~\ref{tab:biobench_properties}. Datasets 1 and 2
-consist of Illumina single reads; they differ by the total read count
-and by the empirical cluster sizes. According to the output of starcode,
-the largest clusters of dataset 1 contain approximately 2,000 sequences,
-while dataset 2 contains 4 clusters with more than 1 million sequences.
-Dataset 3 consists of paired-end reads.
-
+summarized in Table~\ref{tab:biobench_properties}. Dataset 1
+(SRR950457) has been pre-processed to extract the barcode and remove
+the constant part of the reads. Only barcodes between 15 and 17
+nucleotides were included in the file. Dataset 2 (SRRHENCHI) consists
+of raw Illumina single reads. These datasets differ by the read size,
+the total read count and by the empirical cluster sizes. According to
+the output of starcode, the largest clusters of dataset 1 contain
+approximately 70,000 sequences, whereas dataset 2 contains 4 clusters
+with more than 1 million sequences. Dataset 3 (SRR950477) has been
+included to benchmark starcode against rainbow in paired-end
+clustering mode.
 \begin{table}[h]
 \centering
 \caption{Summary of the biological datasets used for benchmarking.
@@ -619,21 +623,26 @@ All the datasets are Illumina reads.}
 \begin{tabular}{l|l c r}
     \textit{dataset}   & \textit{read count} &
     \textit{read length} & \textit{type} \\ \hline
-    dataset 1 & 16,457,527   & 50  & single      \\
-    dataset 2 & 127,675,537  & 50  & single      \\
-    dataset 3 & 2,460,226    & 50+50  & paired-end \\
+    SRR950457 & 6,542,309    & 16     & single     \\
+    SRRxxxxxx & 127,675,537  & 50     & single     \\
+    SRR950477 & 2,460,226    & 50+50  & paired-end \\
 \end{tabular}
 \label{tab:biobench_properties}
 \end{table}
 
 The running times of starcode, seed, slidesort, rainbow and cd-hit
-are summarized in Table~\ref{tab:biobench_runtime}. Starcode was faster
-than the other tools on all the datasets. Seed came in second position
-on datasets 1 and 2, with a running time approximately 800 and 20 times
-greater, respectively. Rainbow came in second position on dataset 3,
-but it is the only other tool able to cluster paired-end reads. We did not
-record the exact running times past 10 days since this is several
-orders of magnitude higher than the running time of starcode.
+are summarized in Table~\ref{tab:biobench_runtime}. We accommodated the
+distance threshold for the first dataset to compensate for the reduced
+sequence length. Both starcode and slidesort were executed with
+the option '-d 2' and the identity for cd-hit was set to '-c 0.85'. We
+were not able to run seed on dataset 1 due to limitations on the
+minimum input sequence length. Starcode was faster than the other
+tools on all the datasets. CD-HIT and seed came in second position
+with a running time approximately 35 and 20 times greater on datasets
+1 and 2, respectively. Rainbow was nearly an order of magnitude slower
+in the job of clustering paired-end reads. We did not record the exact
+running times past 10 days since this is several orders of magnitude
+higher than the running time of starcode.
 
 \begin{table}[h]
 \centering
@@ -641,23 +650,27 @@ orders of magnitude higher than the running time of starcode.
 datasets. Runs longer than 10 days were interrupted. A dash indicates
 that the software cannot be used for this dataset.}
 \begin{tabular}{l|c c c}
-    \textit{software}   & \textit{dataset 1} &
-      \textit{dataset 2} & \textit{dataset 3} \\ \hline
-    starcode   & 171         & 2,898       & 44    \\
-    seed       & 135,959     & 60,374      & -     \\
-    sidesort   & 632,168     & $>$ 10 days & -     \\
+    \textit{software}   & \textit{SRR950457} &
+      \textit{SRRxxxxxx} & \textit{SRR950477} \\ \hline
+    starcode   & 5           & 2,898       & 44    \\
+    seed       & -           & 60,374      & -     \\
+    sidesort   & 4,055       & $>$ 10 days & -     \\
     rainbow    & -           & -           & 306   \\
-    cd-hit-est & $>$ 10 days & 512,591     & -     \\
+    cd-hit-est & 170         & 512,591     & -     \\
 \end{tabular}
 \label{tab:biobench_runtime}
 \end{table}
 
 The memory footprint of the different tools on the same datasets is
 shown in Table~\ref{tab:biobench_memory}. The values represent the
-peak memory usage throughout the run on the datasets described above.
-On datasets 1 and 3, starcode had a significantly larger memory usage
-than the best tool, while on dataset 2 it used significantly less
-memory than seed and approximately as much as cd-hit.
+peak memory usage throughout the run on the datasets described
+above. On short reads (dataset 1), starcode outperforms the other
+tools taking advantage of the trie compaction. On dataset 3, starcode
+had a significantly larger memory usage than rainbow. Starcode and
+cd-hit used the same amount of memory on dataset 2. Both needed twice
+as much memory as slidesort, which runs in advantage because it does
+not need to keep the complete graph during the all-pair comparison
+step to perform future clustering.
 
 \begin{table}[h]
 \centering
@@ -665,11 +678,11 @@ memory than seed and approximately as much as cd-hit.
 \begin{tabular}{l|c c c}
     \textit{software}   & \textit{dataset 1} &
       \textit{dataset 2} & \textit{dataset 3} \\ \hline
-    starcode   & 9.4 & 30.9 & 5.2 \\
-    seed       & 4.1 & 53.9 & -   \\
-    sidesort   & 1.9 & 13.9 & -   \\
-    rainbow    & -   & -  & 0.5   \\
-    cd-hit-est & 3.8 & 28.5 & -   \\
+    starcode   & 0.65 & 30.9 & 5.2 \\
+    seed       & -    & 53.9 & -   \\
+    sidesort   & 1.30 & 13.9 & -   \\
+    rainbow    & -    & -    & 0.5 \\
+    cd-hit-est & 0.80 & 28.5 & -   \\
 \end{tabular}
 \label{tab:biobench_memory}
 \end{table}

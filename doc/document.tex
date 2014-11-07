@@ -601,7 +601,7 @@ The basic properties of the datasets used for benchmarking are
 summarized in Table~\ref{tab:biobench_properties}. Dataset 1
 (SRR950457) has been pre-processed to extract the barcode and remove
 the constant part of the reads. Only barcodes between 15 and 17
-nucleotides were included in the file. Dataset 2 (SRRxxxxxx) consists
+nucleotides were included in the file. Dataset 2 (PRJEB7686) consists
 of raw Illumina single reads. These datasets differ by the read size,
 the total read count and by the empirical cluster sizes. According to
 the output of starcode, the largest clusters of dataset 1 contain
@@ -617,7 +617,7 @@ All the datasets are Illumina reads.}
     \textit{dataset}   & \textit{read count} &
     \textit{read length} & \textit{type} \\ \hline
     SRR950457 & 6,542,309    & 16     & single     \\
-    SRRxxxxxx & 127,675,537  & 50     & single     \\
+    PRJEB7686 & 127,675,537  & 50     & single     \\
     SRR950477 & 2,460,226    & 50+50  & paired-end \\
 \end{tabular}
 \label{tab:biobench_properties}
@@ -644,7 +644,7 @@ datasets. Runs longer than 10 days were interrupted. A dash indicates
 that the software cannot be used for this dataset.}
 \begin{tabular}{l|c c c}
     \textit{software}   & \textit{SRR950457} &
-      \textit{SRRxxxxxx} & \textit{SRR950477} \\ \hline
+      \textit{PRJEB7686} & \textit{SRR950477} \\ \hline
     starcode   & 5           & 2,898       & 44    \\
     seed       & -           & 60,374      & -     \\
     sidesort   & 4,055       & $>$ 10 days & -     \\
@@ -670,7 +670,7 @@ step to perform future clustering.
 \caption{Memory usage (in GB).}
 \begin{tabular}{l|c c c}
     \textit{software}   & \textit{SRR950457} &
-      \textit{SRRxxxxxx} & \textit{SRR950477} \\ \hline
+      \textit{PRJEB7686} & \textit{SRR950477} \\ \hline
     starcode   & 0.65 & 30.9 & 5.2 \\
     seed       & -    & 53.9 & -   \\
     sidesort   & 1.30 & 13.9 & -   \\
@@ -737,7 +737,7 @@ RNA may involve a spacer sequence, which would explain the disagreement
 between the motifs derived from 6-mers or 7-mers.
 
 \section{Discussion and conclusion}
-Starocde is a solid algorithm for sequence clustering based on
+Starcode is a solid algorithm for sequence clustering based on
 all-pairs matching. It achieves high precision, and on experimental
 datasets it can be faster than popular heuristics. By design,
 starcode is tailored to process high throughput sequencing data
@@ -759,7 +759,7 @@ consecutive RNA Recognition Motifs (RRM) that are known to bind
 which incorporates insertions and deletions is more likely to capture
 bi-partite binding motifs than position weight matrix representations.
 The use of a clustering method to tackle this problem is unusual, but it
-it illustrates the potential advantages of distance-based approaches.
+illustrates the potential advantages of distance-based approaches.
 
 One of the reasons why starcode appears to be faster than alternative
 tools is that it is designed to cluster relatively similar sequences.

@@ -29,19 +29,18 @@ $^{2}$Universitat Pompeu Fabra (UPF), Barcelona, Spain.}
 The increasing throughput of sequencing technologies offers new
 applications and challenges for computational biology. In many
 of those applications, sequencing errors need to be corrected.
-This is particularly important when using random DNA barcodes to
-trace and quantify transcripts or lineages, since spurious barcodes
-introduce inexistent entities. The reference population of random
-barcodes is unknown and in this case, error correction amounts
-to performing a pairwise comparison of all the barcodes,
-which is unfeasible for excessive computational complexity.
+This is particularly important when sequencing reads from an
+unknwon reference such as random DNA barcodes.
+In this case, error correction can be
+done by performing a pairwise comparison of all the barcodes,
+which is computationally complex problem.
 
 \section{Results:}
-Here we address this problem and describe an exact algorithm to
+Here we address this challenge and describe an exact algorithm to
 determine which pairs of sequences lie within a given Levenshtein
 distance. For error correction or redundancy reduction purposes,
-matched pairs are then merged into clusters represented by a
-canonical sequence. The effiency of starcode is attributable to
+matched pairs are then merged into clusters of similar sequences.
+The effiency of starcode is attributable to
 the poucet search, a novel implementation of the Needleman-Wunsch
 algorithm performed on the nodes of a trie. On the task of matching
 random barcodes, starcode outperforms sequence clustering algorithms
@@ -56,13 +55,13 @@ The C source code is available at http://github.com/gui11aume/starcode.
 
 \section{Introduction}
 
-Sequencing technologies never achieve perfect precision. For instance,
-the Illumina platform \citep{pmid16056220} has a 1-2\% error rate
-consisting of substitutions \citep{pmid18660515, pmid21576222}
+All sequencing technologies have a certain degree of imprecision.
+For instance, the Illumina platform \citep{pmid16056220} has a 1-2\%
+error rate consisting of substitutions \citep{pmid18660515, pmid21576222}
 and the PacBio platform has a 15\% error rate consisting of insertions
-and deletions \citep{pmid19023044}. The enormous throughput of such technologies
-has recently created additional needs to develop efficient error
-correction algorithms.
+and deletions \citep{pmid19023044}. The enormous throughput of such
+technologies has recently created additional needs for developing
+efficient error correction algorithms.
 
 Sequencing errors can be discovered by comparing the reads to a
 reference genome. However, such a reference is not always available.
@@ -79,10 +78,9 @@ between related sequences. The process consists of a matching phase
 (the most computationally intensive), where the graph is constructed,
 and a clustering phase where communities are identified.
 
-Here we describe a sequence clustering algorithm focused on error
-correction. The algorithm is called ``starcode'' in reference to 
-clusters of random barcodes, which typically have a star shape.
-Starcode is based on all-pairs search, \textit{i.e.} all the pairs
+Here we describe a sequence clustering algorithm called ``starcode''
+in reference to clusters of random barcodes, which typically have a star
+shape.  Starcode is based on all-pairs search, \textit{i.e.} all the pairs
 of sequences below a given Levenshtein distance are identified during
 the graph construction phase. Matching is carried out by lossless
 filtration, followed by an exhaustive search on the branches of a
@@ -453,16 +451,15 @@ sequences with up to 8 errors). The input sequences can be single
 or paired-end reads, with an upper limit of 1024 nucleotides (512
 for paired-end). Sequences may be of variable length, they may
 be trimmed and filtered for quality or not. File formats compatible
-with starcode are: raw sequence, raw sequence with count, FASTA or
-FASTQ (in which case starcode ignores the quality). Starcode has two
-output formats: cluster and non-redundant. In cluster mode, starcode
+with starcode are raw sequence, raw sequence with count, FASTA or
+FASTQ (in which case starcode ignores the quality). Starcode either
 returns detailed information of the clustering results, i.e. canonical
 sequences, cluster sizes and the complete list of their constituent
-sequences. In non-redundant mode, only the canonical sequences are
-printed. The second mode is especially useful to filter out redundant
+sequences. Alternatively, only the canonical sequences are
+printed, which is useful to filter out redundant
 sequences from input files. By default, clustering is performed under
 the assumption that divergence occurs from experimental errors
-(sequencing errors, PCR mutations \textit{etc}.), a more general
+(sequencing errors, PCR mutations \textit{etc}.) and a more general
 algorithm is also available for other clustering problems (an example
 of which is given in section \ref{section:motifs}).
 
@@ -530,13 +527,12 @@ derived from the centroid by incorporating 3 errors including at
 most 1 indel. The number of satellites per cluster ranged from
 999900 to 900. Rainbow was not tested on this benchmark because
 the generated data are single reads. In addition, evaluating the
-exactness of slidesort 
-was problematic because the number of 3-matches in each dataset is
-not known (pairs of statellites in the same cluster may be 3-matches
-or not). For this reason we only compared the number of pairs found
-by starcode with the number of pairs found by slidesort. The 
-outcome of the test is summarized in
-Figure \ref{fig:benchmark}.
+exactness of slidesort was problematic because the number of
+3-matches in each dataset is not known (pairs of statellites
+in the same cluster may be 3-matches or not). For this reason
+we only compared the number of pairs found by starcode with
+the number of pairs found by slidesort. The outcome of the test
+is summarized in Figure \ref{fig:benchmark}.
 
 \begin{figure}[!tpb]
 \centerline{\includegraphics[scale=0.47]{benchmark.pdf}}
@@ -564,8 +560,7 @@ datasets (Figure \ref{fig:benchmark}b). We were surprised by
 this result because slidesort is claimed to be an exact algorithm.
 However, this was clearly not the case when we ran additional tests
 on smaller datasets where naive pairwise comparisons are feasible
-(the starcode repository contains such a dataset along with the
-instructions to reproduce our observations, see
+(more information is available on the starcode repository the, see
 http://github.com/gui11aume/starcode/misc).
 
 The running time of the different tools as a function of the size
@@ -579,11 +574,9 @@ million sequences. The memory usage is shown in Figure
 slidesort and cd-hit, with a maximum difference of an order of
 magnitude with respect to the other tools. Note that the comparison with
 slidesort is not completely fair since it does not hold in memory the
-full graph necessary for clustering (which is by far the most memory
-demanding structure). The memory usage of starcode is the highest for
-clusters of size 1000, but it decreases and becomes lower than the
-memory usage of seed as the size of the cluster increases.
-
+full graph necessary for clustering. The memory usage of starcode is
+the highest for clusters of size 1000, but it decreases and becomes
+lower than the memory usage of seed as the size of the cluster increases.
 In conclusion, starcode was the only tool to achieve perfect precision
 on these datasets at a price of increased memory
 footprint. Considering the exactness of the output, starcode maintains
@@ -789,7 +782,8 @@ the current state of the art.
 
 \section*{Acknowledgement}
 We would like to thank Maria Chatzou for her precious feedback on the
-preliminary version of this manuscript.
+preliminary version of this manuscript and Heng-Chang Chen for
+performing the Drosophila TRIP experiments used for benchmarking.
 
 \paragraph{Funding\textcolon}
 The research leading to these results has received funding from the

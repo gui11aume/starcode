@@ -464,7 +464,7 @@ algorithm is also available for other clustering problems (an example
 of which is given in section \ref{section:motifs}).
 
 We show the basic performance and scalability of starcode on a
-dataset of pseudo random sequences (Figure \ref{fig:perf}). The standard
+dataset of pseudorandom sequences (Figure \ref{fig:perf}). The standard
 configuration is a set of 1,000,000 sequences of length 40, running
 on 1 thread and with a maximum Levenshtein distance of 3. In each
 test, only one parameter is modified while the others are kept constant.
@@ -613,12 +613,12 @@ clustering mode.
 \centering
 \caption{Summary of the biological datasets used for benchmarking.
 All the datasets are Illumina reads.}
-\begin{tabular}{l|l c r}
+\begin{tabular}{l|c c c}
     \textit{dataset}   & \textit{read count} &
     \textit{read length} & \textit{type} \\ \hline
-    SRR950457 & 6,542,309    & 16     & single     \\
-    PRJEB7686 & 127,675,537  & 50     & single     \\
-    SRR950477 & 2,460,226    & 50+50  & paired-end \\
+    SRR950457 & 6,542,309    & $16\pm 1$ & single     \\
+    PRJEB7686 & 127,675,537  & 50        & single     \\
+    SRR950477 & 2,460,226    & 100+100     & paired-end \\
 \end{tabular}
 \label{tab:biobench_properties}
 \end{table}
@@ -627,10 +627,11 @@ The running times of starcode, seed, slidesort, rainbow and cd-hit
 are summarized in Table~\ref{tab:biobench_runtime}. We accommodated the
 distance threshold for the first dataset to compensate for the reduced
 sequence length. Both starcode and slidesort were executed with
-the option '-d 2' and the identity for cd-hit was set to '-c 0.85'. We
+the option `\texttt{-d 2}' and the identity for cd-hit was set to
+`\texttt{-c 0.85}'. We
 were not able to run seed on dataset 1 due to limitations on the
 minimum sequence length. Starcode was significantly faster than the other
-tools on all the datasets. CD-HIT and seed came in second position
+tools on all the datasets. Seed and cd-hit came in second position
 with a running time approximately 35 and 20 times greater on datasets
 1 and 2, respectively. Rainbow was nearly an order of magnitude slower
 in the job of clustering paired-end reads. We did not record the exact
@@ -640,8 +641,8 @@ higher than the running time of starcode.
 \begin{table}[h]
 \centering
 \caption{Running time (in seconds) of the software on three biological
-datasets. Runs longer than 10 days were interrupted. A dash indicates
-that the software cannot be used for this dataset.}
+datasets. Exact running time was not recordeed past 10 days.
+A dash indicates that the software cannot be used for this dataset.}
 \begin{tabular}{l|c c c}
     \textit{software}   & \textit{SRR950457} &
       \textit{PRJEB7686} & \textit{SRR950477} \\ \hline
@@ -660,10 +661,9 @@ peak memory usage throughout the run on the datasets described
 above. On short reads (dataset 1), starcode outperforms the other
 tools taking advantage of the trie compaction. On dataset 3, starcode
 had a significantly larger memory usage than rainbow. Starcode and
-cd-hit used the same amount of memory on dataset 2. Both needed twice
-as much memory as slidesort, which runs in advantage because it does
-not need to keep the complete graph during the all-pair comparison
-step to perform future clustering.
+cd-hit used similar amount of memory on dataset 2. Both needed twice
+as much memory as slidesort, which has the advantage of not storing
+the complete graph during the all-pair comparison.
 
 \begin{table}[h]
 \centering
@@ -746,6 +746,14 @@ superior precision and faster running time, it fills a gap among
 available software, by allowing to take full advantage of middle
 to high end hardware.
 
+It is somehwat surprising that starcode is significantly faster
+than competing tools on experimental datasets, whereas seed and cd-hit
+are faster on artificial datasets. Starcode was developed ground up
+from TRIP experimental datasets and the poucet search was selected for
+giving the best empirical results. We speculate that the trie structure
+benefits from the entropy deficit that is typically observed in
+experimental data versus pseudorandom reads. 
+
 The speed and precision of starcode also makes it useful for other
 clustering tasks, such as identifying enriched motifs in microbial
 genomes and in experimental data. Here we have given two examples of such
@@ -783,11 +791,11 @@ the current state of the art.
 \section*{Acknowledgement}
 We would like to thank Maria Chatzou for her precious feedback on the
 preliminary version of this manuscript and Heng-Chang Chen for
-performing the Drosophila TRIP experiments used for benchmarking.
+performing the \textit{Drosophila} TRIP experiments.
 
 \paragraph{Funding\textcolon}
-The research leading to these results has received funding from the
-Government of Catalonia (Dept. of Economy and Knowledge) and the Spanish
+This research was funded by the Government of Catalonia (Dept. of
+Economy and Knowledge) and the Spanish
 Ministry of Economy and Competitiveness (Centro de Excelencia Severo Ochoa
 2013-2017' (SEV-2012-0208). P.C. fellowship is partly financed by the
 Spanish Ministry of Economy and Competitiveness (State Training Subprogram:

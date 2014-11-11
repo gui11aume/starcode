@@ -1394,9 +1394,9 @@ new_lookup
    int rem = tau - slen % (tau + 1);
 
    // Set parameters.
-   lut->kmers  = tau + 1;
-   lut->offset = maxlen - slen;
-   lut->klen   = (int *) malloc(lut->kmers * sizeof(int));
+   lut->slen  = maxlen;
+   lut->kmers = tau + 1;
+   lut->klen  = (int *) malloc(lut->kmers * sizeof(int));
    
    // Compute k-mer lengths.
    if (k > MAX_K_FOR_LOOKUP)
@@ -1461,7 +1461,7 @@ lut_search
 {
    // Start from the end of the sequence. This will avoid potential
    // misalignments on the first kmer due to insertions.
-   int offset = strlen(query->seq);
+   int offset = lut->slen;
    // Iterate for all k-mers and for ins/dels.
    for (int i = lut->kmers - 1; i >= 0; i--) {
       offset -= lut->klen[i];
@@ -1489,18 +1489,17 @@ lut_insert
 )
 {
 
-   int offset = lut->offset + lut->kmers - 1;
-   for (int i = 0; i < lut->kmers; i++) {
+   int offset = lut->slen;
+   for (int i = lut->kmers-1; i >= 0; i--) {
+      offset -= lut->klen[i];
       int seqid = seq2id(query->seq + offset, lut->klen[i]);
       // The lookup table proper is implemented as a bitmap.
-      if (seqid >= 0) lut->lut[i][seqid/8] |= 1 << (seqid%8);
+      if (seqid >= 0) lut->lut[i][seqid/8] |= (1 << (seqid%8));
       // Make sure to never proceed passed the end of string.
       else if (seqid == -2) return 1;
-      offset += lut->klen[i];
    }
 
    return 0;
-
 }
 
 

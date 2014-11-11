@@ -108,7 +108,7 @@ struct useq_t {
 };
 
 struct lookup_t {
-            int    offset;
+            int    slen;
             int    kmers;
             int  * klen;
    unsigned char * lut[];

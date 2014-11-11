@@ -2087,7 +2087,7 @@ test_starcode_7
       lookup_t * lut = new_lookup(20+i, 20+i, 3);
       test_assert_critical(lut != NULL);
       test_assert(lut->kmers == 3+1);
-      test_assert(lut->offset == 3-3);
+      test_assert(lut->slen == 20+i);
       test_assert_critical(lut->klen != NULL);
       for (int j = 0 ; j < 4 ; j++) {
          test_assert(lut->klen[j] == expected_klen[i][j]);
@@ -2099,7 +2099,7 @@ test_starcode_7
       lookup_t * lut = new_lookup(59+i, 59+i, 3);
       test_assert_critical(lut != NULL);
       test_assert(lut->kmers == 3+1);
-      test_assert(lut->offset == 3-3);
+      test_assert(lut->slen == 59+i);
       test_assert_critical(lut->klen != NULL);
       for (int j = 0 ; j < 4 ; j++) {
          test_assert(lut->klen[j] == MAX_K_FOR_LOOKUP);

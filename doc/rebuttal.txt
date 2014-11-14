@@ -1,0 +1,180 @@
+﻿We would like to thank the reviewers for their constructive comments, which we found very useful to improve the software and the manuscript. We believe that the new version of the manuscript is more clear and focused. More importantly, the suggestions of the reviewers have helped us highlight the advantages of starcode over competing software.
+
+
+Given the substantial amount of modifications requested by reviewers #2 and #3, we have completely rewritten the manuscript, except for section 3.3. It would be too cumbersome to list all the changes, but we quickly summarize the most conspicuous.
+1. We have changed the title and no longer refer to starcode as an exact clustering algorithm.
+2. We have removed the comparison with BWT-based short read aligners to replace it by a comparison with other sequence clustering algorithms.
+3. We have added a figure in the methods section to clarify the lossless filtration procedure.
+
+
+Below is a point-by-point response to the comments of the reviewers.
+
+
+----------------------------------------
+Reviewer: 1
+
+
+Comments to the Author
+I have read your manuscript about the algorithm you have written, and testing the available implementation. As far as I have seen with a small subset of a real dataset of 632624 42-mer SNV reads, when both starcode and cd-hit-est are fine tuned , both spent the same time for it. I realized that your algorithm takes much time just changing the Levenshtein distance from 3 to 4. So, would it be feasible to autotune the Levenshtein distance based on the average sequence size?
+
+
+---------
+RESPONSE:
+We have also observed a very significant time difference between 3 and 4 errors. The main reason we did not implement this in the previous version is that the error rate depends on the experimental setup, which is known only to the end user. However, we have now decided to set the default parameters of starcode to correct errors introduced during sequencing, which allows us to guess a value for the maximum Levenshtein distance. The default value is now 2 + floor(median length/30), which is compatible with the error rate expected from Illumina sequencers. Experienced users can of course overrule this by the value that is more appropriate to their experimental setup.
+---------
+
+I have another question. Have you thought about using an adapted version of your clustering algorithm on the context of bisulphite sequencing data? In that context, you usually need a reference sequence to compare the methylation state of the cytosines in the reads. In that context, a methylated cytosine becomes a thymine and its complementary nucleotide, guanine, becomes an adenine. And reading your strategy I guess it would also work for this kind of data taking into account this "polymorphism".
+
+
+---------
+RESPONSE:
+We would like to thank you for this suggestion, which we did not think about. Your comment makes us aware of the need to develop efficient algorithms for this type of data. However, we believe that adding this feature would stretch starcode too far from its core design. Libraries of shotgun bisulfite sequencing can be clustered by starcode, but the reads that do not have the same start and end position will most likely not cluster together because their Levenshtein distance will be high. As a result, we do not know what use this would be for the end user. It may be that we have misunderstood the application you have in mind. Should this be the case, please do not hesitate to provide an example dataset and to give a concrete proposal of how you would modify starcode in this context, we would then be happy to implement this additional feature, provided it is feasible.
+---------
+
+
+About the implementation, I have a suggestion. FASTQ format is much used on NGS pipelines, so your implementation could read such files.
+
+
+---------
+RESPONSE:
+The FASTQ format is indeed the de facto standard. Starcode can now process single and paired-end FASTQ file formats.
+---------
+
+Reviewer: 2
+
+
+Comments to the Author
+This paper describes Starcode, a pipeline for discovering pairs of short sequences with small edit distance, followed by clustering. The basic approach is seed matching, followed by an optimized trie-based Needleman-Wunsch algorithm to discover similarities, followed by a heuristic clustering procedure.  A parallel version of the algorithm is benchmarked on one synthetic and one real data set against other DNA read clustering and short-read alignment tools, and then applied to barcode identification and motif finding tasks.
+
+
+The methods in Starcode are generally strong.  While optimizing Smith-Waterman-like algorithms using a trie is not itself highly novel, the detailed strategy described has some attractive aspects (banding, sorting reads, and careful attention to avoiding recomputation). The initial seed-matching stage is guaranteed not to miss alignments of interest, but the detailed description in Section 2.3 is somewhat confusing, and in any case the method used is only the simplest of a large number of lossless filtration strategies.
+
+
+---------
+RESPONSE:
+With your pointers about lossless filtration strategies, we have been able to trace the first mention of the segmentation approach to a classical paper by Wu and Manber, which is now cited in the text. We have rewritten the section explaining the filtration step and we have included a figure that, we hope, clarifies the process and makes this section more readable. We have looked into more elaborate filtration strategies, such as q-gram-based methods, but none of them seemed particularly adapted for trie indexes. Given that the simple segmentation approach of the current implementation seems to give satisfactory results, we decided to keep it. However, we are willing to improve starcode if possible, and we would be happy to implement any specific suggestion for a more powerful filtration method.
+---------
+
+
+The method is "exact" in the sense that every pairwise alignment of interest will be found, but the following clustering step is still necessarily heuristic, so it may not be fair to call the overall pipeline an exact algorithm.  The fact that the pipeline gets the clearly right answer on the synthetic data set is more attributable to the simplicity of the test case than any inherent merit of the clustering algorithm.
+
+
+---------
+RESPONSE:
+Somewhat too focused on the pairing step, we did not realize that clustering algorithms cannot be exact. Thanks for the reality check. We have changed the title to "Starcode: sequence clustering based on all-pairs search", which we believe reflects better what starcode does. Also, we no longer refer to starcode as an exact algorithm, and we have taken care to use the 'exact' attribute only for the pairing step in the text.
+---------
+
+Overall, validation is somewhat limited.  The tests versus other tools confound the contributions of the fundamental algorithm and the parallelization strategy to overall performance; hence, it is difficult to assess whether one algorithm outperforms another on a single core, or whether the only performance differences are due to scalability of the tools' parallelization strategies.  Moreover, the competing algorithms were not tuned to solve the task at hand, but only to produce the best answer they could within a certain arbitrary time limit.
+
+
+---------
+RESPONSE:
+We have changed the benchmark along those lines. All the tools are now benchmarked with a single thread. The only exception is in Figure 5d, where starcode is used with an increasing number of threads on the same dataset to show the performance scaling. We also present more fair and thorough tests, the competing tools were allowed to run until completion with the notable exception of slidesort. Slidesort is several orders of magnitudes slower than the other tools and that it would most likely not return before several weeks when run on the largest benchmark datasets. We have contacted the editor about this issue and after his response we have decided to interrupt the runs after 10 days. Given that starcode runs in less than 1 hour on the most difficult dataset, we hope that you will agree that this threshold is not unfair (even if we admit that it is arbitrary).
+---------
+
+More significantly, the competing tools are solving a different problem than Starcode, and the parametrizations of those tools were questionable, so the comparison of error rates, and possibly of running times, in Figure 5 is frankly dubious.  For example, BWA was told not to penalize mismatches at all (-B0) and to effectively disable its seeding stage (-k1), used a different scoring system for gaps, and in any case is not designed to be a complete algorithm.   Bowtie2 also uses a different scoring system, and its documentation states that the tools is not designed for -a mode, and that using this flag will make it run very slowly.   I note also that the short read mappers were only tested on the synthetic data set, while the actual short read data set was tested only with the generic clustering tools (CD-HIT and USEARCH).    None of the other tools were tested on the TRIP barcode recovery task.
+
+---------
+RESPONSE:
+Our initial purpose was to test starcode against very fast algorithms to emphasize its speed. We realize that this is off the point so we have removed the comparison with BWT-based aligners. We have tried to test all the algorithms on all the datasets (artificial and experimental, including TRIP barcode recovery), which was not always possible because of the distinction between single and paired-end reads.
+---------
+
+
+Overall, the Starcode tool is likely a useful contribution in itself, particularly for tasks such as barcode recovery where the completeness of the pairwise alignment stage is important. However, the validation should be fairer to competing tools and should separate the contributions of the core algorithm versus parallelism.
+
+
+MINOR COMMENTS:
+
+
+* In the abstract, "computationally complexity" is a typo.
+
+
+* In section 2.3, the variable "k" is used in at least two places where it seems that "tau" was meant.
+
+
+---------
+RESPONSE:
+We took this information into account when updating the text.
+---------
+
+
+Reviewer: 3
+
+
+Comments to the Author
+GENERAL COMMENTS
+This paper presents an exact algorithm for clustering nearly identical short read sequences. It addresses an important need in the NGS field. The algorithm is novel and interesting, and its performance results look promising. Thus, it is likely to be of interest to many users in the rapidly growing NGS field. However, there are several major concerns with this paper that need to be addressed.
+
+
+MAJOR CONCERNS
+(1) The authors compare their tool only against sequence clustering methods which have not been specifically designed for short read clustering, while ignoring the most relevant algorithms and software implementations designed for this application field, including SlideSort (Bioinformatics 27, 464–470), SEED (Bioinformatics 27, 2502–2509), Rainbow (Bioinformatics 28, 2732–2737) and many more. SlideSort is also an exact algorithm and it is not even mentioned by this publication. Instead of including the not very meaningful results from the BWT-based aligners, the authors need to make comparisons against tools that are intended for this application domain.
+
+
+---------
+RESPONSE:
+We would like to thank you for pointing out the existence of these tools, which we were not aware of. We have included them in the benchmark. In the mean time, we have removed USEARCH. It turned out early on in the revision process that the free version of USEARCH imposes a limit of 4GB on memory usage. With this limitation, it was impossible to benchmark it on the experimental datasets. As mentioned in the answers to reviewer #2, the comparison with the BWT-based aligners has been removed as we have realized that it is not very meaningful.
+In the course of the benchmark, it occurred to us that slidesort is not an exact algorithm, contrary to the claim of the original article. We have contacted the authors of slidesort about this issue. Their answer was that it could be a bug and that they would get back in touch with us in a few weeks. Since we are unsure about the way to deal with this issue, we provide in the revised manuscript a link to a dataset for which slidesort fails to identify all the pairs. Please let us know whether this is appropriate, or whether you recommend other actions.
+---------
+
+
+(2) While Starcodes shows some very promising performance, it would be important to add a section that summarizes for the reader what type of sequence clustering problems it addresses and which ones not, e.g. mismatches, gaps, upper/lower length limit of sequences, sequences of variable length (e.g. after adaptor/quality trimming), etc.
+
+
+---------
+RESPONSE:
+The results section of the revised manuscript starts with a general description of starcode, along with a description of the input and output. We present starcode as a clustering algorithm for error correction because it was originally designed for this purpose, and also because we believe that this gives a concrete sense of what starcode does.
+---------
+
+
+(3) The current set of performance tests with simulated data misses to include clusters of extreme sizes, e.g. 100 million sequence where some clusters contain ~0.5 million sequences, which can greatly degrade the time performance of certain clustering algorithms. Those extreme cluster sizes are very common in real NGS data sets due to PCR artifacts,  adaptor contaminations, etc.
+
+
+---------
+RESPONSE:
+We now test the sequence clustering tools on a hard experimental dataset (dataset 2 in the benchmark section), which contains slightly more than 127 million sequences, with 4 clusters over 1 million sequences.
+---------
+
+
+(4) Fig 4c shows the performance for a very narrow window of read lengths. It would be very interesting to include here reads of lengths of up to 300bp or longer because many NGS technologies produce now reads of this length.
+
+
+---------
+RESPONSE:
+The analysis has been run up to 420 bp (the result is now shown in Fig 5c).
+---------
+
+
+(5) The topic of clustering paired-end (PE) read data should also be addressed or at least discussed somewhere.
+
+
+---------
+RESPONSE:
+While implementing support for FASTQ files, we have also added the possibility to process paired-end files. The presentation section makes this explicit. This is also clear from the benchmark section.
+---------
+
+
+(6) Memory performance comparisons against other tools need to be included in the paper as it can be one of the biggest bottlenecks, even more than time performance.
+
+
+---------
+RESPONSE:
+The benchmark section now includes the peak memory usage of all the tools.
+---------
+
+
+(7) The time performance comparisons against CD-HIT and USEARCH are incomplete. As described on page 4, the authors did not run the tests with these tools to completion (tests were sometimes stopped after an arbitrary time cutoff) which is unusual and misleading as it implies they could not be used for this task. Moreover, including in these comparisons NGS data sets with different properties and presenting the results in a table or chart would be more informative.
+
+
+---------
+RESPONSE:
+The benchmark section is now more thorough and we ran the software until completion, to the exception of slidesort, as explained in the answers to the comments of reviewer #2. We now represent the data in a graphical way (Figure 6) and in tabular format (Tables 4 and 5).
+---------
+
+
+(8) The user manual page on github lists the input and output formats of Starcode. Support for FASTQ files is missing, which is by far the most common sequence format in the NGS field. It is also not clear to me how users are expected to process the outputs generated by Starcode. A typical routine would be the removal of the redundant sequences from the original FASTQ file. Adding support for this and potentially other outputs would greatly improve the usability of the software for non-expert users.
+
+
+---------
+RESPONSE:
+As mentioned above, we have included support for FASTQ input files. The option --non-redundant now allows the user to remove redundant sequences from the input file, while maintaining the format (raw sequence, FASTA or FASTQ). In many applications, the counts are equally important as the sequences (for instance in transcriptomics and its derivatives). We are not aware of a popular file format specifying a sequence and a count, which is why we opted for the current default output format. If there is such a standard, we will be happy to change the default output of starcode (and of course we will implement other formats if the users of starcode request it).
+---------

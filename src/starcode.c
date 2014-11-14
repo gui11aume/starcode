@@ -73,7 +73,7 @@ starcode
    int med = -1;
    int height = pad_useq(uSQ, &med);
    if (tau < 0) {
-      tau = med > 160 ? 8 : 1 + 0.05*med;
+      tau = med > 160 ? 8 : 2 + med/30;
       if (verbose) {
          fprintf(stderr, "setting dist to %d\n", tau);
       }

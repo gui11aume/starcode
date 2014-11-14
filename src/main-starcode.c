@@ -49,7 +49,10 @@ char *USAGE =
 "    -2 --input2: input file 2\n"
 "\n"
 "  output format options\n"
-"       --non-redundant: remove redundant sequences\n";
+"       --non-redundant: remove redundant sequences\n"
+"\n"
+"By default, the maximum Levenshtein distance depends on the\n"
+"length of the sequences. It is equal to 2 + length/30.\n";
 
 void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
 

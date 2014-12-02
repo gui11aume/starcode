@@ -5,8 +5,6 @@
 **  Guillaume Filion     (guillaume.filion@gmail.com)
 **  Eduard Valera Zorita (ezorita@mit.edu)
 **
-** Last modified: July 8, 2014
-**
 ** License: 
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by

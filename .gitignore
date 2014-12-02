@@ -10,3 +10,5 @@ starcode
 test/analysis.txt
 test/.inspect.gdb
 test/runtests
+doc/*.log
+*\#*

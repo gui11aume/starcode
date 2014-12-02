@@ -5,8 +5,6 @@
 **  Guillaume Filion     (guillaume.filion@gmail.com)
 **  Eduard Valera Zorita (ezorita@mit.edu)
 **
-** Last modified: July 8, 2014
-**
 ** License: 
 **  This program is free software: you can redistribute it and/or modify
 **  it under the terms of the GNU General Public License as published by
@@ -33,14 +31,17 @@
 
 char *USAGE =
 "\n"
-"Usage:\n"
-"  starcode\n"
-"    -v --verbose: verbose\n"
+"Usage:"
+"  starcode [options]\n"
+"\n"
+"  general options:\n"
+"    -v --version: display version and exit\n"
+"    -z --verbose: verbose\n"
 "    -d --dist: maximum Levenshtein distance (default auto)\n"
 "    -t --threads: number of concurrent threads (default 1)\n"
 "    -s --sphere: sphere clustering (default message passing)\n"
 "\n"
-"  input/output options (single file)\n"
+"  input/output options (single file, default)\n"
 "    -i --input: input file (default stdin)\n"
 "    -o --output: output file (default stdout)\n"
 "\n"
@@ -49,13 +50,10 @@ char *USAGE =
 "    -2 --input2: input file 2\n"
 "\n"
 "  output format options\n"
-"       --non-redundant: remove redundant sequences\n"
-"\n"
-"By default, the maximum Levenshtein distance depends on the\n"
-"length of the sequences. It is equal to 2 + length/30.\n";
+"       --non-redundant: remove redundant sequences\n";
 
 void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
-
+void say_version(void) { fprintf(stderr, VERSION "\n"); }
 void SIGSEGV_handler(int sig) {
    void *array[10];
    size_t size;
@@ -131,7 +129,8 @@ main(
       static struct option long_options[] = {
          {"non-redundant",     no_argument,       &nr_flag,  1 },
          {"sphere-clustering", no_argument,       &sp_flag,  1 },
-         {"verbose",           no_argument,       &vb_flag,  1 },
+         {"version",           no_argument,       &vb_flag, 'v'},
+         {"verbose",           no_argument,       &vb_flag, 'z'},
          {"dist",              required_argument,        0, 'd'},
          {"help",              no_argument,              0, 'h'},
          {"input",             required_argument,        0, 'i'},
@@ -142,7 +141,7 @@ main(
          {0, 0, 0, 0}
       };
 
-      c = getopt_long(argc, argv, "1:2:d:hi:o:st:v",
+      c = getopt_long(argc, argv, "1:2:d:hi:o:st:vz",
             long_options, &option_index);
  
       // Done parsing options? //
@@ -158,9 +157,9 @@ main(
             input1 = optarg;
          }
          else {
-            fprintf(stderr, "--input1 set more than once\n");
+            fprintf(stderr, "error: --input1 set more than once\n");
             say_usage();
-            return 1;
+            return EXIT_FAILURE;
          }
          break;
 
@@ -169,9 +168,9 @@ main(
             input2 = optarg;
          }
          else {
-            fprintf(stderr, "--input2 set more than once\n");
+            fprintf(stderr, "error: --input2 set more than once\n");
             say_usage();
-            return 1;
+            return EXIT_FAILURE;
          }
          break;
 
@@ -179,20 +178,21 @@ main(
          if (dist < 0) {
             dist = atoi(optarg);
             if (dist > STARCODE_MAX_TAU) {
-               fprintf(stderr, "--dist cannot exceed %d\n",
+               fprintf(stderr, "error: --dist cannot exceed %d\n",
                      STARCODE_MAX_TAU);
-               return 1;
+               return EXIT_FAILURE;
             }
          }
          else {
-            fprintf(stderr, "--distance set more than once\n");
+            fprintf(stderr, "error: --distance set more than once\n");
             say_usage();
-            return 1;
+            return EXIT_FAILURE;
          }
          break;
 
       case 'h':
          // User asked for help. //
+         say_version();
          say_usage();
          return 0;
 
@@ -201,9 +201,9 @@ main(
             input = optarg;
          }
          else {
-            fprintf(stderr, "--input set more than once\n");
+            fprintf(stderr, "error: --input set more than once\n");
             say_usage();
-            return 1;
+            return EXIT_FAILURE;
          }
          break;
 
@@ -212,9 +212,9 @@ main(
             output = optarg;
          }
          else {
-            fprintf(stderr, "--output set more than once\n");
+            fprintf(stderr, "error: --output set more than once\n");
             say_usage();
-            return 1;
+            return EXIT_FAILURE;
          }
          break;
 
@@ -227,20 +227,25 @@ main(
             threads = atoi(optarg);
          }
          else {
-            fprintf(stderr, "--thread set more than once\n");
+            fprintf(stderr, "error: --thread set more than once\n");
             say_usage();
-            return 1;
+            return EXIT_FAILURE;
          }
          break;
 
-      case 'v':
+      case 'z':
          vb_flag = 1;
          break;
 
+      case 'v':
+         say_version();
+         return EXIT_SUCCESS;
+
       default:
          // Cannot parse. //
+         say_version();
          say_usage();
-         return 1;
+         return EXIT_FAILURE;
 
       }
 
@@ -255,37 +260,37 @@ main(
       else {
          fprintf(stderr, "too many options\n");
          say_usage();
-         return 1;
+         return EXIT_FAILURE;
       }
    }
 
    // Check options compatibility. //
    if (nr_flag && sp_flag) {
-      fprintf(stderr, "--non-redundant and --spheres are incompatible\n");
+      fprintf(stderr, "error: --non-redundant and --spheres are incompatible\n");
       say_usage();
-      return 1;
+      return EXIT_FAILURE;
    }
    if (input != UNSET && (input1 != UNSET || input2 != UNSET)) {
-      fprintf(stderr, "--input and --input1/2 are incompatible\n");
+      fprintf(stderr, "error: --input and --input1/2 are incompatible\n");
       say_usage();
-      return 1;
+      return EXIT_FAILURE;
    }
    if (input1 == UNSET && input2 != UNSET) {
-      fprintf(stderr, "--input1 set without --input2\n");
+      fprintf(stderr, "error: --input1 set without --input2\n");
       say_usage();
-      return 1;
+      return EXIT_FAILURE;
    }
    if (input2 == UNSET && input1 != UNSET) {
-      fprintf(stderr, "--input2 set without --input1\n");
+      fprintf(stderr, "error: --input2 set without --input1\n");
       say_usage();
-      return 1;
+      return EXIT_FAILURE;
    }
    if (nr_flag && output != UNSET &&
          (input1 != UNSET || input2 != UNSET)) {
-      fprintf(stderr, "cannot specify --output for paired-end "
+      fprintf(stderr, "error: cannot specify --output for paired-end "
             "fastq file with --non-redundant\n");
       say_usage();
-      return 1;
+      return EXIT_FAILURE;
    }
 
    // Set output type. //
@@ -305,23 +310,23 @@ main(
    if (input != UNSET) {
       inputf1 = fopen(input, "r");
       if (inputf1 == NULL) {
-         fprintf(stderr, "cannot open file %s\n", input);
+         fprintf(stderr, "error: cannot open file %s\n", input);
          say_usage();
-         return 1;
+         return EXIT_FAILURE;
       }
    }
    else if (input1 != UNSET) {
       inputf1 = fopen(input1, "r");
       if (inputf1 == NULL) {
-         fprintf(stderr, "cannot open file %s\n", input1);
+         fprintf(stderr, "error: cannot open file %s\n", input1);
          say_usage();
-         return 1;
+         return EXIT_FAILURE;
       }
       inputf2 = fopen(input2, "r");
       if (inputf2 == NULL) {
-         fprintf(stderr, "cannot open file %s\n", input2);
+         fprintf(stderr, "error: cannot open file %s\n", input2);
          say_usage();
-         return 1;
+         return EXIT_FAILURE;
       }
    }
    else {
@@ -331,23 +336,23 @@ main(
    if (output != UNSET) {
       outputf1 = fopen(output, "w");
       if (outputf1 == NULL) {
-         fprintf(stderr, "cannot write to file %s\n", output);
+         fprintf(stderr, "error: cannot write to file %s\n", output);
          say_usage();
-         return 1;
+         return EXIT_FAILURE;
       }
    }
    else if (nr_flag && input1 != UNSET && input2 != UNSET) {
       outputf1 = fopen(outname(input1), "w");
       if (outputf1 == NULL) {
-         fprintf(stderr, "cannot write to file %s\n", outname(input1));
+         fprintf(stderr, "error: cannot write to file %s\n", outname(input1));
          say_usage();
-         return 1;
+         return EXIT_FAILURE;
       }
       outputf2 = fopen(outname(input2), "w");
       if (outputf2 == NULL) {
-         fprintf(stderr, "cannot write to file %s\n", outname(input2));
+         fprintf(stderr, "error: cannot write to file %s\n", outname(input2));
          say_usage();
-         return 1;
+         return EXIT_FAILURE;
       }
    }
    else {

@@ -49,7 +49,11 @@ starcode
    OUTPUTF2 = outputf2;
    OUTPUTT = outputt;
 
-   if (verbose) fprintf(stderr, "reading input files\n");
+   if (verbose) {
+      fprintf(stderr, "running starcode with %d thread%s\n",
+           thrmax, thrmax > 1 ? "s" : "");
+      fprintf(stderr, "reading input files\n");
+   }
    gstack_t *uSQ = read_file(inputf1, inputf2, verbose);
    if (uSQ == NULL || uSQ->nitems < 1) {
       fprintf(stderr, "input file empty\n");
@@ -57,6 +61,7 @@ starcode
    }
 
    // Sort/reduce.
+   if (verbose) fprintf(stderr, "sorting\n");
    uSQ->nitems = seqsort((useq_t **) uSQ->items, uSQ->nitems, thrmax);
 
    // Get number of tries.
@@ -82,7 +87,7 @@ starcode
 
    // Run the query.
    run_plan(mtplan, verbose, thrmax);
-   if (verbose) fprintf(stderr, "starcode progress: 100.00%%\n");
+   if (verbose) fprintf(stderr, "progress: 100.00%%\n");
 
    // Remove padding characters.
    unpad_useq(uSQ);
@@ -279,7 +284,7 @@ run_plan
             }
             pthread_detach(thread);
             if (verbose) {
-               fprintf(stderr, "starcode progress: %.2f%% \r",
+               fprintf(stderr, "progress: %.2f%% \r",
                      100*(float)(mtplan->jobsdone)/njobs);
             }
          }

@@ -35,11 +35,11 @@ char *USAGE =
 "  starcode [options]\n"
 "\n"
 "  general options:\n"
-"    -v --version: display version and exit\n"
-"    -z --verbose: verbose\n"
 "    -d --dist: maximum Levenshtein distance (default auto)\n"
+"    -q --quiet: quiet output (default verbose)\n"
 "    -t --threads: number of concurrent threads (default 1)\n"
 "    -s --sphere: sphere clustering (default message passing)\n"
+"    -v --version: display version and exit\n"
 "\n"
 "  input/output options (single file, default)\n"
 "    -i --input: input file (default stdin)\n"
@@ -107,10 +107,10 @@ main(
    // Backtrace handler
    signal(SIGSEGV, SIGSEGV_handler); 
 
-   // Set flags.
+   // Set flags to defaults.
    static int nr_flag = 0;
    static int sp_flag = 0;
-   static int vb_flag = 0;
+   static int vb_flag = 1;
 
    // Unset flags (value -1).
    int dist = -1;
@@ -129,8 +129,8 @@ main(
       static struct option long_options[] = {
          {"non-redundant",     no_argument,       &nr_flag,  1 },
          {"sphere-clustering", no_argument,       &sp_flag,  1 },
-         {"version",           no_argument,       &vb_flag, 'v'},
-         {"verbose",           no_argument,       &vb_flag, 'z'},
+         {"version",           no_argument,              0, 'v'},
+         {"quiet",             no_argument,       &vb_flag,  0 },
          {"dist",              required_argument,        0, 'd'},
          {"help",              no_argument,              0, 'h'},
          {"input",             required_argument,        0, 'i'},
@@ -141,10 +141,10 @@ main(
          {0, 0, 0, 0}
       };
 
-      c = getopt_long(argc, argv, "1:2:d:hi:o:st:vz",
+      c = getopt_long(argc, argv, "1:2:d:hi:o:qst:v",
             long_options, &option_index);
  
-      // Done parsing options? //
+      // Done parsing //
       if (c == -1) break;
 
       switch (c) {
@@ -218,6 +218,10 @@ main(
          }
          break;
 
+      case 'q':
+         vb_flag = 0;
+         break;
+
       case 's':
          sp_flag = 1;
          break;
@@ -225,6 +229,11 @@ main(
       case 't':
          if (threads < 0) {
             threads = atoi(optarg);
+            if (threads < 1) {
+               fprintf(stderr, "error: --threads must be numeric\n");
+               say_usage();
+               return EXIT_FAILURE;
+            }
          }
          else {
             fprintf(stderr, "error: --thread set more than once\n");
@@ -233,17 +242,12 @@ main(
          }
          break;
 
-      case 'z':
-         vb_flag = 1;
-         break;
-
       case 'v':
          say_version();
          return EXIT_SUCCESS;
 
       default:
          // Cannot parse. //
-         say_version();
          say_usage();
          return EXIT_FAILURE;
 

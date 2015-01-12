@@ -22,7 +22,7 @@
 */
 
 #include "starcode.h"
-#include "_starcode.h"
+#include "starcode-private.h"
 
 //    Global variables    //
 static FILE     * OUTPUTF1 = NULL;           // output file 1

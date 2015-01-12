@@ -40,6 +40,7 @@ starcode
    FILE *outputf2,
          int tau,
    const int verbose,
+   const int showclusters,
          int thrmax,
    const int outputt
 )
@@ -122,8 +123,6 @@ starcode
                      header, u->seq, quality);
             }
             else if (FORMAT == PE_FASTQ) {
-               // TODO: generate two headers, send each to
-               // different output files.
                char head1[M] = {0};
                char head2[M] = {0};
                char qual1[M] = {0};
@@ -150,7 +149,10 @@ starcode
          }
       }
 
-      // Format output starcode style.
+      // Format output default style, one of the following
+      // depending on the value of 'showclusters'.
+      // 1. centroid (tab) count
+      // 2. centroid (tab) count (tab) seq1,seq2,...
       else {
          useq_t *first = (useq_t *) uSQ->items[0];
          useq_t *canonical = first->canonical;
@@ -159,14 +161,26 @@ starcode
          if (first->canonical == NULL) return 0;
 
          if (FORMAT == PE_FASTQ) {
-            fprintf(OUTPUTF1, "%s\t%d\t%s",
-               first->canonical->info, first->canonical->count,
-               first->info);
+            if (showclusters) {
+               fprintf(OUTPUTF1, "%s\t%d\t%s",
+                  first->canonical->info, first->canonical->count,
+                  first->info);
+            }
+            else {
+               fprintf(OUTPUTF1, "%s\t%d",
+                  first->canonical->info, first->canonical->count);
+            }
          }
          else {
-            fprintf(OUTPUTF1, "%s\t%d\t%s",
-               first->canonical->seq, first->canonical->count,
-               first->seq);
+            if (showclusters) {
+               fprintf(OUTPUTF1, "%s\t%d\t%s",
+                  first->canonical->seq, first->canonical->count,
+                  first->seq);
+            }
+            else {
+               fprintf(OUTPUTF1, "%s\t%d",
+                  first->canonical->seq, first->canonical->count);
+            }
          }
 
          for (int i = 1 ; i < uSQ->nitems ; i++) {
@@ -175,15 +189,27 @@ starcode
             if (u->canonical != canonical) {
                canonical = u->canonical;
                if (FORMAT == PE_FASTQ) {
-                  fprintf(OUTPUTF1, "\n%s\t%d\t%s",
-                        canonical->info, canonical->count, u->info);
+                  if (showclusters) {
+                     fprintf(OUTPUTF1, "\n%s\t%d\t%s",
+                           canonical->info, canonical->count, u->info);
+                  }
+                  else {
+                     fprintf(OUTPUTF1, "\n%s\t%d",
+                           canonical->info, canonical->count);
+                  }
                }
                else {
-                  fprintf(OUTPUTF1, "\n%s\t%d\t%s",
-                        canonical->seq, canonical->count, u->seq);
+                  if (showclusters) {
+                     fprintf(OUTPUTF1, "\n%s\t%d\t%s",
+                           canonical->seq, canonical->count, u->seq);
+                  }
+                  else {
+                     fprintf(OUTPUTF1, "\n%s\t%d",
+                           canonical->seq, canonical->count);
+                  }
                }
             }
-            else {
+            else if (showclusters) {
                if (FORMAT == PE_FASTQ) {
                   fprintf(OUTPUTF1, ",%s", u->info);
                }
@@ -207,24 +233,43 @@ starcode
       // Sort in count order.
       qsort(uSQ->items, uSQ->nitems, sizeof(useq_t *), count_order);
 
+      // Also format output default style, but since the hits are
+      // stored in the parents, we need a seprate printing routine.
+      // The format is one of the following, depending on the value
+      // of 'showclusters'.
+      // 1. centroid (tab) count
+      // 2. centroid (tab) count (tab) seq1,seq2,...
       for (int i = 0 ; i < uSQ->nitems ; i++) {
 
-         useq_t *useq = (useq_t *) uSQ->items[i];
-         if (useq->canonical != useq) break;
+         useq_t *u = (useq_t *) uSQ->items[i];
+         if (u->canonical != u) break;
 
-         fprintf(OUTPUTF1, "%s\t", useq->seq);
-         if (useq->matches == NULL) {
-            fprintf(OUTPUTF1, "%d\t%s\n", useq->count, useq->seq);
-            continue;  
+         fprintf(OUTPUTF1, "%s\t", u->seq);
+         if (u->matches == NULL) {
+            if (showclusters) {
+               fprintf(OUTPUTF1, "%d\t%s\n", u->count, u->seq);
+               continue;  
+            }
+            else {
+               fprintf(OUTPUTF1, "%d\n", u->count);
+               continue;  
+            }
          }
 
-         fprintf(OUTPUTF1, "%d\t%s", useq->count, useq->seq);
+         if (showclusters) {
+            fprintf(OUTPUTF1, "%d\t%s", u->count, u->seq);
+         }
+         else {
+            fprintf(OUTPUTF1, "%d", u->count);
+         }
 
-         gstack_t *matches;
-         for (int j = 0 ; (matches = useq->matches[j]) != TOWER_TOP ; j++) {
-            for (int k = 0 ; k < matches->nitems ; k++) {
-               useq_t *match = (useq_t *) matches->items[k];
-               fprintf(OUTPUTF1, ",%s", match->seq);
+         if (showclusters) {
+            gstack_t *hits;
+            for (int j = 0 ; (hits = u->matches[j]) != TOWER_TOP ; j++) {
+               for (int k = 0 ; k < hits->nitems ; k++) {
+                  useq_t *match = (useq_t *) hits->items[k];
+                  fprintf(OUTPUTF1, ",%s", match->seq);
+               }
             }
          }
 

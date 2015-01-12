@@ -44,7 +44,8 @@ int starcode(
          FILE * outputf2,
    const int    tau,
    const int    verbose,
-   const int    maxthreads,
+   const int    showclusters,
+         int    maxthreads,
    const int    outputt
 );
 

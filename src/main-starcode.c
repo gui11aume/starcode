@@ -50,6 +50,7 @@ char *USAGE =
 "    -2 --input2: input file 2\n"
 "\n"
 "  output format options\n"
+"       --print-clusters: outputs cluster compositions\n"
 "       --non-redundant: remove redundant sequences\n";
 
 void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
@@ -111,6 +112,7 @@ main(
    static int nr_flag = 0;
    static int sp_flag = 0;
    static int vb_flag = 1;
+   static int cl_flag = 0;
 
    // Unset flags (value -1).
    int dist = -1;
@@ -127,10 +129,11 @@ main(
    while (1) {
       int option_index = 0;
       static struct option long_options[] = {
+         {"print-clusters",    no_argument,       &cl_flag,  1 },
          {"non-redundant",     no_argument,       &nr_flag,  1 },
-         {"sphere-clustering", no_argument,       &sp_flag,  1 },
-         {"version",           no_argument,              0, 'v'},
          {"quiet",             no_argument,       &vb_flag,  0 },
+         {"sphere",            no_argument,       &sp_flag, 's'},
+         {"version",           no_argument,              0, 'v'},
          {"dist",              required_argument,        0, 'd'},
          {"help",              no_argument,              0, 'h'},
          {"input",             required_argument,        0, 'i'},
@@ -269,8 +272,16 @@ main(
    }
 
    // Check options compatibility. //
+   if (nr_flag && cl_flag) {
+      fprintf(stderr,
+            "error: --non-redundant and --print-clusters are "
+            "incompatible\n");
+      say_usage();
+      return EXIT_FAILURE;
+   }
    if (nr_flag && sp_flag) {
-      fprintf(stderr, "error: --non-redundant and --spheres are incompatible\n");
+      fprintf(stderr,
+            "error: --non-redundant and --sphere are incompatible\n");
       say_usage();
       return EXIT_FAILURE;
    }
@@ -348,13 +359,15 @@ main(
    else if (nr_flag && input1 != UNSET && input2 != UNSET) {
       outputf1 = fopen(outname(input1), "w");
       if (outputf1 == NULL) {
-         fprintf(stderr, "error: cannot write to file %s\n", outname(input1));
+         fprintf(stderr, "error: cannot write to file %s\n",
+               outname(input1));
          say_usage();
          return EXIT_FAILURE;
       }
       outputf2 = fopen(outname(input2), "w");
       if (outputf2 == NULL) {
-         fprintf(stderr, "error: cannot write to file %s\n", outname(input2));
+         fprintf(stderr, "error: cannot write to file %s\n",
+               outname(input2));
          say_usage();
          return EXIT_FAILURE;
       }
@@ -363,7 +376,7 @@ main(
       outputf1 = stdout;
    }
 
-   // Set default options.
+   // Set remaining default options.
    if (threads < 0) threads = 1;
 
    int exitcode =
@@ -374,6 +387,7 @@ main(
        outputf2,
        dist,
        vb_flag,
+       cl_flag,
        threads,
        output_type
    );

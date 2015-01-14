@@ -13,8 +13,8 @@
 ## I. What is starcode?   ##
 
 
-Starcode is an exact and fast DNA sequence clustering software. Sequence
-clustering is performed based on a Levenshtein distance metric [1].
+Starcode is a DNA sequence clustering software. Sequence clustering is
+performed by finding all pairs below a Levenshtein distance metric [1].
 Typically, a file containing a set of related DNA sequences is passed as
 input, jointly with a parameter specifying the desired cluster distance.
 Starcode aligns and computes the distance between all the sequence pairs
@@ -31,10 +31,10 @@ II. Source file list
 * **main-starcode.c**        Starcode main file (parameter parsing).
 * **starcode.c**             Main starcode algorithm.
 * **starcode.h**             Main starcode algorithm public header file.
-* **_starcode.h**            Main starcode algorithm private header file.
+* **starcode-private.h**     Main starcode algorithm private header file.
 * **trie.c**                 Trie search and construction functions.
 * **trie.h**                 Trie public header file.
-* **_trie.h**                Trie private header file.
+* **trie-private.h**         Trie private header file.
 * **Makefile**               Make instruction file.
 
 
@@ -69,10 +69,6 @@ List of arguments:
 
   > starcode [options] {[-i] INPUT_FILE | -1 PAIRED_END_FILE1 -2 PAIRED_END_FILE2} [-o OUTPUT_FILE]
   
-  **-v or --verbose**
-
-     Verbose. Prints verbose information to the standard error channel.
-
   **-d or --distance** *distance*
 
      Defines the maximum Levenshtein distance for clustering.
@@ -89,6 +85,11 @@ List of arguments:
      When specified, sphere clustering algorithm is performed in the
      clustering phase, instead of the default message passing algorithm.
 
+  **-q or --quiet**
+
+     Non verbose. By default, starcode prints verbose information to
+     the standard error channel.
+
   **-h or --help**
 
      Prints usage information.
@@ -102,6 +103,11 @@ List of arguments:
      Removes redundant sequences from the output. Only the canonical sequence
      of each cluster is returned.
 
+  **--print-clusters**
+  
+     Adds a third column to the starcode output, containing the sequences
+     associated with each cluster. By default, the output contains only
+     the centroid and the counts.
 
 Single-file mode:
 

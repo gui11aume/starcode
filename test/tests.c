@@ -1,7 +1,7 @@
 #include "trie.h"
-#include "_trie.h"
+#include "trie-private.h"
 #include "starcode.h"
-#include "_starcode.h"
+#include "starcode-private.h"
 #include "unittest.h"
 
 // Globals //

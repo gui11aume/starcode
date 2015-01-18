@@ -1,11 +1,11 @@
-This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2014.4.27)  12 JAN 2015 22:50
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2014.4.25)  18 JAN 2015 16:18
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
 **document.tex
 (./document.tex
 LaTeX2e <2011/06/27>
-Babel <3.9h> and hyphenation patterns for 78 languages loaded.
+Babel <3.9h> and hyphenation patterns for 2 languages loaded.
 (./bioinfo.cls
 Document Class: bioinfo 2003/02/08 0.1
 (/usr/share/texlive/texmf-dist/tex/latex/base/inputenc.sty
@@ -496,6 +496,16 @@ LaTeX Font Info:    Try loading font information for OT1+pcr on input line 414.
 (/usr/share/texlive/texmf-dist/tex/latex/psnfss/ot1pcr.fd
 File: ot1pcr.fd 2001/06/04 font definitions for OT1/pcr.
 )
+Overfull \hbox (3.78911pt too wide) in paragraph at lines 411--421
+ [][] 
+ []
+
+
+Overfull \hbox (1.62912pt too wide) in paragraph at lines 427--438
+ [][] 
+ []
+
+
 Underfull \hbox (badness 1043) in paragraph at lines 447--465
 \OT1/ptm/m/n/9 the canonical sequences are printed, which is useful to filter
  []
@@ -747,12 +757,12 @@ LaTeX Font Warning: Size substitutions with differences
 
  ) 
 Here is how much of TeX's memory you used:
- 3994 strings out of 493304
- 51674 string characters out of 6139871
- 151029 words of memory out of 5000000
- 7324 multiletter control sequences out of 15000+600000
+ 3994 strings out of 495028
+ 51674 string characters out of 6181497
+ 146743 words of memory out of 5000000
+ 7075 multiletter control sequences out of 15000+600000
  54509 words of font info for 109 fonts, out of 8000000 for 9000
- 961 hyphenation exceptions out of 8191
+ 18 hyphenation exceptions out of 8191
  38i,11n,28p,1311b,371s stack positions out of 5000i,500n,10000p,200000b,80000s
 {/usr/share/texlive/texmf-dist/fonts/enc/dvips/base/8r.enc}</usr/share/texliv
 e/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb></usr/share/texlive/texmf
@@ -770,7 +780,7 @@ e/texmf-dist/fonts/type1/urw/helvetic/uhvb8a.pfb></usr/share/texlive/texmf-dist
 ic/uhvro8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmb8a.pfb>
 </usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></usr/share/tex
 live/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on document.pdf (7 pages, 1260951 bytes).
+Output written on document.pdf (7 pages, 1260925 bytes).
 PDF statistics:
  231 PDF objects out of 1000 (max. 8388607)
  124 compressed objects within 2 object streams

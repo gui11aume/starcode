@@ -85,7 +85,8 @@ List of arguments:
      When specified, sphere clustering algorithm is performed in the
      clustering phase, instead of the default message passing algorithm.
 
-  **-r or --cluster-ratio ratio**
+  **-r or --cluster-ratio** *ratio*
+
      Specifies the minimum sequence count ratio to cluster two matching
      sequences, i.e. the matching sequences A and B will only be
      clustered together if count(A) > ratio * count(B), assuming that

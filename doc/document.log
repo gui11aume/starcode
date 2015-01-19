@@ -1,15 +1,15 @@
-This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2014.4.25)  18 JAN 2015 16:18
+This is pdfTeX, Version 3.14159265-2.6-1.40.15 (TeX Live 2014/Debian) (preloaded format=pdflatex 2015.1.19)  19 JAN 2015 17:02
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
 **document.tex
 (./document.tex
-LaTeX2e <2011/06/27>
-Babel <3.9h> and hyphenation patterns for 2 languages loaded.
+LaTeX2e <2014/05/01>
+Babel <3.9k> and hyphenation patterns for 2 languages loaded.
 (./bioinfo.cls
 Document Class: bioinfo 2003/02/08 0.1
 (/usr/share/texlive/texmf-dist/tex/latex/base/inputenc.sty
-Package: inputenc 2008/03/30 v1.1d Input encoding file
+Package: inputenc 2014/04/30 v1.2b Input encoding file
 \inpenc@prehook=\toks14
 \inpenc@posthook=\toks15
 ) (./crop.sty
@@ -47,7 +47,7 @@ Package crop Info: using pdf(la)tex graphics driver on input line 33.
  (./graphicx.sty
 Package: graphicx 1999/02/16 v1.0f Enhanced LaTeX Graphics (DPC,SPQR)
  (/usr/share/texlive/texmf-dist/tex/latex/graphics/keyval.sty
-Package: keyval 1999/03/16 v1.13 key=value parser (DPC)
+Package: keyval 2014/05/08 v1.15 key=value parser (DPC)
 \KV@toks@=\toks16
 )
 \Gin@req@height=\dimen104
@@ -757,10 +757,10 @@ LaTeX Font Warning: Size substitutions with differences
 
  ) 
 Here is how much of TeX's memory you used:
- 3994 strings out of 495028
- 51674 string characters out of 6181497
- 146743 words of memory out of 5000000
- 7075 multiletter control sequences out of 15000+600000
+ 3995 strings out of 495021
+ 51691 string characters out of 6181344
+ 146777 words of memory out of 5000000
+ 7080 multiletter control sequences out of 15000+600000
  54509 words of font info for 109 fonts, out of 8000000 for 9000
  18 hyphenation exceptions out of 8191
  38i,11n,28p,1311b,371s stack positions out of 5000i,500n,10000p,200000b,80000s
@@ -780,7 +780,7 @@ e/texmf-dist/fonts/type1/urw/helvetic/uhvb8a.pfb></usr/share/texlive/texmf-dist
 ic/uhvro8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmb8a.pfb>
 </usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></usr/share/tex
 live/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on document.pdf (7 pages, 1260925 bytes).
+Output written on document.pdf (7 pages, 1260873 bytes).
 PDF statistics:
  231 PDF objects out of 1000 (max. 8388607)
  124 compressed objects within 2 object streams

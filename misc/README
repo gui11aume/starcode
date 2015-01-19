@@ -1,0 +1,24 @@
+Here is how to reproduce an example showing that slidesort is not
+an all pairs search algorithm, contrary to the claims of the
+original article.
+http://bioinformatics.oxfordjournals.org/content/27/4/464.full
+
+1. Make sure that the dataset consists of 50 pairs of sequences at 
+a Levenshtein distance of 3 or less.
+
+python compute_Levenshtein_distances.py
+
+The script uses a slow but safe implementation of the Levenshtein
+distance and a full comparison of all the sequences in the file.
+It should produce 50 pairs of sequences within a Levenshtein distance
+of 3.
+
+2. Download slidesort executables.
+
+http://www.cbrc.jp/~shimizu/slidesort/index.php?Download
+
+3. Run slidesort on the input file.
+
+slidesort_v2 -d 3 -i tiny.fasta
+
+The output should specify that slidesort has found 46 pairs.

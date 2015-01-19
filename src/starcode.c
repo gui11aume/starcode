@@ -25,11 +25,11 @@
 #include "starcode-private.h"
 
 //    Global variables    //
-static FILE     * OUTPUTF1 = NULL;           // output file 1
-static FILE     * OUTPUTF2 = NULL;           // output file 2
-static format_t   FORMAT   = UNSET;          // input format
-static output_t   OUTPUTT  = DEFAULT_OUTPUT; // output type
-
+static FILE     * OUTPUTF1      = NULL;           // output file 1
+static FILE     * OUTPUTF2      = NULL;           // output file 2
+static format_t   FORMAT        = UNSET;          // input format
+static output_t   OUTPUTT       = DEFAULT_OUTPUT; // output type
+static int        CLUSTER_RATIO = 5;              // min parent-to-child ratio to link clusters.
 
 int
 starcode
@@ -42,6 +42,7 @@ starcode
    const int verbose,
    const int showclusters,
          int thrmax,
+         int parent_to_child,
    const int outputt
 )
 {
@@ -49,6 +50,7 @@ starcode
    OUTPUTF1 = outputf1;
    OUTPUTF2 = outputf2;
    OUTPUTT = outputt;
+   CLUSTER_RATIO = parent_to_child;
 
    if (verbose) {
       fprintf(stderr, "running starcode with %d thread%s\n",
@@ -464,7 +466,7 @@ do_query
                // pair if counts are on the same order of magnitude.
                int mincount = child->count;
                int maxcount = parent->count;
-               if (maxcount < PARENT_TO_CHILD_FACTOR * mincount) continue;
+               if (maxcount < CLUSTER_RATIO * mincount) continue;
                // The child is modified, use the child mutex.
                mutexid = match->count > query->count ?
                   job->queryid : job->trieid;

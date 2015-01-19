@@ -38,6 +38,7 @@ char *USAGE =
 "    -d --dist: maximum Levenshtein distance (default auto)\n"
 "    -q --quiet: quiet output (default verbose)\n"
 "    -t --threads: number of concurrent threads (default 1)\n"
+"    -r --cluster-ratio: minumum cluster size ratio (default 5)\n"
 "    -s --sphere: sphere clustering (default message passing)\n"
 "    -v --version: display version and exit\n"
 "\n"
@@ -117,6 +118,7 @@ main(
    // Unset flags (value -1).
    int dist = -1;
    int threads = -1;
+   int cluster_ratio = -1;
 
    // Unset options (value 'UNSET').
    char * const UNSET = "unset";
@@ -135,6 +137,7 @@ main(
          {"sphere",            no_argument,       &sp_flag, 's'},
          {"version",           no_argument,              0, 'v'},
          {"dist",              required_argument,        0, 'd'},
+         {"cluster-ratio",     required_argument,        0, 'r'},
          {"help",              no_argument,              0, 'h'},
          {"input",             required_argument,        0, 'i'},
          {"input1",            required_argument,        0, '1'},
@@ -144,7 +147,7 @@ main(
          {0, 0, 0, 0}
       };
 
-      c = getopt_long(argc, argv, "1:2:d:hi:o:qst:v",
+      c = getopt_long(argc, argv, "1:2:d:hi:o:qst:r:v",
             long_options, &option_index);
  
       // Done parsing //
@@ -240,6 +243,22 @@ main(
          }
          else {
             fprintf(stderr, "error: --thread set more than once\n");
+            say_usage();
+            return EXIT_FAILURE;
+         }
+         break;
+
+      case 'r':
+         if (cluster_ratio < 0) {
+            cluster_ratio = atoi(optarg);
+            if (cluster_ratio < 1) {
+               fprintf(stderr, "error: --cluster-ratio must be numeric and greater than 0\n");
+               say_usage();
+               return EXIT_FAILURE;
+            }
+         }
+         else {
+            fprintf(stderr, "error: --cluster-ratio set more than once\n");
             say_usage();
             return EXIT_FAILURE;
          }
@@ -378,6 +397,7 @@ main(
 
    // Set remaining default options.
    if (threads < 0) threads = 1;
+   if (cluster_ratio < 0) cluster_ratio = 5;
 
    int exitcode =
    starcode(
@@ -389,6 +409,7 @@ main(
        vb_flag,
        cl_flag,
        threads,
+       cluster_ratio,
        output_type
    );
 

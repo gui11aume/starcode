@@ -46,6 +46,7 @@ int starcode(
    const int    verbose,
    const int    showclusters,
          int    maxthreads,
+         int    parent_to_child,
    const int    outputt
 );
 

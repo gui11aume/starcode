@@ -38,9 +38,6 @@
 
 #define MAX_K_FOR_LOOKUP 14
 
-#define PARENT_TO_CHILD_FACTOR  5
-#define PARENT_TO_CHILD_MINIMUM 10
-
 #define BISECTION_START  1
 #define BISECTION_END    -1
 

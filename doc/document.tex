@@ -366,8 +366,8 @@ larger than the number of independent threads.
 \subsection{Clustering}
 The default clustering algorithm of starcode is designed to correct
 sequencing error. This method uses message passing \citep{mackay}
-to identfy and count ``canonical'' sequences (also referred to as
-centroids in the clustering terminology). Each sequence transfers its
+to identify and count ``canonical'' sequences (also referred to as
+centroids in the clustering terminology). By default, each sequence transfers its
 read count to its closest $\tau$-match provided the latter has at least 5
 times more counts. If the condition is not met, the transfer does
 not take place. If the sequence has several equally close
@@ -384,7 +384,10 @@ Since no sequencing technology has an error rate higher than 20\%,
 it is expected that sequences appearing from sequencing errors will
 always have 5 times or lower read count than the canonical sequence.
 Otherwise, sequences are more likely unrelated, or both are derived
-from the same canonical sequence. 
+from the same canonical sequence. This behavior can be modified with
+the command-line option \emph{cluster-ratio} to allow for a more
+flexible or more strict clustering, e.g. to cluster unique input
+sequences together, \emph{cluster-ratio} must be set to 1.
 
 For other sequence clustering problems, starcode implements a
 multi-purpose algorithm called ``sphere clustering''.
@@ -443,7 +446,7 @@ and real data sets, respectively.
 \section{Results}
 
 \subsection{Presentation and basic performance}
-\label{performance}
+\label{section:performance}
 Starcode is a general purpose DNA sequence clustering tool with a
 strong focus on error correction. Errors are assumed to be mismatches,
 insertions or deletions (the implementation presented here matches
@@ -467,7 +470,12 @@ We show the basic performance and scalability of starcode on a
 dataset of pseudorandom sequences (Figure \ref{fig:perf}). The standard
 configuration is a set of 1,000,000 sequences of length 40, running
 on 1 thread and with a maximum Levenshtein distance of 3. In each
-test, only one parameter is modified while the others are kept constant.
+test, only one parameter is modified while the others are kept
+constant. Since the clustering step does not require additional memory
+allocation and is significantly faster than all-pairs search, the
+performance results presented in Sections \ref{section:performance} and
+\ref{section:benchmark} apply for both message-passing and spheres
+clustering algorithms.
 
 Figure \ref{fig:perf}a shows the running time of starcode as a
 function of the number of input sequences $n$. In double logarithmic
@@ -487,7 +495,7 @@ most of the queries are resolved without searching the trie.
 Finally, we show the scalability of starcode with increasing number
 of threads in Figure \ref{fig:perf}d. The search algorithm is fully
 parallel and the relative performance increases linearly up to 12 threads.
-The bending observed thereafter has two sources. The first is 
+The bending observed thereafter has two sources; the first is 
 that the input reading and clustering steps are brief but not parallel,
 the second is due to hardware limitations, i.e. there is insufficient
 memory bandwidth to satisfy the increased demand of parallel memory accesses.
@@ -560,8 +568,8 @@ datasets (Figure \ref{fig:benchmark}b). We were surprised by
 this result because slidesort is claimed to be an exact algorithm.
 However, this was clearly not the case when we ran additional tests
 on smaller datasets where naive pairwise comparisons are feasible
-(more information is available on the starcode repository the, see
-http://github.com/gui11aume/starcode/misc).
+(more information is available on the starcode repository, see
+http://github.com/gui11aume/starcode/tree/master/misc).
 
 The running time of the different tools as a function of the size
 of the clusters is shown on Figure \ref{fig:benchmark}c. The running

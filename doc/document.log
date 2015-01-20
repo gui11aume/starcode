@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.15 (TeX Live 2014/Debian) (preloaded format=pdflatex 2015.1.19)  19 JAN 2015 17:02
+This is pdfTeX, Version 3.14159265-2.6-1.40.15 (TeX Live 2014/Debian) (preloaded format=pdflatex 2015.1.19)  20 JAN 2015 12:08
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -486,46 +486,39 @@ ect
  []
 
 
-Underfull \hbox (badness 4013) in paragraph at lines 389--397
+Underfull \hbox (badness 4013) in paragraph at lines 392--400
 \OT1/ptm/m/n/8 purpose algorithm called ``sphere clustering''. In sphere cluste
 ring,
  []
 
-LaTeX Font Info:    Try loading font information for OT1+pcr on input line 414.
+LaTeX Font Info:    Try loading font information for OT1+pcr on input line 417.
 
 (/usr/share/texlive/texmf-dist/tex/latex/psnfss/ot1pcr.fd
 File: ot1pcr.fd 2001/06/04 font definitions for OT1/pcr.
 )
-Overfull \hbox (3.78911pt too wide) in paragraph at lines 411--421
+Overfull \hbox (3.78911pt too wide) in paragraph at lines 414--424
  [][] 
  []
 
 
-Overfull \hbox (1.62912pt too wide) in paragraph at lines 427--438
+Overfull \hbox (1.62912pt too wide) in paragraph at lines 430--441
  [][] 
  []
 
 
-Underfull \hbox (badness 1043) in paragraph at lines 447--465
+Underfull \hbox (badness 1043) in paragraph at lines 450--468
 \OT1/ptm/m/n/9 the canonical sequences are printed, which is useful to filter
  []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
 
 <scalability.pdf, id=147, 505.89pt x 505.89pt>
 File: scalability.pdf Graphic file (type pdf)
  <use scalability.pdf>
-Package pdftex.def Info: scalability.pdf used on input line 497.
+Package pdftex.def Info: scalability.pdf used on input line 505.
 (pdftex.def)             Requested size: 237.76833pt x 237.76833pt.
 
-Underfull \hbox (badness 7667) in paragraph at lines 508--517
+Underfull \hbox (badness 7667) in paragraph at lines 516--525
 \OT1/ptm/m/n/9 We benchmarked starcode against the sequence clustering
  []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 Overfull \hbox (261.0pt too wide) has occurred while \output is active
@@ -541,33 +534,33 @@ Overfull \hbox (261.0pt too wide) has occurred while \output is active
  []
 
 [4]
-Underfull \hbox (badness 1590) in paragraph at lines 519--536
+Underfull \hbox (badness 1590) in paragraph at lines 527--544
 []\OT1/ptm/m/n/9 The performance of sequence clustering algorithms can be
  []
 
 <benchmark.pdf, id=152, 505.89pt x 505.89pt>
 File: benchmark.pdf Graphic file (type pdf)
  <use benchmark.pdf>
-Package pdftex.def Info: benchmark.pdf used on input line 538.
+Package pdftex.def Info: benchmark.pdf used on input line 546.
 (pdftex.def)             Requested size: 237.76833pt x 237.76833pt.
 
-Underfull \hbox (badness 1184) in paragraph at lines 554--565
-\OT1/ptm/m/n/9 tools identify approximately 40 false clusters per true cluster
+Underfull \hbox (badness 4940) in paragraph at lines 562--573
+\OT1/ptm/m/n/9 the clustering achieved by seed and cd-hit is incomplete.
  []
 
 
-Underfull \hbox (badness 4205) in paragraph at lines 554--565
-\OT1/ptm/m/n/9 is claimed to be an exact algorithm. However, this was
+Underfull \hbox (badness 2384) in paragraph at lines 562--573
+\OT1/ptm/m/n/9 Both tools identify approximately 40 false clusters per true
  []
 
 
-Underfull \hbox (badness 1122) in paragraph at lines 554--565
-\OT1/ptm/m/n/9 datasets where naive pairwise comparisons are feasible (more
+Underfull \hbox (badness 1132) in paragraph at lines 562--573
+\OT1/ptm/m/n/9 slidesort is claimed to be an exact algorithm. However, this
  []
 
 
-Underfull \hbox (badness 2418) in paragraph at lines 554--565
-\OT1/ptm/m/n/9 information is available on the starcode repository the, see
+Underfull \hbox (badness 2932) in paragraph at lines 562--573
+\OT1/ptm/m/n/9 was clearly not the case when we ran additional tests on
  []
 
 
@@ -582,34 +575,34 @@ Overfull \hbox (261.0pt too wide) has occurred while \output is active
 Overfull \vbox (1.0pt too high) has occurred while \output is active []
 
  [5 <./scalability.pdf> <./benchmark.pdf>]
-Underfull \hbox (badness 1400) in paragraph at lines 626--640
+Underfull \hbox (badness 1400) in paragraph at lines 634--648
 \OT1/ptm/m/n/9 threshold for the first dataset to compensate for the reduced
  []
 
 
-Underfull \hbox (badness 1661) in paragraph at lines 686--697
+Underfull \hbox (badness 1661) in paragraph at lines 694--705
 \OT1/ptm/m/n/9 for other applications, such as the identification of enriched
  []
 
 
-Underfull \hbox (badness 1253) in paragraph at lines 686--697
+Underfull \hbox (badness 1253) in paragraph at lines 694--705
 \OT1/ptm/m/n/9 targeting them to the sites where they act. Identifying those
  []
 
 Missing character: There is no   in font ptmr7t!
 
-Underfull \hbox (badness 1571) in paragraph at lines 718--738
+Underfull \hbox (badness 1571) in paragraph at lines 726--746
 \OT1/ptm/m/n/9 RNA GA-rich motifs, but there is some disagreement about
  []
 
 
-Underfull \hbox (badness 1783) in paragraph at lines 718--738
+Underfull \hbox (badness 1783) in paragraph at lines 726--746
 \OT1/ptm/m/n/9 the motif that it recognizes (Pandit \OT1/ptm/m/it/9 et al.\OT1/
 ptm/m/n/9 , 2013). For each
  []
 
 
-Underfull \hbox (badness 1708) in paragraph at lines 718--738
+Underfull \hbox (badness 1708) in paragraph at lines 726--746
 \OT1/ptm/m/n/9 10-mer is thus the sum of the ranks of all 10-mers within
  []
 
@@ -627,117 +620,41 @@ Overfull \hbox (261.0pt too wide) has occurred while \output is active
  []
 
 [6]
-Underfull \hbox (badness 1147) in paragraph at lines 757--771
+Underfull \hbox (badness 1147) in paragraph at lines 765--779
 \OT1/ptm/m/n/9 genomes and in experimental data. Here we have given two
  []
 
 
-Underfull \hbox (badness 2521) in paragraph at lines 772--781
+Underfull \hbox (badness 2521) in paragraph at lines 780--789
 \OT1/ptm/m/n/9 sequences. When clustering related but divergent sequences,
  []
 
 
-Underfull \hbox (badness 2158) in paragraph at lines 772--781
+Underfull \hbox (badness 2158) in paragraph at lines 780--789
 \OT1/ptm/m/n/9 the Levenshtein distance will have to be increased, leading
  []
 
 
-Underfull \hbox (badness 1661) in paragraph at lines 772--781
+Underfull \hbox (badness 1661) in paragraph at lines 780--789
 \OT1/ptm/m/n/9 to exponentially longer running times (Figure 5[]b). However,
  []
 
 (./document.bbl
 LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <7> not available
 (Font)              Font shape `OT1/ptm/b/n' tried instead on input line 10.
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
 Missing character: There is no Ã in font ptmr7t!
 Missing character: There is no © in font ptmr7t!
 Missing character: There is no â in font ptmr7t!
 Missing character: There is no € in font ptmr7t!
 Missing character: There is no ¦ in font ptmr7t!
 )
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:20.24243pt when 584.91992pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:20.24243pt when 585.91992pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:20.24243pt when 586.91992pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:20.24243pt when 587.91992pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:20.24243pt when 588.91992pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:20.24243pt when 589.91992pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:20.24243pt when 590.91992pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:20.24243pt when 591.91992pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:20.24243pt when 592.91992pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:20.24243pt when 593.91992pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-Extra height:0.0pt when 594.91992pt
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-(2)Left:594.91992pt Right:595.83984pt Output:594.91992pt
-(2)Left:595.83984pt Right:573.24243pt Output:595.83984pt
+Extra height:0.0pt when 607.41992pt
+(2)Left:607.41992pt Right:606.83984pt Output:607.41992pt
 - LAST -
 Extra skip:0.0pt
-Left:595.83984pt
-Right:573.24243pt
-Output:595.83984pt
+Left:607.41992pt
+Right:606.83984pt
+Output:607.41992pt
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
@@ -758,8 +675,8 @@ LaTeX Font Warning: Size substitutions with differences
  ) 
 Here is how much of TeX's memory you used:
  3995 strings out of 495021
- 51691 string characters out of 6181344
- 146777 words of memory out of 5000000
+ 51699 string characters out of 6181344
+ 148092 words of memory out of 5000000
  7080 multiletter control sequences out of 15000+600000
  54509 words of font info for 109 fonts, out of 8000000 for 9000
  18 hyphenation exceptions out of 8191
@@ -780,7 +697,7 @@ e/texmf-dist/fonts/type1/urw/helvetic/uhvb8a.pfb></usr/share/texlive/texmf-dist
 ic/uhvro8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmb8a.pfb>
 </usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></usr/share/tex
 live/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on document.pdf (7 pages, 1260873 bytes).
+Output written on document.pdf (7 pages, 1261322 bytes).
 PDF statistics:
  231 PDF objects out of 1000 (max. 8388607)
  124 compressed objects within 2 object streams

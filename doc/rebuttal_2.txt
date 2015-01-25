@@ -1,0 +1,68 @@
+﻿Dear editor, dear reviewers,
+
+
+thank you once again for your constructive feedback. We have updated the manuscript according to your comments. Below is a brief clarification for each of the addressed issues.
+
+
+For clarity, our responses to the points of the reviewers are bracketed by lines of dashes.
+
+
+Reviewer: 1
+
+
+Comments to the Author
+The authors have addressed all my concerns from the initial review. The paper has greatly improved by including now comparisons against competing software tools, while the result of the benchmark comparisons are very strong.
+
+
+Reviewer: 2
+
+
+Comments to the Author
+Meanwhile I was revising the manuscript, I realized that although you described the benchmarking scenario (hardware, run modes, flags, used datasets, etc...) quite well, you did not include the version numbers of the other algorithms/implementations you compared against. Bioinformatic software sometimes evolves too fast, and manuscript sentences which are currently true (or when the benchmarks were made) could not be reproduced in the future due software improvements, flag and behavior changes, bugfixes, etc... so version information is also a requirement.
+
+
+---------
+Thanks for the observation, we have included the versions of the benchmarked software in tables 1 and 2.
+---------
+
+
+Also, as starcode has in its implementation more than one clustering algorithm, I recommend you to include runs with this alternate algorithm with the adequate (if not all the) benchmarks.
+
+
+---------
+The most complex step of starcode is discovering whether each sequence pair falls within a given edit distance, which is orders of magnitude more expensive in terms of time and memory usage than any of the clustering algorithms. The performance benchmarks are therefore independent of the selected clustering strategy.
+
+
+To point this out in the manuscript, we have added the following sentence in section 3.1:
+
+
+"Since the clustering step does not require additional memory allocation and is significantly faster than all-pairs search, the performance results presented in Sections 3.1 and 3.2 apply for both message-passing and spheres clustering algorithms."
+---------
+
+
+In page 4, when you are describing the default clustering algorithm you explain its behavior, establishing that each sequence transfers its read count to its closest tau-match, provided the latter has at least 5 times more counts. And the reason it is 5 times is because no sequencing technology has an error rate higher than 20%, which is a very reasonable default. Perhaps it is a nonsense, but I think it would be useful to provide a parameter to adjust this value on runtime, so you can set up stricter or laxer error rates.
+
+
+---------
+This is indeed a good point. For instance, Oxford Nanopore seems to have an error rate higher than 20%. We have included a new command-line parameter (cluster-ratio) to set the minimum count ratio to cluster in message-passing mode. Additionally, we have included the following note in the manuscript (Section 2.6):
+
+
+"This behavior can be modified with the command-line option cluster-ratio to allow for a more flexible or more strict clustering, e.g. to cluster unique input sequences together, cluster-ratio must be set to 1."
+---------
+
+
+Page 5, left column, line 56: the link http://github.com/gui11aume/starcode/misc to the supplementary material does not work
+
+
+---------
+We apologize for the issue, the link was incorrect and we accidentally deleted the folder at some point. The misc folder has been uploaded to the repository again and the link is now accessible. Also, the text has been updated to pont to the the proper page on Github, which is https://github.com/gui11aume/starcode/tree/master/misc.
+---------
+
+
+Page 5, left column, line 44: a typo, "statellites" should be "satellites"
+Page 6, tables 4 and 5: a typo, "sidesort" should be "slidesort"
+
+
+---------
+The typos have been corrected in the updated version of the manuscript.
+---------

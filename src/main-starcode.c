@@ -316,12 +316,12 @@ main(
       return EXIT_FAILURE;
    }
    if (input1 == UNSET && input2 != UNSET) {
-      fprintf(stderr, "error: --input1 set without --input2\n");
+      fprintf(stderr, "error: --input2 set without --input1\n");
       say_usage();
       return EXIT_FAILURE;
    }
    if (input2 == UNSET && input1 != UNSET) {
-      fprintf(stderr, "error: --input2 set without --input1\n");
+      fprintf(stderr, "error: --input1 set without --input2\n");
       say_usage();
       return EXIT_FAILURE;
    }

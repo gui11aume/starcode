@@ -202,7 +202,7 @@ poucet
 
    // The branch of the L that is identical among all children
    // is computed separately. It will be copied later.
-   uint32_t path = node->path;
+   int32_t path = node->path;
    // Upper arm of the L (need the path).
    if (maxa > 0) {
       // Special initialization for first character. If the previous

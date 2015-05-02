@@ -29,6 +29,12 @@
 #include <unistd.h>
 #include "starcode.h"
 
+// Prototypes for utilities of the main.
+char * outname (char *);
+void   say_usage (void);
+void   say_version (void);
+void   SIGSEGV_handler (int);
+
 char *USAGE =
 "\n"
 "Usage:"

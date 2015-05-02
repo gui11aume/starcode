@@ -98,7 +98,7 @@ starcode
    if (OUTPUTT == DEFAULT_OUTPUT || OUTPUTT == PRINT_NRED) {
 
       // Cluster the pairs.
-      message_passing_clustering(uSQ, thrmax);
+      message_passing_clustering(uSQ);
 
       // Sort in canonical order.
       qsort(uSQ->items, uSQ->nitems, sizeof(useq_t *), canonical_order);
@@ -230,7 +230,7 @@ starcode
    else if (OUTPUTT == SPHERES_OUTPUT) {
 
       // Cluster the pairs.
-      sphere_clustering(uSQ, thrmax);
+      sphere_clustering(uSQ);
 
       // Sort in count order.
       qsort(uSQ->items, uSQ->nitems, sizeof(useq_t *), count_order);
@@ -661,8 +661,7 @@ count_trie_nodes
 void
 sphere_clustering
 (
-   gstack_t *useqS,
-   const int thrmax
+   gstack_t *useqS
 )
 {
    // Sort in count order.
@@ -693,8 +692,7 @@ sphere_clustering
 void
 message_passing_clustering
 (
-   gstack_t *useqS,
-   const int thrmax
+   gstack_t *useqS
 )
 {
    // Transfer counts to parents recursively.
@@ -1148,9 +1146,9 @@ read_PE_fastq
       }
       else if (lineno % 4 == 0) {
          if (readh) {
-            int o = snprintf(info, 4*M, "%s\n%s\n%s\n%s",
+            int scheck = snprintf(info, 4*M, "%s\n%s\n%s\n%s",
                   header1, line1, header2, line2);
-            if (o < 0 || o > 4*M-1) {
+            if (scheck < 0 || scheck > 4*M-1) {
                alert();
                krash();
             }
@@ -1158,14 +1156,14 @@ read_PE_fastq
          else {
             // No need for the headers, the 'info' member is
             // used to hold a string representation of the pair.
-            int o = snprintf(info, 2*M, "%s/%s", seq1, seq2);
-            if (o < 0 || o > 2*M-1) {
+            int scheck = snprintf(info, 2*M, "%s/%s", seq1, seq2);
+            if (scheck < 0 || scheck > 2*M-1) {
                alert();
                krash();
             }
          }
-         int o = snprintf(seq, 2*M+8, "%s%s%s", seq1, sep, seq2);
-         if (o < 0 || o > 2*M+7) {
+         int scheck = snprintf(seq, 2*M+8, "%s%s%s", seq1, sep, seq2);
+         if (scheck < 0 || scheck > 2*M+7) {
             alert();
             krash();
          }
@@ -1509,6 +1507,7 @@ lut_search
 // SIDE-EFFECTS:
 //   None.
 {
+
    // Start from the end of the sequence. This will avoid potential
    // misalignments on the first kmer due to insertions.
    int offset = lut->slen;

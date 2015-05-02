@@ -82,9 +82,6 @@ starcode
    run_plan(mtplan, verbose, thrmax);
    if (verbose) fprintf(stderr, "progress: 100.00%%\n");
 
-   // Remove padding characters.
-   //unpad_useq(uSQ);
-
    // Do not free anything.
    OUTPUTF1 = NULL;
    return 0;
@@ -247,47 +244,19 @@ do_query
                      query->info, match->info, dist);
             }
             else { 
+               // The query sequences are padded. Remove the
+               // pad when printing the pairs.
+               int P1, P2;
+               for (P1 = 0 ; P1 < strlen(query->seq) ; P1++) {
+                  if (query->seq[P1] != ' ') break;
+               }
+               for (P2 = 0 ; P2 < strlen(match->seq) ; P2++) {
+                  if (match->seq[P2] != ' ') break;
+               }
                fprintf(stdout, "%s\t%s\t%d\n",
-                     query->seq, match->seq, dist);
+                     query->seq+P1, match->seq+P2, dist);
             }
 
-            // We'll always use parent's mutex.
-//            useq_t *parent = match->count > query->count ? match : query;
-//            useq_t *child  = match->count > query->count ? query : match;
-//            int mutexid;
-//
-//            if (add_match_to_parent) {
-//               // The parent is modified, use the parent mutex.
-//               mutexid = match->count > query->count ?
-//                  job->trieid : job->queryid;
-//               pthread_mutex_lock(job->mutex + mutexid);
-//               if (addmatch(parent, child, dist, tau)) {
-//                  fprintf(stderr,
-//                        "Please contact guillaume.filion@gmail.com "
-//                        "for support with this issue.\n");
-//                  abort();
-//               }
-//               pthread_mutex_unlock(job->mutex + mutexid);
-//            }
-//
-//            else {
-//               // If clustering is done by message passing, do not link
-//               // pair if counts are on the same order of magnitude.
-//               int mincount = child->count;
-//               int maxcount = parent->count;
-//               if (maxcount < CLUSTER_RATIO * mincount) continue;
-//               // The child is modified, use the child mutex.
-//               mutexid = match->count > query->count ?
-//                  job->queryid : job->trieid;
-//               pthread_mutex_lock(job->mutex + mutexid);
-//               if (addmatch(child, parent, dist, tau)) {
-//                  fprintf(stderr,
-//                        "Please contact guillaume.filion@gmail.com "
-//                        "for support with this issue.\n");
-//                  abort();
-//               }
-//               pthread_mutex_unlock(job->mutex + mutexid);
-//            }
          }
          }
 
@@ -702,7 +671,6 @@ read_fasta
       krash();
    }
 
-   char *header = NULL;
    int lineno = 0;
 
    while ((nread = getline(&line, &nchar, inputf)) != -1) {
@@ -725,7 +693,7 @@ read_fasta
                abort();
             }
          }
-         useq_t *new = new_useq(1, line, header);
+         useq_t *new = new_useq(1, line, NULL);
          if (new == NULL) {
             alert();
             krash();
@@ -757,7 +725,6 @@ read_fastq
    }
 
    char seq[M] = {0};
-   char info[2*M] = {0};
    int lineno = 0;
 
    while ((nread = getline(&line, &nchar, inputf)) != -1) {
@@ -782,7 +749,7 @@ read_fastq
          strncpy(seq, line, M);
       }
       else if (lineno % 4 == 0) {
-         useq_t *new = new_useq(1, seq, info);
+         useq_t *new = new_useq(1, seq, NULL);
          if (new == NULL) {
             alert();
             krash();

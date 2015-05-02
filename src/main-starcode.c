@@ -29,6 +29,12 @@
 #include <unistd.h>
 #include "starcode.h"
 
+// Prototypes for utilities of the main.
+char * outname (char *);
+void   say_usage (void);
+void   say_version (void);
+void   SIGSEGV_handler (int);
+
 char *USAGE =
 "\n"
 "Usage:"
@@ -110,10 +116,7 @@ main(
    signal(SIGSEGV, SIGSEGV_handler); 
 
    // Set flags to defaults.
-   static int nr_flag = 0;
-   static int sp_flag = 0;
    static int vb_flag = 1;
-   static int cl_flag = 0;
 
    // Unset flags (value -1).
    int dist = -1;
@@ -131,13 +134,9 @@ main(
    while (1) {
       int option_index = 0;
       static struct option long_options[] = {
-         {"print-clusters",    no_argument,       &cl_flag,  1 },
-         {"non-redundant",     no_argument,       &nr_flag,  1 },
          {"quiet",             no_argument,       &vb_flag,  0 },
-         {"sphere",            no_argument,       &sp_flag, 's'},
          {"version",           no_argument,              0, 'v'},
          {"dist",              required_argument,        0, 'd'},
-         {"cluster-ratio",     required_argument,        0, 'r'},
          {"help",              no_argument,              0, 'h'},
          {"input",             required_argument,        0, 'i'},
          {"input1",            required_argument,        0, '1'},
@@ -228,10 +227,6 @@ main(
          vb_flag = 0;
          break;
 
-      case 's':
-         sp_flag = 1;
-         break;
-
       case 't':
          if (threads < 0) {
             threads = atoi(optarg);
@@ -243,22 +238,6 @@ main(
          }
          else {
             fprintf(stderr, "error: --thread set more than once\n");
-            say_usage();
-            return EXIT_FAILURE;
-         }
-         break;
-
-      case 'r':
-         if (cluster_ratio < 0) {
-            cluster_ratio = atoi(optarg);
-            if (cluster_ratio < 1) {
-               fprintf(stderr, "error: --cluster-ratio must be numeric and greater than 0\n");
-               say_usage();
-               return EXIT_FAILURE;
-            }
-         }
-         else {
-            fprintf(stderr, "error: --cluster-ratio set more than once\n");
             say_usage();
             return EXIT_FAILURE;
          }
@@ -291,47 +270,21 @@ main(
    }
 
    // Check options compatibility. //
-   if (nr_flag && cl_flag) {
-      fprintf(stderr,
-            "error: --non-redundant and --print-clusters are "
-            "incompatible\n");
-      say_usage();
-      return EXIT_FAILURE;
-   }
-   if (nr_flag && sp_flag) {
-      fprintf(stderr,
-            "error: --non-redundant and --sphere are incompatible\n");
-      say_usage();
-      return EXIT_FAILURE;
-   }
    if (input != UNSET && (input1 != UNSET || input2 != UNSET)) {
       fprintf(stderr, "error: --input and --input1/2 are incompatible\n");
       say_usage();
       return EXIT_FAILURE;
    }
    if (input1 == UNSET && input2 != UNSET) {
-      fprintf(stderr, "error: --input1 set without --input2\n");
-      say_usage();
-      return EXIT_FAILURE;
-   }
-   if (input2 == UNSET && input1 != UNSET) {
       fprintf(stderr, "error: --input2 set without --input1\n");
       say_usage();
       return EXIT_FAILURE;
    }
-   if (nr_flag && output != UNSET &&
-         (input1 != UNSET || input2 != UNSET)) {
-      fprintf(stderr, "error: cannot specify --output for paired-end "
-            "fastq file with --non-redundant\n");
+   if (input2 == UNSET && input1 != UNSET) {
+      fprintf(stderr, "error: --input1 set without --input2\n");
       say_usage();
       return EXIT_FAILURE;
    }
-
-   // Set output type. //
-   int output_type;
-        if (nr_flag) output_type = PRINT_NRED;
-   else if (sp_flag) output_type = SPHERES_OUTPUT;
-   else              output_type = DEFAULT_OUTPUT;
 
    // Set input file(s). //
    FILE *inputf1 = NULL;
@@ -375,22 +328,6 @@ main(
          return EXIT_FAILURE;
       }
    }
-   else if (nr_flag && input1 != UNSET && input2 != UNSET) {
-      outputf1 = fopen(outname(input1), "w");
-      if (outputf1 == NULL) {
-         fprintf(stderr, "error: cannot write to file %s\n",
-               outname(input1));
-         say_usage();
-         return EXIT_FAILURE;
-      }
-      outputf2 = fopen(outname(input2), "w");
-      if (outputf2 == NULL) {
-         fprintf(stderr, "error: cannot write to file %s\n",
-               outname(input2));
-         say_usage();
-         return EXIT_FAILURE;
-      }
-   }
    else {
       outputf1 = stdout;
    }
@@ -404,13 +341,9 @@ main(
        inputf1,
        inputf2,
        outputf1,
-       outputf2,
        dist,
        vb_flag,
-       cl_flag,
-       threads,
-       cluster_ratio,
-       output_type
+       threads
    );
 
    if (inputf1 != stdin)   fclose(inputf1);

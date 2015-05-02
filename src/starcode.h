@@ -34,20 +34,17 @@
 typedef enum {
    DEFAULT_OUTPUT,
    SPHERES_OUTPUT,
-   PRINT_NRED
+   PRINT_NRED,
+   ALL_PAIRS
 } output_t;
 
 int starcode(
          FILE * inputf1,
          FILE * inputf2,
          FILE * outputf1,
-         FILE * outputf2,
    const int    tau,
    const int    verbose,
-   const int    showclusters,
-         int    maxthreads,
-         int    parent_to_child,
-   const int    outputt
+         int    maxthreads
 );
 
 #endif

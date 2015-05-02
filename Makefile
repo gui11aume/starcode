@@ -7,7 +7,20 @@ OBJECTS= $(addprefix $(SRC_DIR)/,$(OBJECT_FILES))
 SOURCES= $(addprefix $(SRC_DIR)/,$(SOURCE_FILES))
 INCLUDES= $(addprefix -I, $(INC_DIR))
 
-CFLAGS= -std=c99 -g -Wall -O3
+# Development and debug flags.
+#CFLAGS= -std=c99 -g -O0 -Wunused-parameter -Wredundant-decls \
+	-Wreturn-type -Wswitch-default -Wunused-value -Wimplicit \
+	-Wimplicit-function-declaration -Wimplicit-int -Wimport \
+	-Wunused  -Wunused-function -Wunused-label -Wbad-function-cast \
+	-Wno-int-to-pointer-cast -Wmissing-declarations -Wpointer-sign \
+	-Wmissing-prototypes -Wnested-externs -Wold-style-definition \
+	-Wstrict-prototypes  -Wextra -Wredundant-decls -Wunused \
+	-Wunused-function -Wunused-parameter -Wunused-value -Wformat \
+	-Wunused-variable -Wformat-nonliteral -Wparentheses -Wundef \
+	-Wsequence-point -Wuninitialized -Wbad-function-cast
+# Release flags.
+CFLAGS= -std=c99 -O3 -Wall
+
 LDLIBS= -lpthread -lm
 CC= gcc
 

@@ -26,10 +26,7 @@
 
 //    Global variables    //
 static FILE     * OUTPUTF1      = NULL;           // output file 1
-static FILE     * OUTPUTF2      = NULL;           // output file 2
 static format_t   FORMAT        = UNSET;          // input format
-static output_t   OUTPUTT       = DEFAULT_OUTPUT; // output type
-static int        CLUSTER_RATIO = 5;              // min parent-to-child ratio to link clusters.
 
 int
 starcode
@@ -37,20 +34,13 @@ starcode
    FILE *inputf1,
    FILE *inputf2,
    FILE *outputf1,
-   FILE *outputf2,
          int tau,
    const int verbose,
-   const int showclusters,
-         int thrmax,
-         int parent_to_child,
-   const int outputt
+         int thrmax
 )
 {
 
    OUTPUTF1 = outputf1;
-   OUTPUTF2 = outputf2;
-   OUTPUTT = outputt;
-   CLUSTER_RATIO = parent_to_child;
 
    if (verbose) {
       fprintf(stderr, "running starcode with %d thread%s\n",
@@ -62,7 +52,7 @@ starcode
       fprintf(stderr, "input file empty\n");
       return 1;
    }
-
+   
    // Sort/reduce.
    if (verbose) fprintf(stderr, "sorting\n");
    uSQ->nitems = seqsort((useq_t **) uSQ->items, uSQ->nitems, thrmax);
@@ -84,7 +74,7 @@ starcode
          fprintf(stderr, "setting dist to %d\n", tau);
       }
    }
-   
+
    // Make multithreading plan.
    mtplan_t *mtplan = plan_mt(tau, height, med, ntries, uSQ);
 
@@ -93,197 +83,10 @@ starcode
    if (verbose) fprintf(stderr, "progress: 100.00%%\n");
 
    // Remove padding characters.
-   unpad_useq(uSQ);
-
-   if (OUTPUTT == DEFAULT_OUTPUT || OUTPUTT == PRINT_NRED) {
-
-      // Cluster the pairs.
-      message_passing_clustering(uSQ, thrmax);
-
-      // Sort in canonical order.
-      qsort(uSQ->items, uSQ->nitems, sizeof(useq_t *), canonical_order);
-
-      if (OUTPUTT == PRINT_NRED) {
-         // If print non redundant sequences, just print the
-         // canonicals with their info.
-         for (int i = 0 ; i < uSQ->nitems ; i++) {
-            useq_t *u = (useq_t *) uSQ->items[i];
-            if (u->canonical == NULL) break;
-            if (u->canonical != u) continue;
-
-            if (FORMAT == RAW) {
-               fprintf(OUTPUTF1, "%s\n", u->seq);
-            }
-            else if (FORMAT == FASTA) {
-               fprintf(OUTPUTF1, "%s\n%s\n", u->info, u->seq);
-            }
-            else if (FORMAT == FASTQ) {
-               char header[M] = {0};
-               char quality[M] = {0};
-               sscanf(u->info, "%s\n%s", header, quality);
-               fprintf(OUTPUTF1, "%s\n%s\n+\n%s\n",
-                     header, u->seq, quality);
-            }
-            else if (FORMAT == PE_FASTQ) {
-               char head1[M] = {0};
-               char head2[M] = {0};
-               char qual1[M] = {0};
-               char qual2[M] = {0};
-               char seq1[M] = {0};
-               char seq2[M] = {0};
-
-               // Split the sequences.
-               char *c1 = strchr(u->seq, '-');
-               char *c2 = strrchr(u->seq, '-');
-               strncpy(seq1, u->seq, (c1 - u->seq));
-               strcpy(seq2, c2+1);
-
-               // Split the info field.
-               sscanf(u->info, "%s\n%s\n%s\n%s",
-                     head1, qual1, head2, qual2);
-
-               // Print to separate files.
-               fprintf(OUTPUTF1, "%s\n%s\n+\n%s\n",
-                     head1, seq1, qual1);
-               fprintf(OUTPUTF2, "%s\n%s\n+\n%s\n",
-                     head2, seq2, qual2);
-            }
-         }
-      }
-
-      // Format output default style, one of the following
-      // depending on the value of 'showclusters'.
-      // 1. centroid (tab) count
-      // 2. centroid (tab) count (tab) seq1,seq2,...
-      else {
-         useq_t *first = (useq_t *) uSQ->items[0];
-         useq_t *canonical = first->canonical;
-
-         // If the first canonical is NULL they all are.
-         if (first->canonical == NULL) return 0;
-
-         if (FORMAT == PE_FASTQ) {
-            if (showclusters) {
-               fprintf(OUTPUTF1, "%s\t%d\t%s",
-                  first->canonical->info, first->canonical->count,
-                  first->info);
-            }
-            else {
-               fprintf(OUTPUTF1, "%s\t%d",
-                  first->canonical->info, first->canonical->count);
-            }
-         }
-         else {
-            if (showclusters) {
-               fprintf(OUTPUTF1, "%s\t%d\t%s",
-                  first->canonical->seq, first->canonical->count,
-                  first->seq);
-            }
-            else {
-               fprintf(OUTPUTF1, "%s\t%d",
-                  first->canonical->seq, first->canonical->count);
-            }
-         }
-
-         for (int i = 1 ; i < uSQ->nitems ; i++) {
-            useq_t *u = (useq_t *) uSQ->items[i];
-            if (u->canonical == NULL) break;
-            if (u->canonical != canonical) {
-               canonical = u->canonical;
-               if (FORMAT == PE_FASTQ) {
-                  if (showclusters) {
-                     fprintf(OUTPUTF1, "\n%s\t%d\t%s",
-                           canonical->info, canonical->count, u->info);
-                  }
-                  else {
-                     fprintf(OUTPUTF1, "\n%s\t%d",
-                           canonical->info, canonical->count);
-                  }
-               }
-               else {
-                  if (showclusters) {
-                     fprintf(OUTPUTF1, "\n%s\t%d\t%s",
-                           canonical->seq, canonical->count, u->seq);
-                  }
-                  else {
-                     fprintf(OUTPUTF1, "\n%s\t%d",
-                           canonical->seq, canonical->count);
-                  }
-               }
-            }
-            else if (showclusters) {
-               if (FORMAT == PE_FASTQ) {
-                  fprintf(OUTPUTF1, ",%s", u->info);
-               }
-               else {
-                  fprintf(OUTPUTF1, ",%s", u->seq);
-               }
-            }
-         }
-
-         fprintf(OUTPUTF1, "\n");
-
-      }
-
-   }
-
-   else if (OUTPUTT == SPHERES_OUTPUT) {
-
-      // Cluster the pairs.
-      sphere_clustering(uSQ, thrmax);
-
-      // Sort in count order.
-      qsort(uSQ->items, uSQ->nitems, sizeof(useq_t *), count_order);
-
-      // Also format output default style, but since the hits are
-      // stored in the parents, we need a seprate printing routine.
-      // The format is one of the following, depending on the value
-      // of 'showclusters'.
-      // 1. centroid (tab) count
-      // 2. centroid (tab) count (tab) seq1,seq2,...
-      for (int i = 0 ; i < uSQ->nitems ; i++) {
-
-         useq_t *u = (useq_t *) uSQ->items[i];
-         if (u->canonical != u) break;
-
-         fprintf(OUTPUTF1, "%s\t", u->seq);
-         if (u->matches == NULL) {
-            if (showclusters) {
-               fprintf(OUTPUTF1, "%d\t%s\n", u->count, u->seq);
-               continue;  
-            }
-            else {
-               fprintf(OUTPUTF1, "%d\n", u->count);
-               continue;  
-            }
-         }
-
-         if (showclusters) {
-            fprintf(OUTPUTF1, "%d\t%s", u->count, u->seq);
-         }
-         else {
-            fprintf(OUTPUTF1, "%d", u->count);
-         }
-
-         if (showclusters) {
-            gstack_t *hits;
-            for (int j = 0 ; (hits = u->matches[j]) != TOWER_TOP ; j++) {
-               for (int k = 0 ; k < hits->nitems ; k++) {
-                  useq_t *match = (useq_t *) hits->items[k];
-                  fprintf(OUTPUTF1, ",%s", match->seq);
-               }
-            }
-         }
-
-         fprintf(OUTPUTF1, "\n");
-
-      }
-
-   }
+   //unpad_useq(uSQ);
 
    // Do not free anything.
    OUTPUTF1 = NULL;
-   OUTPUTF2 = NULL;
    return 0;
 
 }
@@ -372,10 +175,6 @@ do_query
       krash();
    }
 
-   // Define a constant to help the compiler recognize
-   // that only one of the two cases will ever be used
-   // in the loop below.
-   const int add_match_to_parent = OUTPUTT == SPHERES_OUTPUT;
    useq_t * last_query = NULL;
 
    for (int i = job->start ; i <= job->end ; i++) {
@@ -442,43 +241,53 @@ do_query
          for (int j = 0 ; j < hits[dist]->nitems ; j++) {
 
             useq_t *match = (useq_t *) hits[dist]->items[j];
+            // Print the pair.
+            if (FORMAT == PE_FASTQ) {
+               fprintf(stdout, "%s\t%s\t%d\n",
+                     query->info, match->info, dist);
+            }
+            else { 
+               fprintf(stdout, "%s\t%s\t%d\n",
+                     query->seq, match->seq, dist);
+            }
+
             // We'll always use parent's mutex.
-            useq_t *parent = match->count > query->count ? match : query;
-            useq_t *child  = match->count > query->count ? query : match;
-            int mutexid;
-
-            if (add_match_to_parent) {
-               // The parent is modified, use the parent mutex.
-               mutexid = match->count > query->count ?
-                  job->trieid : job->queryid;
-               pthread_mutex_lock(job->mutex + mutexid);
-               if (addmatch(parent, child, dist, tau)) {
-                  fprintf(stderr,
-                        "Please contact guillaume.filion@gmail.com "
-                        "for support with this issue.\n");
-                  abort();
-               }
-               pthread_mutex_unlock(job->mutex + mutexid);
-            }
-
-            else {
-               // If clustering is done by message passing, do not link
-               // pair if counts are on the same order of magnitude.
-               int mincount = child->count;
-               int maxcount = parent->count;
-               if (maxcount < CLUSTER_RATIO * mincount) continue;
-               // The child is modified, use the child mutex.
-               mutexid = match->count > query->count ?
-                  job->queryid : job->trieid;
-               pthread_mutex_lock(job->mutex + mutexid);
-               if (addmatch(child, parent, dist, tau)) {
-                  fprintf(stderr,
-                        "Please contact guillaume.filion@gmail.com "
-                        "for support with this issue.\n");
-                  abort();
-               }
-               pthread_mutex_unlock(job->mutex + mutexid);
-            }
+//            useq_t *parent = match->count > query->count ? match : query;
+//            useq_t *child  = match->count > query->count ? query : match;
+//            int mutexid;
+//
+//            if (add_match_to_parent) {
+//               // The parent is modified, use the parent mutex.
+//               mutexid = match->count > query->count ?
+//                  job->trieid : job->queryid;
+//               pthread_mutex_lock(job->mutex + mutexid);
+//               if (addmatch(parent, child, dist, tau)) {
+//                  fprintf(stderr,
+//                        "Please contact guillaume.filion@gmail.com "
+//                        "for support with this issue.\n");
+//                  abort();
+//               }
+//               pthread_mutex_unlock(job->mutex + mutexid);
+//            }
+//
+//            else {
+//               // If clustering is done by message passing, do not link
+//               // pair if counts are on the same order of magnitude.
+//               int mincount = child->count;
+//               int maxcount = parent->count;
+//               if (maxcount < CLUSTER_RATIO * mincount) continue;
+//               // The child is modified, use the child mutex.
+//               mutexid = match->count > query->count ?
+//                  job->queryid : job->trieid;
+//               pthread_mutex_lock(job->mutex + mutexid);
+//               if (addmatch(child, parent, dist, tau)) {
+//                  fprintf(stderr,
+//                        "Please contact guillaume.filion@gmail.com "
+//                        "for support with this issue.\n");
+//                  abort();
+//               }
+//               pthread_mutex_unlock(job->mutex + mutexid);
+//            }
          }
          }
 
@@ -655,56 +464,6 @@ count_trie_nodes
       count += seqlen - prefix;
    }
    return count;
-}
-
-
-void
-sphere_clustering
-(
-   gstack_t *useqS,
-   const int thrmax
-)
-{
-   // Sort in count order.
-   qsort(useqS->items, useqS->nitems, sizeof(useq_t *), count_order);
-
-   for (int i = 0 ; i < useqS->nitems ; i++) {
-      useq_t *useq = (useq_t *) useqS->items[i];
-      if (useq->canonical != NULL) continue;
-      useq->canonical = useq;
-      if (useq->matches == NULL) continue;
-
-      gstack_t *matches;
-      for (int j = 0 ; (matches = useq->matches[j]) != TOWER_TOP ; j++) {
-         for (int k = 0 ; k < matches->nitems ; k++) {
-            useq_t *match = (useq_t *) matches->items[k];
-            match->canonical = useq;
-            useq->count += match->count;
-            match->count = 0;
-         }
-      }
-   }
-
-   return;
-
-}
-
-
-void
-message_passing_clustering
-(
-   gstack_t *useqS,
-   const int thrmax
-)
-{
-   // Transfer counts to parents recursively.
-   for (int i = 0 ; i < useqS->nitems ; i++) {
-      useq_t *u = (useq_t *) useqS->items[i];
-      transfer_counts_and_update_canonicals(u);
-   }
-
-   return;
-
 }
 
 
@@ -946,7 +705,6 @@ read_fasta
    char *header = NULL;
    int lineno = 0;
 
-   int const readh = OUTPUTT == PRINT_NRED;
    while ((nread = getline(&line, &nchar, inputf)) != -1) {
       lineno++;
       // Strip newline character.
@@ -974,13 +732,6 @@ read_fasta
          }
          push(new, &uSQ);
       }
-      else if (readh) {
-         header = strdup(line);
-         if (header == NULL) {
-            alert();
-            krash();
-         }
-      }
    }
 
    free(line);
@@ -1006,20 +757,14 @@ read_fastq
    }
 
    char seq[M] = {0};
-   char header[M] = {0};
    char info[2*M] = {0};
    int lineno = 0;
 
-   int const readh = OUTPUTT == PRINT_NRED;
    while ((nread = getline(&line, &nchar, inputf)) != -1) {
       lineno++;
       // Strip newline character.
       if (line[nread-1] == '\n') line[nread-1] = '\0';
-
-      if (readh && lineno % 4 == 1) {
-         strncpy(header, line, M);
-      }
-      else if (lineno % 4 == 2) {
+      if (lineno % 4 == 2) {
          size_t seqlen = strlen(line);
          if (seqlen > MAXBRCDLEN) {
             fprintf(stderr, "max sequence length exceeded (%d)\n",
@@ -1037,13 +782,6 @@ read_fastq
          strncpy(seq, line, M);
       }
       else if (lineno % 4 == 0) {
-         if (readh) {
-            int status = snprintf(info, 2*M, "%s\n%s", header, line);
-            if (status < 0 || status > 2*M - 1) {
-               alert();
-               krash();
-            }
-         }
          useq_t *new = new_useq(1, seq, info);
          if (new == NULL) {
             alert();
@@ -1091,12 +829,9 @@ read_PE_fastq
    char seq1[M] = {0};
    char seq2[M] = {0};
    char seq[2*M+8] = {0};
-   char header1[M] = {0};
-   char header2[M] = {0};
    char info[4*M] = {0};
    int lineno = 0;
 
-   int const readh = OUTPUTT == PRINT_NRED;
    char sep[STARCODE_MAX_TAU+2] = {0};
    memset(sep, '-', STARCODE_MAX_TAU+1);
    while ((nread = getline(&line1, &nchar, inputf1)) != -1) {
@@ -1111,15 +846,7 @@ read_PE_fastq
       }
       if (line2[nread-1] == '\n') line2[nread-1] = '\0';
 
-      if (readh && lineno % 4 == 1) {
-         // No check that the headers match each other. At the
-         // time of this writing, there are already different
-         // formats to link paired-end record. We assume that
-         // the users know what they do.
-         strncpy(header1, line1, M);
-         strncpy(header2, line2, M);
-      }
-      else if (lineno % 4 == 2) {
+      if (lineno % 4 == 2) {
          size_t seqlen1 = strlen(line1);
          size_t seqlen2 = strlen(line2);
          if (seqlen1 > MAXBRCDLEN || seqlen2 > MAXBRCDLEN) {
@@ -1147,25 +874,16 @@ read_PE_fastq
          strncpy(seq2, line2, M);
       }
       else if (lineno % 4 == 0) {
-         if (readh) {
-            int o = snprintf(info, 4*M, "%s\n%s\n%s\n%s",
-                  header1, line1, header2, line2);
-            if (o < 0 || o > 4*M-1) {
-               alert();
-               krash();
-            }
+         // No need for the headers, the 'info' member is
+         // used to hold a string representation of the pair.
+         int scheck;
+         scheck = snprintf(info, 2*M, "%s/%s", seq1, seq2);
+         if (scheck < 0 || scheck > 2*M-1) {
+             alert();
+             krash();
          }
-         else {
-            // No need for the headers, the 'info' member is
-            // used to hold a string representation of the pair.
-            int o = snprintf(info, 2*M, "%s/%s", seq1, seq2);
-            if (o < 0 || o > 2*M-1) {
-               alert();
-               krash();
-            }
-         }
-         int o = snprintf(seq, 2*M+8, "%s%s%s", seq1, sep, seq2);
-         if (o < 0 || o > 2*M+7) {
+         scheck = snprintf(seq, 2*M+8, "%s%s%s", seq1, sep, seq2);
+         if (scheck < 0 || scheck > 2*M+7) {
             alert();
             krash();
          }
@@ -1321,105 +1039,6 @@ unpad_useq
       u->seq = unpadded;
    }
    return;
-}
-
-
-void
-transfer_counts_and_update_canonicals
-(
-   useq_t *useq
-)
-// TODO: Write the doc.
-// SYNOPSIS:
-//   Function used in message passing clustering.
-{
-   // If the read has no matches, it is canonical.
-   if (useq->matches == NULL) {
-      useq->canonical = useq;
-      return;
-   }
-   // If the read has already been assigned a canonical, directly
-   // transfer counts to the canonical and return.
-   if (useq->canonical != NULL) {
-      useq->canonical->count += useq->count;
-      useq->count = 0;
-      return;
-   }
-
-   // Get the lowest match stratum.
-   gstack_t *matches;
-   for (int i = 0 ; (matches = useq->matches[i]) != TOWER_TOP ; i++) {
-      if (matches->nitems > 0) break;
-   }
-
-   // Distribute counts evenly among parents.
-   int Q = useq->count / matches->nitems;
-   int R = useq->count % matches->nitems;
-   // Depending on the order in which matches were made
-   // (which is more or less random), the transferred
-   // counts can differ by 1. For this reason, the output
-   // can be slightly different for different tries numbers.
-   for (int i = 0 ; i < matches->nitems ; i++) {
-      useq_t *match = (useq_t *) matches->items[i];
-      match->count += Q + (i < R);
-   }
-   // Transfer done.
-   useq->count = 0;
-
-   // Continue propagation. This will update the canonicals.
-   for (int i = 0 ; i < matches->nitems ; i++) {
-      useq_t *match = (useq_t *) matches->items[i];
-      transfer_counts_and_update_canonicals(match);
-   }
-
-   useq_t *canonical = ((useq_t *) matches->items[0])->canonical;
-   for (int i = 1 ; i < matches->nitems ; i++) {
-      useq_t *match = (useq_t *) matches->items[i];
-      if (match->canonical != canonical) {
-         canonical = NULL;
-         break;
-      }
-   }
-
-   useq->canonical = canonical;
-
-   return;
-
-}
-
-
-int
-addmatch
-(
-   useq_t * to,
-   useq_t * from,
-   int      dist,
-   int      maxtau
-)
-// SYNOPSIS:
-//   Add a sequence to the match record of another.
-//
-// ARGUMENTS:
-//   to: pointer to the sequence to add the match to
-//   from: pointer to the sequence to add as a match
-//   dist: distance between the sequences
-//   maxtau: maximum allowed distance
-//
-// RETURN:
-//   0 upon success, 1 upon failure.
-//
-// SIDE EFFECT:
-//   Updates sequence pointed to by 'to' in place, potentially
-//   creating a match record,
-{
-
-   // Cannot add a match at a distance greater than 'maxtau'
-   // (this lead to a segmentation fault).
-   if (dist > maxtau) return 1;
-   // Create stack if not done before.
-   if (to->matches == NULL) to->matches = new_tower(maxtau+1);
-   return push(from, to->matches + dist);
-
 }
 
 
@@ -1620,40 +1239,6 @@ destroy_useq
    free(useq->seq);
    free(useq);
 }
-
-
-int
-canonical_order
-(
-   const void *a,
-   const void *b
-)
-{
-   useq_t *u1 = *((useq_t **) a);
-   useq_t *u2 = *((useq_t **) b);
-   if (u1->canonical == u2->canonical) return strcmp(u1->seq, u2->seq);
-   if (u1->canonical == NULL) return 1;
-   if (u2->canonical == NULL) return -1;
-   if (u1->canonical->count == u2->canonical->count) {
-      return strcmp(u1->canonical->seq, u2->canonical->seq);
-   }
-   if (u1->canonical->count > u2->canonical->count) return -1;
-   return 1;
-} 
-
-
-int
-count_order
-(
-   const void *a,
-   const void *b
-)
-{
-   useq_t *u1 = *((useq_t **) a);
-   useq_t *u2 = *((useq_t **) b);
-   if (u1->count == u2->count) return strcmp(u1->seq, u2->seq);
-   else return u1->count < u2->count ? 1 : -1;
-} 
 
 
 void

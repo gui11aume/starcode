@@ -30,7 +30,7 @@ make
 \end{verbatim}
 
 This should succeed on most Linux systems because \texttt{make} is
-available by default. Should it not be the case, you can obtain it by
+available by default. If this is not the case, you can obtain it by
 typing \texttt{sudo apt-get install make} on Ubuntu. On Mac, you need
 to install XCode, which may take some time. First, you will need an
 Apple ID, then you will need to download it from the developer
@@ -39,15 +39,18 @@ Then, you may need to follow the instructions shown on the following
 link to install the command line version of \texttt{make}
 \url{http://stackoverflow.com/q/10265742/1248687}.
 
-This should have created an executable called \texttt{starcode}. To
-check that the building is successful, execute the following command
-in the same directory.
+Calling \texttt{make} should create an executable called
+\texttt{starcode}. To check that the building is successful, execute
+the following command in the same directory.
 
 \begin{verbatim}
 ./starcode test/test_file.txt
 \end{verbatim}
 
-You should obtain the following output.
+If you obtain the output shown below, then everything went fine
+and you are done with the build. If not, then something went
+wrong. In this case, you can explain how to reproduce the problem
+on \url{https://github.com/gui11aume/starcode/issues}.
 
 \begin{verbatim}
 running starcode with 1 thread
@@ -66,7 +69,7 @@ TGCGCCAAGTACGATTTCCG  7
 \section{Starcode basics}
 
 The previous example is a standard invocation of Starcode on sequence
-data. The input file \texttt{test/test\_file.txt} is in raw format
+data. The input file \texttt{test/test\char`_file.txt} is in raw format
 (\textit{i.e.} plain text), it contains 35 lines, each with one
 sequence of 20 nucleotides. By default, Starcode is verbose and prints
 some information about the clustering process. In the example above,

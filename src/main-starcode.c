@@ -58,7 +58,8 @@ char *USAGE =
 "\n"
 "  output format options\n"
 "       --print-clusters: outputs cluster compositions\n"
-"       --non-redundant: remove redundant sequences\n";
+"       --non-redundant: remove redundant sequences\n"
+"       --seq-id: print sequence numbers\n";
 
 void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
 void say_version(void) { fprintf(stderr, VERSION "\n"); }
@@ -120,6 +121,7 @@ main(
    static int sp_flag = 0;
    static int vb_flag = 1;
    static int cl_flag = 0;
+   static int id_flag = 0;
 
    // Unset flags (value -1).
    int dist = -1;
@@ -138,6 +140,7 @@ main(
       int option_index = 0;
       static struct option long_options[] = {
          {"print-clusters",    no_argument,       &cl_flag,  1 },
+         {"seq-id",            no_argument,       &id_flag,  1 },
          {"non-redundant",     no_argument,       &nr_flag,  1 },
          {"quiet",             no_argument,       &vb_flag,  0 },
          {"sphere",            no_argument,       &sp_flag, 's'},
@@ -414,6 +417,7 @@ main(
        dist,
        vb_flag,
        cl_flag,
+       id_flag,
        threads,
        cluster_ratio,
        output_type

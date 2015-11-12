@@ -41,6 +41,7 @@ starcode
          int tau,
    const int verbose,
    const int showclusters,
+   const int showids,
          int thrmax,
          int parent_to_child,
    const int outputt
@@ -189,6 +190,15 @@ starcode
             useq_t *u = (useq_t *) uSQ->items[i];
             if (u->canonical == NULL) break;
             if (u->canonical != canonical) {
+               // Print previous cluster seqIDs.
+               if (showids) {
+                  if (canonical->nids > 1)
+                     fprintf(OUTPUTF1, "\t%u", canonical->seqid[0]);
+                  else
+                     fprintf(OUTPUTF1, "\t%u", (unsigned int)(unsigned long)canonical->seqid);
+                  for (unsigned int k = 1; k < canonical->nids; k++)
+                     fprintf(OUTPUTF1, ",%u", canonical->seqid[k]);
+               }
                canonical = u->canonical;
                if (FORMAT == PE_FASTQ) {
                   if (showclusters) {
@@ -221,6 +231,15 @@ starcode
             }
          }
 
+         // Print last cluster seqIDs.
+         if (showids) {
+            if (canonical->nids > 1)
+               fprintf(OUTPUTF1, "\t%u", canonical->seqid[0]);
+            else
+               fprintf(OUTPUTF1, "\t%u", (unsigned int)(unsigned long)canonical->seqid);
+            for (unsigned int k = 1; k < canonical->nids; k++)
+               fprintf(OUTPUTF1, ",%u", canonical->seqid[k]);
+         }
          fprintf(OUTPUTF1, "\n");
 
       }
@@ -247,17 +266,6 @@ starcode
          if (u->canonical != u) break;
 
          fprintf(OUTPUTF1, "%s\t", u->seq);
-         if (u->matches == NULL) {
-            if (showclusters) {
-               fprintf(OUTPUTF1, "%d\t%s\n", u->count, u->seq);
-               continue;  
-            }
-            else {
-               fprintf(OUTPUTF1, "%d\n", u->count);
-               continue;  
-            }
-         }
-
          if (showclusters) {
             fprintf(OUTPUTF1, "%d\t%s", u->count, u->seq);
          }
@@ -265,7 +273,7 @@ starcode
             fprintf(OUTPUTF1, "%d", u->count);
          }
 
-         if (showclusters) {
+         if (showclusters && u->matches != NULL) {
             gstack_t *hits;
             for (int j = 0 ; (hits = u->matches[j]) != TOWER_TOP ; j++) {
                for (int k = 0 ; k < hits->nitems ; k++) {
@@ -274,6 +282,17 @@ starcode
                }
             }
          }
+
+         // Print cluster seqIDs.
+         if (showids) {
+            if (u->nids > 1)
+               fprintf(OUTPUTF1, "\t%u", u->seqid[0]);
+            else
+               fprintf(OUTPUTF1, "\t%u", (unsigned int)(unsigned long)u->seqid);
+            for (unsigned int k = 1; k < u->nids; k++)
+               fprintf(OUTPUTF1, ",%u", u->seqid[k]);
+         }
+
 
          fprintf(OUTPUTF1, "\n");
 
@@ -680,6 +699,7 @@ sphere_clustering
             match->canonical = useq;
             useq->count += match->count;
             match->count = 0;
+            transfer_useq_ids(useq, match);
          }
       }
    }
@@ -847,7 +867,9 @@ nukesort
 
       if (cmp == 0) {
          // Identical sequences, this is the nuke part.
+         // Add sequence counts.
          ul->count += ur->count;
+         transfer_useq_ids(ul, ur);
          destroy_useq(ur);
          buf[idx++] = l[i++];
          j++;
@@ -916,6 +938,8 @@ read_rawseq
          }
       }
       useq_t *new = new_useq(count, seq, NULL);
+      new->nids = 1;
+      new->seqid = (void *)(unsigned long)uSQ->nitems+1;
       push(new, &uSQ);
    }
 
@@ -966,6 +990,8 @@ read_fasta
             }
          }
          useq_t *new = new_useq(1, line, header);
+         new->nids = 1;
+         new->seqid = (void *)(unsigned long)uSQ->nitems+1;
          if (new == NULL) {
             alert();
             krash();
@@ -1043,6 +1069,8 @@ read_fastq
             }
          }
          useq_t *new = new_useq(1, seq, info);
+         new->nids = 1;
+         new->seqid = (void *)(unsigned long)uSQ->nitems+1;
          if (new == NULL) {
             alert();
             krash();
@@ -1168,6 +1196,8 @@ read_PE_fastq
             krash();
          }
          useq_t *new = new_useq(1, seq, info);
+         new->nids = 1;
+         new->seqid = (void *)(unsigned long)uSQ->nitems+1;
          if (new == NULL) {
             alert();
             krash();
@@ -1321,6 +1351,47 @@ unpad_useq
    return;
 }
 
+void
+transfer_useq_ids
+(
+ useq_t * ud,
+ useq_t * us
+)
+// Appends the sequence ID list from us to ud.
+// If ud is only bearing one ID the function
+// will allocate a buffer on ud->seqid. Otherwise
+// the ID beared by us will be appended to the
+// existing buffer.
+// The sequence ID list from ud is not modified.
+{
+   if (us->nids == 0) return;
+   // Sequence IDs.
+   if (ud->nids > 1) {
+      // Realloc buffer.
+      ud->seqid = realloc(ud->seqid, (ud->nids + us->nids) * sizeof(int));
+      if (ud->seqid == NULL) {
+         alert();
+         krash();
+      }
+   } else {
+      // Allocate new buffer.
+      unsigned int tmp = (unsigned int)(unsigned long)ud->seqid;
+      ud->seqid = malloc((us->nids + 1)*sizeof(int));
+      if (ud->seqid == NULL) {
+         alert();
+         krash();
+      }
+      ud->seqid[0] = tmp;
+   }
+   // Memcopy buffer.
+   if (us->nids > 1)
+      memcpy(ud->seqid + ud->nids, us->seqid, us->nids * sizeof(int));
+   else
+      ud->seqid[ud->nids] = (unsigned int)(unsigned long)us->seqid;
+   // Update ID count.
+   ud->nids += us->nids;
+}
+
 
 void
 transfer_counts_and_update_canonicals
@@ -1337,9 +1408,11 @@ transfer_counts_and_update_canonicals
       return;
    }
    // If the read has already been assigned a canonical, directly
-   // transfer counts to the canonical and return.
+   // transfer counts and ids to the canonical and return.
    if (useq->canonical != NULL) {
       useq->canonical->count += useq->count;
+      transfer_useq_ids(useq->canonical, useq);
+      // Reset useq count.
       useq->count = 0;
       return;
    }
@@ -1356,10 +1429,12 @@ transfer_counts_and_update_canonicals
    // Depending on the order in which matches were made
    // (which is more or less random), the transferred
    // counts can differ by 1. For this reason, the output
-   // can be slightly different for different tries numbers.
+   // can be slightly different for different number of tries.
    for (int i = 0 ; i < matches->nitems ; i++) {
       useq_t *match = (useq_t *) matches->items[i];
       match->count += Q + (i < R);
+      // transfer sequence ID to all the matches.
+      transfer_useq_ids(match, useq);
    }
    // Transfer done.
    useq->count = 0;
@@ -1595,6 +1670,8 @@ new_useq
    }
    new->seq = strdup(seq);
    new->count = count;
+   new->nids  = 0;
+   new->seqid = NULL;
    if (info != NULL) {
       new->info = strdup(info);
       if (new->info == NULL) {
@@ -1616,6 +1693,7 @@ destroy_useq
 {
    if (useq->matches != NULL) destroy_tower(useq->matches);
    if (useq->info != NULL) free(useq->info);
+   if (useq->nids > 1) free(useq->seqid);
    free(useq->seq);
    free(useq);
 }

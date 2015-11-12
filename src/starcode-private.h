@@ -96,10 +96,12 @@ typedef struct sortargs_t sortargs_t;
 
 struct useq_t {
   int              count;
+  unsigned int     nids;
   char          *  seq;
   char 		*  info;
   gstack_t      ** matches;
   struct useq_t *  canonical;
+  int           *  seqid;
 };
 
 struct lookup_t {
@@ -181,6 +183,7 @@ gstack_t * seq2useq (gstack_t*, int);
 int        seqsort (useq_t **, int, int);
 void       sphere_clustering (gstack_t *);
 void       transfer_counts_and_update_canonicals (useq_t*);
+void       transfer_useq_ids (useq_t *, useq_t *);
 void       unpad_useq (gstack_t*);
 void     * nukesort (void *); 
 

@@ -36,6 +36,7 @@ void * malloc (size_t size);
 void * realloc (void *ptr, size_t size);
 void * calloc (size_t nitems, size_t size);
 void   set_alloc_failure_rate_to (double);
+void   set_alloc_failure_countdown_to (int);
 void   reset_alloc (void);
 
 // Functions defined in unittest.c //

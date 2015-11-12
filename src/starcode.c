@@ -1613,9 +1613,12 @@ lut_insert
 )
 {
 
+   size_t seqlen = strlen(query->seq);
+
    int offset = lut->slen;
    for (int i = lut->kmers-1; i >= 0; i--) {
       offset -= lut->klen[i];
+      if (offset + lut->klen[i] > seqlen) continue;
       int seqid = seq2id(query->seq + offset, lut->klen[i]);
       // The lookup table proper is implemented as a bitmap.
       if (seqid >= 0) lut->lut[i][seqid/8] |= (1 << (seqid%8));
@@ -1623,7 +1626,9 @@ lut_insert
       else if (seqid == -2) return 1;
    }
 
+   // Insert successful.
    return 0;
+
 }
 
 
@@ -1634,15 +1639,17 @@ seq2id
   int    slen
 )
 {
+
    int seqid = 0;
    for (int i = 0; i < slen; i++) {
       // Padding spaces are substituted by 'A'. It does not hurt
       // anyway to generate some false positives.
-      if (seq[i] == 'A' || seq[i] == 'a' || seq[i] == ' ') { }
+      if      (seq[i] == 'A' || seq[i] == 'a' || seq[i] == ' ') { }
       else if (seq[i] == 'C' || seq[i] == 'c') seqid += 1;
       else if (seq[i] == 'G' || seq[i] == 'g') seqid += 2;
       else if (seq[i] == 'T' || seq[i] == 't') seqid += 3;
-      else return seq[i] == 0 ? -2 : -1;
+      // Non DNA character (including end of string).
+      else return seq[i] == '\0' ? -2 : -1;
       if (i < slen - 1) seqid <<= 2;
    }
 

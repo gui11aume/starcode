@@ -31,5 +31,6 @@ starcode: $(OBJECTS) $(SOURCES)
 
 $(SRC_DIR)/%.o: $(SRC_DIR)/%.c $(SRC_DIR)/%.h
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
 clean:
 	rm -f $(OBJECTS) starcode

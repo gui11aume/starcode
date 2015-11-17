@@ -135,6 +135,11 @@ main(
    char * input2  = UNSET;
    char * output  = UNSET;
 
+   if (argc == 1 && isatty(0)) {
+      say_usage();
+      return EXIT_SUCCESS;
+   }
+
    int c;
    while (1) {
       int option_index = 0;

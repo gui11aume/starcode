@@ -164,6 +164,7 @@ int        count_order (const void *, const void *);
 void       destroy_useq (useq_t *);
 void       destroy_lookup (lookup_t *);
 void     * do_query (void*);
+int        int_ascending (const void*, const void*);
 void       krash (void) __attribute__ ((__noreturn__));
 int        lut_insert (lookup_t *, useq_t *); 
 int        lut_search (lookup_t *, useq_t *); 

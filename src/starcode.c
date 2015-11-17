@@ -192,12 +192,19 @@ starcode
             if (u->canonical != canonical) {
                // Print previous cluster seqIDs.
                if (showids) {
-                  if (canonical->nids > 1)
-                     fprintf(OUTPUTF1, "\t%u", canonical->seqid[0]);
-                  else
+                  int last = -1;
+                  if (canonical->nids > 1) {
+                     qsort(canonical->seqid, canonical->nids, sizeof(int), int_ascending);
+                     last = canonical->seqid[0];
+                     fprintf(OUTPUTF1, "\t%u", last);
+                  }
+                  else 
                      fprintf(OUTPUTF1, "\t%u", (unsigned int)(unsigned long)canonical->seqid);
-                  for (unsigned int k = 1; k < canonical->nids; k++)
-                     fprintf(OUTPUTF1, ",%u", canonical->seqid[k]);
+                  for (unsigned int k = 1; k < canonical->nids; k++) {
+                     if (canonical->seqid[k] == last) continue;
+                     last = canonical->seqid[k];
+                     fprintf(OUTPUTF1, ",%u", last);
+                  }
                }
                canonical = u->canonical;
                if (FORMAT == PE_FASTQ) {
@@ -233,12 +240,18 @@ starcode
 
          // Print last cluster seqIDs.
          if (showids) {
-            if (canonical->nids > 1)
-               fprintf(OUTPUTF1, "\t%u", canonical->seqid[0]);
-            else
+            int last = -1;
+            if (canonical->nids > 1) {
+               qsort(canonical->seqid, canonical->nids, sizeof(int), int_ascending);
+               last = canonical->seqid[0];
+               fprintf(OUTPUTF1, "\t%u", last);
+            } else
                fprintf(OUTPUTF1, "\t%u", (unsigned int)(unsigned long)canonical->seqid);
-            for (unsigned int k = 1; k < canonical->nids; k++)
-               fprintf(OUTPUTF1, ",%u", canonical->seqid[k]);
+            for (unsigned int k = 1; k < canonical->nids; k++) {
+               if (canonical->seqid[k] == last) continue;
+               last = canonical->seqid[k];
+               fprintf(OUTPUTF1, ",%u", last);
+            }
          }
          fprintf(OUTPUTF1, "\n");
 
@@ -285,12 +298,14 @@ starcode
 
          // Print cluster seqIDs.
          if (showids) {
-            if (u->nids > 1)
+            if (u->nids > 1) {
+               qsort(u->seqid, u->nids, sizeof(int), int_ascending);
                fprintf(OUTPUTF1, "\t%u", u->seqid[0]);
-            else
+            } else
                fprintf(OUTPUTF1, "\t%u", (unsigned int)(unsigned long)u->seqid);
-            for (unsigned int k = 1; k < u->nids; k++)
+            for (unsigned int k = 1; k < u->nids; k++) {
                fprintf(OUTPUTF1, ",%u", u->seqid[k]);
+            }
          }
 
 
@@ -1731,6 +1746,17 @@ count_order
    if (u1->count == u2->count) return strcmp(u1->seq, u2->seq);
    else return u1->count < u2->count ? 1 : -1;
 } 
+
+int
+int_ascending
+(
+ const void *a,
+ const void *b
+)
+{
+   if (*(int *)a < *(int *)b) return -1;
+   else return 1;
+}
 
 
 void

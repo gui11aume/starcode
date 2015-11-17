@@ -68,18 +68,28 @@ TGCGCCAAGTACGATTTCCG  7
 
 \section{Starcode basics}
 
-The previous example is a standard invocation of Starcode on sequence
-data. The input file \texttt{test/test\char`_file.txt} is in raw format
-(\textit{i.e.} plain text), it contains 35 lines, each with one
-sequence of 20 nucleotides. By default, Starcode is verbose and prints
-some information about the clustering process. In the example above,
-Starcode used a single CPU, and it clustered the sequences within
-edit distance 2 of each other.
+Starcode is a sequence clustering algorithm. It takes a bunch of
+sequences, finds which are similar and pools them together. Starcode
+considers that two sequences are similar if their edit distance
+(also known as the Levenshtein distance) is low, \textit{i.e.}
+if they almost identical, except for a few mismatches, insertions
+and deletions.
 
-The output starts after the line \texttt{progress: 100.00\%}. It
-consists of five lines (one per cluster) where the sequence is the
-centroid of the cluster (the most representative sequence) and the
-number is its size (the number of sequences in the cluster).
+The previous example is a standard run of Starcode on sequence
+data. By default, Starcode is verbose and gives some information on
+how the run is performed before it outputs the clusters. 
+In this case, we learn that Starcode used a single CPU, that
+the input file \texttt{test/test\char`_file.txt} is in raw format
+(\textit{i.e.} plain text), and that the threshold distance for
+similarity search was set to 2. The output propoer starts after
+the line \texttt{progress: 100.00\%}. It consists of five lines
+(one per cluster) where the sequence is the centroid of the cluster
+(the irepresentative sequence) and the number is its size (the
+number of sequences in the cluster).
+
+The input file \texttt{test/test\char`_file.txt} contains 35 sequences
+that Starcode arranged in 5 clusters of 7 sequences each.
+
 
 We can make Starcode quiet (non verbose) with the \texttt{-q} option,
 and we can set the clustering distance to 0 with \texttt{-d0}.

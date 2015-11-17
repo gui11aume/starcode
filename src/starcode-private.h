@@ -98,7 +98,7 @@ struct useq_t {
   int              count;
   unsigned int     nids;
   char          *  seq;
-  char 		*  info;
+  char          *  info;
   gstack_t      ** matches;
   struct useq_t *  canonical;
   int           *  seqid;

@@ -2165,9 +2165,10 @@ test_starcode_9
    lookup_t *lut = new_lookup(20, 20, 3);
    test_assert_critical(lut != NULL);
 
-   // Insert a too short string.
+   // Insert a too short string (nothing happens).
    useq_t *u = new_useq(0, "", NULL);
-   test_assert(lut_insert(lut, u));
+   test_assert_critical(u != NULL);
+   test_assert(lut_insert(lut, u) == 0);
    destroy_useq(u);
 
    // Insert the following k-mers: ACG|TAGC|GCTA|TAGC|GATCA

@@ -1,5 +1,26 @@
 #include "unittest.h"
-#include "_unittest.h"
+
+// Standard malloc() and realloc() //
+extern void *__libc_malloc(size_t);
+extern void *__libc_realloc(void *, size_t);
+extern void *__libc_calloc(size_t, size_t);
+// Private functions // 
+int    debug_run_test_case (const test_case_t);
+void   redirect_stderr (void);
+int    safe_run_test_case (test_case_t); 
+char * sent_to_stderr (void);
+void   unit_test_clean (void);
+void   unit_test_init (void);
+void   unredirect_stderr (void);
+void   test_case_clean (int);
+void   test_case_init (int);
+void * fail_countdown_calloc (size_t, size_t);
+void * fail_countdown_malloc (size_t);
+void * fail_countdown_realloc (void *, size_t);
+void * fail_prone_calloc (size_t, size_t);
+void * fail_prone_malloc (size_t);
+void * fail_prone_realloc (void *, size_t);
+
 
 //     Global variables     //
 void *(*MALLOC_CALL)(size_t) = __libc_malloc;
@@ -7,6 +28,7 @@ void *(*REALLOC_CALL)(void *, size_t) = __libc_realloc;
 void *(*CALLOC_CALL)(size_t, size_t) = __libc_calloc;
 
 static double ALLOC_ERR_PROB;
+static int    ALLOC_FAIL_COUNTER;
 static FILE * DEBUG_DUMP_FILE;
 static int    N_ERROR_MESSAGES;
 static int    ORIG_STDERR_DESCRIPTOR;
@@ -164,6 +186,9 @@ test_case_init
    N_ERROR_MESSAGES = 0;
 
    if (run_flags & FORK_YES) {
+#ifndef MAP_ANONYMOUS
+#define MAP_ANONYMOUS 0
+#endif
       // Shared variables //
       TEST_CASE_FAILED = mmap(NULL, sizeof(*TEST_CASE_FAILED),
             PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
@@ -368,6 +393,27 @@ calloc
 }
 
 void *
+fail_countdown_malloc(size_t size)
+{
+   if (ALLOC_FAIL_COUNTER >= 0) ALLOC_FAIL_COUNTER--;
+   return ALLOC_FAIL_COUNTER < 0 ? NULL : __libc_malloc(size);
+}
+
+void *
+fail_countdown_realloc(void *ptr, size_t size)
+{
+   if (ALLOC_FAIL_COUNTER >= 0) ALLOC_FAIL_COUNTER--;
+   return ALLOC_FAIL_COUNTER < 0 ? NULL : __libc_realloc(ptr, size);
+}
+
+void *
+fail_countdown_calloc(size_t nitems, size_t size)
+{
+   if (ALLOC_FAIL_COUNTER >= 0) ALLOC_FAIL_COUNTER--;
+   return ALLOC_FAIL_COUNTER < 0 ? NULL : __libc_calloc(nitems, size);
+}
+
+void *
 fail_prone_malloc(size_t size)
 {
    return drand48() < ALLOC_ERR_PROB ? NULL : __libc_malloc(size);
@@ -392,6 +438,15 @@ set_alloc_failure_rate_to(double p)
    MALLOC_CALL = fail_prone_malloc;
    REALLOC_CALL = fail_prone_realloc;
    CALLOC_CALL = fail_prone_calloc;
+}
+
+void
+set_alloc_failure_countdown_to(int count)
+{
+   ALLOC_FAIL_COUNTER = count;
+   MALLOC_CALL = fail_countdown_malloc;
+   REALLOC_CALL = fail_countdown_realloc;
+   CALLOC_CALL = fail_countdown_calloc;
 }
 
 void

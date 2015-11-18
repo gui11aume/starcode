@@ -21,15 +21,179 @@
 **
 */
 
+#define _GNU_SOURCE
+#include <ctype.h>
+#include <errno.h>
+#include <pthread.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include "trie.h"
 #include "starcode.h"
-#include "starcode-private.h"
+
+#define alert() fprintf(stderr, "error `%s' in %s() (%s:%d)\n",\
+                     strerror(errno), __func__, __FILE__, __LINE__)
+
+#define MAX_K_FOR_LOOKUP 14
+
+#define BISECTION_START  1
+#define BISECTION_END    -1
+
+#define TRIE_FREE 0
+#define TRIE_BUSY 1
+#define TRIE_DONE 2
+
+#define STRATEGY_EQUAL  1
+#define STRATEGY_PREFIX  99
+
+#define str(a) (char *)(a)
+#define min(a,b) (((a) < (b)) ? (a) : (b))
+#define max(a,b) (((a) > (b)) ? (a) : (b))
+
+static const int valid_DNA_char[256] = { 
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,1,0,1,0,0,0,1,0,0,0,0,0,0,1,0,
+   0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,
+   0,1,0,1,0,0,0,1,0,0,0,0,0,0,1,0,
+   0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+};
+
+struct useq_t;
+struct c_t;
+struct match_t;
+
+typedef enum {
+   FASTA,
+   FASTQ,
+   RAW,
+   PE_FASTQ,
+   UNSET,
+} format_t;
+
+typedef struct useq_t useq_t;
+typedef struct c_t ustack_t;
+typedef struct match_t match_t;
+typedef struct mtplan_t mtplan_t;
+typedef struct mttrie_t mttrie_t;
+typedef struct mtjob_t mtjob_t;
+typedef struct lookup_t lookup_t;
+
+typedef struct sortargs_t sortargs_t;
+
+
+struct useq_t {
+  int              count;
+  unsigned int     nids;
+  char          *  seq;
+  char          *  info;
+  gstack_t      ** matches;
+  struct useq_t *  canonical;
+  int           *  seqid;
+};
+
+struct lookup_t {
+            int    slen;
+            int    kmers;
+            int  * klen;
+   unsigned char * lut[];
+};
+
+
+struct sortargs_t {
+   useq_t ** buf0;
+   useq_t ** buf1;
+   int     size;
+   int     b;
+   int     thread;
+   int     repeats;
+};
+
+struct mtplan_t {
+   char              active;
+   int               ntries;
+   int		     jobsdone;
+   struct mttrie_t * tries;
+   pthread_mutex_t * mutex;
+   pthread_cond_t  * monitor;
+};
+
+struct mttrie_t {
+   char              flag;
+   int               currentjob;
+   int               njobs;
+   struct mtjob_t  * jobs;
+};
+
+struct mtjob_t {
+   int                start;
+   int                end;
+   int                tau;
+   int                build;
+   int                queryid;
+   int                trieid;
+   gstack_t         * useqS;
+   trie_t           * trie;
+   node_t           * node_pos;
+   lookup_t         * lut;
+   pthread_mutex_t  * mutex;
+   pthread_cond_t   * monitor;
+   int	    	    * jobsdone;
+   char             * trieflag;
+   char             * active;
+};
+
+int        size_order (const void *a, const void *b);
+int        addmatch (useq_t*, useq_t*, int, int);
+int        bisection (int, int, char *, useq_t **, int, int);
+int        canonical_order (const void*, const void*);
+long int   count_trie_nodes (useq_t **, int, int);
+int        count_order (const void *, const void *);
+void       destroy_useq (useq_t *);
+void       destroy_lookup (lookup_t *);
+void     * do_query (void*);
+int        int_ascending (const void*, const void*);
+void       krash (void) __attribute__ ((__noreturn__));
+int        lut_insert (lookup_t *, useq_t *); 
+int        lut_search (lookup_t *, useq_t *); 
+void       message_passing_clustering (gstack_t*);
+lookup_t * new_lookup (int, int, int);
+useq_t   * new_useq (int, char *, char *);
+int        pad_useq (gstack_t*, int*);
+mtplan_t * plan_mt (int, int, int, int, gstack_t *);
+void       run_plan (mtplan_t *, int, int);
+gstack_t * read_rawseq (FILE *, gstack_t *);
+gstack_t * read_fasta (FILE *, gstack_t *);
+gstack_t * read_fastq (FILE *, gstack_t *);
+gstack_t * read_file (FILE *, FILE *, int);
+gstack_t * read_PE_fastq (FILE *, FILE *, gstack_t *);
+int        seq2id (char *, int);
+gstack_t * seq2useq (gstack_t*, int);
+int        seqsort (useq_t **, int, int);
+void       sphere_clustering (gstack_t *);
+void       transfer_counts_and_update_canonicals (useq_t*);
+void       transfer_useq_ids (useq_t *, useq_t *);
+void       unpad_useq (gstack_t*);
+void     * nukesort (void *); 
+
 
 //    Global variables    //
 static FILE     * OUTPUTF1      = NULL;           // output file 1
 static FILE     * OUTPUTF2      = NULL;           // output file 2
 static format_t   FORMAT        = UNSET;          // input format
 static output_t   OUTPUTT       = DEFAULT_OUTPUT; // output type
-static int        CLUSTER_RATIO = 5;              // min parent-to-child ratio to link clusters.
+static int        CLUSTER_RATIO = 5;              // min parent/child ratio
+                                                  // to link clusters
 
 int
 starcode

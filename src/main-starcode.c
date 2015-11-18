@@ -59,10 +59,11 @@ char *USAGE =
 "  output format options\n"
 "       --print-clusters: outputs cluster compositions\n"
 "       --non-redundant: remove redundant sequences\n"
-"       --seq-id: print sequence numbers (1-based)\n";
+"       --seq-id: print sequence id numbers (1-based)\n";
 
 void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
 void say_version(void) { fprintf(stderr, VERSION "\n"); }
+
 void SIGSEGV_handler(int sig) {
    void *array[10];
    size_t size;

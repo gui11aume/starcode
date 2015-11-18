@@ -4,7 +4,8 @@ vpath %.h ../src
 vpath %.h lib
 
 P= runtests
-OBJECTS= trie.o starcode.o tests.o libunittest.so
+
+OBJECTS= tests_trie.o tests_starcode.o libunittest.so
 
 CC= gcc
 INCLUDES= -I../src -Ilib
@@ -12,11 +13,10 @@ COVERAGE= -fprofile-arcs -ftest-coverage
 CFLAGS= -std=gnu99 -g -Wall -O0 $(INCLUDES) $(COVERAGE)
 LDLIBS= -L`pwd` -Wl,-rpath=`pwd` -lunittest -lpthread
 
-$(P): $(OBJECTS)
-	$(CC) $(CFLAGS) $(OBJECTS) $(LDLIBS) -o $@
+all: test
 
-clean:
-	rm -f $(P) $(OBJECTS) *.gcda *.gcno *.gcov gmon.out .inspect.gdb
+$(P): $(OBJECTS) runtests.c
+	$(CC) $(CFLAGS) runtests.c $(OBJECTS) $(LDLIBS) -o $@
 
 libunittest.so: unittest.c
 	$(CC) -fPIC -shared $(CFLAGS) -o libunittest.so lib/unittest.c
@@ -33,3 +33,6 @@ debug: $(P)
 valgrind: $(P)
 	#valgrind --vgdb=yes --vgdb-error=0 ./$(P) --debug
 	valgrind --leak-check=full ./$(P) --debug
+
+clean:
+	rm -f $(P) $(OBJECTS) *.gcda *.gcno *.gcov gmon.out .inspect.gdb

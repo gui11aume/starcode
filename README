@@ -112,6 +112,10 @@ List of arguments:
      associated with each cluster. By default, the output contains only
      the centroid and the counts.
 
+  --seq-id
+     Shows the clustered sequence numbers (1-based) following the original
+     input order.
+
   Single-file mode:
   -i or --input file
      Specifies input file.

@@ -358,7 +358,6 @@ starcode
                if (showids) {
                   int last = -1;
                   if (canonical->nids > 1) {
-                     qsort(canonical->seqid, canonical->nids, sizeof(int), int_ascending);
                      last = canonical->seqid[0];
                      fprintf(OUTPUTF1, "\t%u", last);
                   }
@@ -406,7 +405,6 @@ starcode
          if (showids) {
             int last = -1;
             if (canonical->nids > 1) {
-               qsort(canonical->seqid, canonical->nids, sizeof(int), int_ascending);
                last = canonical->seqid[0];
                fprintf(OUTPUTF1, "\t%u", last);
             } else
@@ -463,7 +461,6 @@ starcode
          // Print cluster seqIDs.
          if (showids) {
             if (u->nids > 1) {
-               qsort(u->seqid, u->nids, sizeof(int), int_ascending);
                fprintf(OUTPUTF1, "\t%u", u->seqid[0]);
             } else
                fprintf(OUTPUTF1, "\t%u", (unsigned int)(unsigned long)u->seqid);
@@ -1543,32 +1540,37 @@ transfer_useq_ids
 // existing buffer.
 // The sequence ID list from ud is not modified.
 {
-   if (us->nids == 0) return;
-   // Sequence IDs.
-   if (ud->nids > 1) {
-      // Realloc buffer.
-      ud->seqid = realloc(ud->seqid, (ud->nids + us->nids) * sizeof(int));
-      if (ud->seqid == NULL) {
-         alert();
-         krash();
-      }
-   } else {
-      // Allocate new buffer.
-      unsigned int tmp = (unsigned int)(unsigned long)ud->seqid;
-      ud->seqid = malloc((us->nids + 1)*sizeof(int));
-      if (ud->seqid == NULL) {
-         alert();
-         krash();
-      }
-      ud->seqid[0] = tmp;
+   if (us->nids < 1) return;
+   // Alloc buffer.
+   int * buf = malloc((ud->nids + us->nids) * sizeof(int));
+   if (buf == NULL) {
+      alert();
+      krash();
    }
-   // Memcopy buffer.
-   if (us->nids > 1)
-      memcpy(ud->seqid + ud->nids, us->seqid, us->nids * sizeof(int));
-   else
-      ud->seqid[ud->nids] = (unsigned int)(unsigned long)us->seqid;
+   int * s, * d;
+   if (ud->nids > 1) d = ud->seqid;
+   else d = (int *)&(ud->seqid);
+   if (us->nids > 1) s = us->seqid;
+   else s = (int *)&(us->seqid);
+   // Merge algorithm (keeps them sorted and unique).
+   uint32_t i = 0, j = 0, k = 0;
+   while (i < ud->nids && j < us->nids) {
+      if (d[i] < s[j])
+         buf[k++] = d[i++];
+      else if (d[i] > s[j])
+         buf[k++] = s[j++];
+      else {
+         buf[k++] = d[i];
+         i++; j++;
+      }
+   }
+   // TODO: use memcpy.
+   for (; i < ud->nids; i++) buf[k++] = d[i];
+   for (; j < us->nids; j++) buf[k++] = s[j];
    // Update ID count.
-   ud->nids += us->nids;
+   if (ud->nids > 1) free(ud->seqid);
+   ud->seqid = buf;
+   ud->nids = k;
 }
 
 

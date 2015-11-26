@@ -5,4 +5,12 @@ compiler:
 branches:
   only:
     - master
+    - coveralls
+
+before_install:
+  - sudo pip install cpp-coveralls
+
 script: make && cd test && make test
+
+after_success:
+  - coveralls --verbose --gcov-options '\-lp' -r .. -E '.*test*'

@@ -166,7 +166,7 @@ int        int_ascending (const void*, const void*);
 void       krash (void) __attribute__ ((__noreturn__));
 int        lut_insert (lookup_t *, useq_t *); 
 int        lut_search (lookup_t *, useq_t *); 
-void       message_passing_clustering (gstack_t*);
+void       message_passing_clustering (gstack_t*, int);
 lookup_t * new_lookup (int, int, int);
 useq_t   * new_useq (int, char *, char *);
 int        pad_useq (gstack_t*, int*);
@@ -180,8 +180,8 @@ gstack_t * read_PE_fastq (FILE *, FILE *, gstack_t *);
 int        seq2id (char *, int);
 gstack_t * seq2useq (gstack_t*, int);
 int        seqsort (useq_t **, int, int);
-void       sphere_clustering (gstack_t *);
-void       transfer_counts_and_update_canonicals (useq_t*);
+void       sphere_clustering (gstack_t *, int);
+void       transfer_counts_and_update_canonicals (useq_t*, int);
 void       transfer_useq_ids (useq_t *, useq_t *);
 void       unpad_useq (gstack_t*);
 void     * nukesort (void *); 
@@ -263,7 +263,7 @@ starcode
    if (OUTPUTT == DEFAULT_OUTPUT || OUTPUTT == PRINT_NRED) {
 
       // Cluster the pairs.
-      message_passing_clustering(uSQ);
+      message_passing_clustering(uSQ, showids);
 
       // Sort in canonical order.
       qsort(uSQ->items, uSQ->nitems, sizeof(useq_t *), canonical_order);
@@ -354,20 +354,15 @@ starcode
             useq_t *u = (useq_t *) uSQ->items[i];
             if (u->canonical == NULL) break;
             if (u->canonical != canonical) {
-               // Print previous cluster seqIDs.
+               // Print cluster seqIDs.
                if (showids) {
-                  int last = -1;
                   if (canonical->nids > 1) {
-                     last = canonical->seqid[0];
-                     fprintf(OUTPUTF1, "\t%u", last);
+                     fprintf(OUTPUTF1, "\t%u", canonical->seqid[0]);
+                     for (unsigned int k = 1; k < canonical->nids; k++)
+                        fprintf(OUTPUTF1, ",%u", canonical->seqid[k]);
                   }
                   else 
                      fprintf(OUTPUTF1, "\t%u", (unsigned int)(unsigned long)canonical->seqid);
-                  for (unsigned int k = 1; k < canonical->nids; k++) {
-                     if (canonical->seqid[k] == last) continue;
-                     last = canonical->seqid[k];
-                     fprintf(OUTPUTF1, ",%u", last);
-                  }
                }
                canonical = u->canonical;
                if (FORMAT == PE_FASTQ) {
@@ -424,7 +419,7 @@ starcode
    else if (OUTPUTT == SPHERES_OUTPUT) {
 
       // Cluster the pairs.
-      sphere_clustering(uSQ);
+      sphere_clustering(uSQ, showids);
 
       // Sort in count order.
       qsort(uSQ->items, uSQ->nitems, sizeof(useq_t *), count_order);
@@ -856,7 +851,8 @@ count_trie_nodes
 void
 sphere_clustering
 (
-   gstack_t *useqS
+ gstack_t *useqS,
+ int transfer_ids
 )
 {
    // Sort in count order.
@@ -875,7 +871,8 @@ sphere_clustering
             match->canonical = useq;
             useq->count += match->count;
             match->count = 0;
-            transfer_useq_ids(useq, match);
+            if (transfer_ids)
+               transfer_useq_ids(useq, match);
          }
       }
    }
@@ -888,13 +885,14 @@ sphere_clustering
 void
 message_passing_clustering
 (
-   gstack_t *useqS
+ gstack_t *useqS,
+ int transfer_ids
 )
 {
    // Transfer counts to parents recursively.
    for (int i = 0 ; i < useqS->nitems ; i++) {
       useq_t *u = (useq_t *) useqS->items[i];
-      transfer_counts_and_update_canonicals(u);
+      transfer_counts_and_update_canonicals(u, transfer_ids);
    }
 
    return;
@@ -1577,7 +1575,8 @@ transfer_useq_ids
 void
 transfer_counts_and_update_canonicals
 (
-   useq_t *useq
+ useq_t *useq,
+ int     transfer_ids
 )
 // TODO: Write the doc.
 // SYNOPSIS:
@@ -1592,7 +1591,8 @@ transfer_counts_and_update_canonicals
    // transfer counts and ids to the canonical and return.
    if (useq->canonical != NULL) {
       useq->canonical->count += useq->count;
-      transfer_useq_ids(useq->canonical, useq);
+      if (transfer_ids)
+         transfer_useq_ids(useq->canonical, useq);
       // Reset useq count.
       useq->count = 0;
       return;
@@ -1615,7 +1615,8 @@ transfer_counts_and_update_canonicals
       useq_t *match = (useq_t *) matches->items[i];
       match->count += Q + (i < R);
       // transfer sequence ID to all the matches.
-      transfer_useq_ids(match, useq);
+      if (transfer_ids)
+         transfer_useq_ids(match, useq);
    }
    // Transfer done.
    useq->count = 0;
@@ -1623,7 +1624,7 @@ transfer_counts_and_update_canonicals
    // Continue propagation. This will update the canonicals.
    for (int i = 0 ; i < matches->nitems ; i++) {
       useq_t *match = (useq_t *) matches->items[i];
-      transfer_counts_and_update_canonicals(match);
+      transfer_counts_and_update_canonicals(match, transfer_ids);
    }
 
    useq_t *canonical = ((useq_t *) matches->items[0])->canonical;

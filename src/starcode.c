@@ -1701,7 +1701,7 @@ new_lookup
    // Set parameters.
    lut->slen  = maxlen;
    lut->kmers = tau + 1;
-   lut->klen  = (int *) malloc(lut->kmers * sizeof(int));
+   lut->klen  = malloc(lut->kmers * sizeof(int));
    
    // Compute k-mer lengths.
    if (k > MAX_K_FOR_LOOKUP)
@@ -1790,12 +1790,12 @@ lut_search
 int
 lut_insert
 (
- lookup_t * lut,
- useq_t   * query
+   lookup_t * lut,
+   useq_t   * query
 )
 {
 
-   size_t seqlen = strlen(query->seq);
+   int seqlen = strlen(query->seq);
 
    int offset = lut->slen;
    for (int i = lut->kmers-1; i >= 0; i--) {

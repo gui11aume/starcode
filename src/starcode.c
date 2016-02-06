@@ -269,9 +269,11 @@ starcode
       qsort(uSQ->items, uSQ->nitems, sizeof(useq_t *), canonical_order);
 
       if (OUTPUTT == PRINT_NRED) {
+
          // If print non redundant sequences, just print the
          // canonicals with their info.
          for (int i = 0 ; i < uSQ->nitems ; i++) {
+
             useq_t *u = (useq_t *) uSQ->items[i];
             if (u->canonical == NULL) break;
             if (u->canonical != u) continue;
@@ -298,14 +300,18 @@ starcode
                char seq2[M] = {0};
 
                // Split the sequences.
-               char *c1 = strchr(u->seq, '-');
-               char *c2 = strrchr(u->seq, '-');
-               strncpy(seq1, u->seq, (c1 - u->seq));
-               strcpy(seq2, c2+1);
+               char *c = strrchr(u->seq, '-');
+               strncpy(seq1, u->seq, c-u->seq - STARCODE_MAX_TAU-1);
+               strcpy(seq2, c+1);
 
                // Split the info field.
-               sscanf(u->info, "%s\n%s\n%s\n%s",
-                     head1, qual1, head2, qual2);
+               {
+                  char *c = u->info;
+                  strcpy(head1, strsep(&c, "\n"));
+                  strcpy(qual1, strsep(&c, "\n"));
+                  strcpy(head2, strsep(&c, "\n"));
+                  strcpy(qual2, strsep(&c, "\n"));
+               }
 
                // Print to separate files.
                fprintf(OUTPUTF1, "%s\n%s\n+\n%s\n",
@@ -1299,6 +1305,7 @@ read_PE_fastq
    int const readh = OUTPUTT == PRINT_NRED;
    char sep[STARCODE_MAX_TAU+2] = {0};
    memset(sep, '-', STARCODE_MAX_TAU+1);
+
    while ((nread = getline(&line1, &nchar, inputf1)) != -1) {
       lineno++;
       // Strip newline character.

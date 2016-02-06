@@ -29,6 +29,8 @@
 #include <unistd.h>
 #include "starcode.h"
 
+#define ERRM "starcode error:"
+
 // Prototypes for utilities of the main.
 char * outname (char *);
 void   say_usage (void);
@@ -178,7 +180,7 @@ main(
             input1 = optarg;
          }
          else {
-            fprintf(stderr, "error: --input1 set more than once\n");
+            fprintf(stderr, "%s --input1 set more than once\n", ERRM);
             say_usage();
             return EXIT_FAILURE;
          }
@@ -189,7 +191,7 @@ main(
             input2 = optarg;
          }
          else {
-            fprintf(stderr, "error: --input2 set more than once\n");
+            fprintf(stderr, "%s --input2 set more than once\n", ERRM);
             say_usage();
             return EXIT_FAILURE;
          }
@@ -199,13 +201,13 @@ main(
          if (dist < 0) {
             dist = atoi(optarg);
             if (dist > STARCODE_MAX_TAU) {
-               fprintf(stderr, "error: --dist cannot exceed %d\n",
-                     STARCODE_MAX_TAU);
+               fprintf(stderr, "%s --dist cannot exceed %d\n",
+                     ERRM, STARCODE_MAX_TAU);
                return EXIT_FAILURE;
             }
          }
          else {
-            fprintf(stderr, "error: --distance set more than once\n");
+            fprintf(stderr, "%s --distance set more than once\n", ERRM);
             say_usage();
             return EXIT_FAILURE;
          }
@@ -222,7 +224,7 @@ main(
             input = optarg;
          }
          else {
-            fprintf(stderr, "error: --input set more than once\n");
+            fprintf(stderr, "%s --input set more than once\n", ERRM);
             say_usage();
             return EXIT_FAILURE;
          }
@@ -233,7 +235,7 @@ main(
             output = optarg;
          }
          else {
-            fprintf(stderr, "error: --output set more than once\n");
+            fprintf(stderr, "%s --output set more than once\n", ERRM);
             say_usage();
             return EXIT_FAILURE;
          }
@@ -251,13 +253,14 @@ main(
          if (threads < 0) {
             threads = atoi(optarg);
             if (threads < 1) {
-               fprintf(stderr, "error: --threads must be numeric\n");
+               fprintf(stderr,
+                     "%s --threads must be a positive " "integer\n", ERRM);
                say_usage();
                return EXIT_FAILURE;
             }
          }
          else {
-            fprintf(stderr, "error: --thread set more than once\n");
+            fprintf(stderr, "%s --thread set more than once\n", ERRM);
             say_usage();
             return EXIT_FAILURE;
          }
@@ -267,13 +270,15 @@ main(
          if (cluster_ratio < 0) {
             cluster_ratio = atoi(optarg);
             if (cluster_ratio < 1) {
-               fprintf(stderr, "error: --cluster-ratio must be numeric and greater than 0\n");
+               fprintf(stderr, "%s --cluster-ratio must be "
+                     "a positive integer\n", ERRM);
                say_usage();
                return EXIT_FAILURE;
             }
          }
          else {
-            fprintf(stderr, "error: --cluster-ratio set more than once\n");
+            fprintf(stderr,
+                  "%s --cluster-ratio set more " "than once\n", ERRM);
             say_usage();
             return EXIT_FAILURE;
          }
@@ -299,7 +304,7 @@ main(
          input = argv[optind];
       }
       else {
-         fprintf(stderr, "too many options\n");
+         fprintf(stderr, "%s too many options\n", ERRM);
          say_usage();
          return EXIT_FAILURE;
       }
@@ -308,36 +313,37 @@ main(
    // Check options compatibility. //
    if (nr_flag && cl_flag) {
       fprintf(stderr,
-            "error: --non-redundant and --print-clusters are "
-            "incompatible\n");
+            "%s --non-redundant and --print-clusters are "
+            "incompatible\n", ERRM);
       say_usage();
       return EXIT_FAILURE;
    }
    if (nr_flag && sp_flag) {
       fprintf(stderr,
-            "error: --non-redundant and --sphere are incompatible\n");
+            "%s --non-redundant and --sphere are incompatible\n", ERRM);
       say_usage();
       return EXIT_FAILURE;
    }
    if (input != UNSET && (input1 != UNSET || input2 != UNSET)) {
-      fprintf(stderr, "error: --input and --input1/2 are incompatible\n");
+      fprintf(stderr,
+            "%s --input and --input1/2 are incompatible\n", ERRM);
       say_usage();
       return EXIT_FAILURE;
    }
    if (input1 == UNSET && input2 != UNSET) {
-      fprintf(stderr, "error: --input2 set without --input1\n");
+      fprintf(stderr, "%s --input2 set without --input1\n", ERRM);
       say_usage();
       return EXIT_FAILURE;
    }
    if (input2 == UNSET && input1 != UNSET) {
-      fprintf(stderr, "error: --input1 set without --input2\n");
+      fprintf(stderr, "%s --input1 set without --input2\n", ERRM);
       say_usage();
       return EXIT_FAILURE;
    }
    if (nr_flag && output != UNSET &&
          (input1 != UNSET || input2 != UNSET)) {
-      fprintf(stderr, "error: cannot specify --output for paired-end "
-            "fastq file with --non-redundant\n");
+      fprintf(stderr, "%s cannot specify --output for paired-end "
+            "fastq file with --non-redundant\n", ERRM);
       say_usage();
       return EXIT_FAILURE;
    }
@@ -359,7 +365,7 @@ main(
    if (input != UNSET) {
       inputf1 = fopen(input, "r");
       if (inputf1 == NULL) {
-         fprintf(stderr, "error: cannot open file %s\n", input);
+         fprintf(stderr, "%s cannot open file %s\n", ERRM, input);
          say_usage();
          return EXIT_FAILURE;
       }
@@ -367,13 +373,13 @@ main(
    else if (input1 != UNSET) {
       inputf1 = fopen(input1, "r");
       if (inputf1 == NULL) {
-         fprintf(stderr, "error: cannot open file %s\n", input1);
+         fprintf(stderr, "%s cannot open file %s\n", ERRM, input1);
          say_usage();
          return EXIT_FAILURE;
       }
       inputf2 = fopen(input2, "r");
       if (inputf2 == NULL) {
-         fprintf(stderr, "error: cannot open file %s\n", input2);
+         fprintf(stderr, "%s cannot open file %s\n", ERRM, input2);
          say_usage();
          return EXIT_FAILURE;
       }
@@ -385,7 +391,7 @@ main(
    if (output != UNSET) {
       outputf1 = fopen(output, "w");
       if (outputf1 == NULL) {
-         fprintf(stderr, "error: cannot write to file %s\n", output);
+         fprintf(stderr, "%s cannot write to file %s\n", ERRM, output);
          say_usage();
          return EXIT_FAILURE;
       }
@@ -393,15 +399,15 @@ main(
    else if (nr_flag && input1 != UNSET && input2 != UNSET) {
       outputf1 = fopen(outname(input1), "w");
       if (outputf1 == NULL) {
-         fprintf(stderr, "error: cannot write to file %s\n",
-               outname(input1));
+         fprintf(stderr,
+               "%s cannot write to file %s\n", ERRM, outname(input1));
          say_usage();
          return EXIT_FAILURE;
       }
       outputf2 = fopen(outname(input2), "w");
       if (outputf2 == NULL) {
-         fprintf(stderr, "error: cannot write to file %s\n",
-               outname(input2));
+         fprintf(stderr,
+               "%s cannot write to file %s\n", ERRM, outname(input2));
          say_usage();
          return EXIT_FAILURE;
       }

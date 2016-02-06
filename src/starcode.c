@@ -301,7 +301,7 @@ starcode
 
                // Split the sequences.
                char *c = strrchr(u->seq, '-');
-               strncpy(seq1, u->seq, c-u->seq - STARCODE_MAX_TAU-1);
+               strncpy(seq1, u->seq, c-u->seq - STARCODE_MAX_TAU);
                strcpy(seq2, c+1);
 
                // Split the info field.

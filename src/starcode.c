@@ -180,7 +180,7 @@ gstack_t * read_PE_fastq (FILE *, FILE *, gstack_t *);
 int        seq2id (char *, int);
 gstack_t * seq2useq (gstack_t*, int);
 int        seqsort (useq_t **, int, int);
-void       sphere_clustering (gstack_t *, int);
+void       sphere_clustering (gstack_t *, int, int);
 void       transfer_counts_and_update_canonicals (useq_t*, int);
 void       transfer_useq_ids (useq_t *, useq_t *);
 void       unpad_useq (gstack_t*);
@@ -419,7 +419,7 @@ starcode
    else if (OUTPUTT == SPHERES_OUTPUT) {
 
       // Cluster the pairs.
-      sphere_clustering(uSQ, showids);
+      sphere_clustering(uSQ, showids, tau);
 
       // Sort in count order.
       qsort(uSQ->items, uSQ->nitems, sizeof(useq_t *), count_order);
@@ -448,6 +448,7 @@ starcode
             for (int j = 0 ; (hits = u->matches[j]) != TOWER_TOP ; j++) {
                for (int k = 0 ; k < hits->nitems ; k++) {
                   useq_t *match = (useq_t *) hits->items[k];
+                  if (match->canonical != u) continue;
                   fprintf(OUTPUTF1, ",%s", match->seq);
                }
             }
@@ -852,7 +853,8 @@ void
 sphere_clustering
 (
  gstack_t *useqS,
- int transfer_ids
+ int transfer_ids,
+ int tau
 )
 {
    // Sort in count order.
@@ -861,13 +863,44 @@ sphere_clustering
    for (int i = 0 ; i < useqS->nitems ; i++) {
       useq_t *useq = (useq_t *) useqS->items[i];
       if (useq->canonical != NULL) continue;
-      useq->canonical = useq;
-      if (useq->matches == NULL) continue;
-
+      if (useq->matches == NULL) {
+         useq->canonical = useq;
+         continue;
+      }
+      // Check if there is any canonical within my matches.
       gstack_t *matches;
+      for (int j = 0 ; (matches = useq->matches[j]) != TOWER_TOP && useq->canonical == NULL ; j++) {
+         for (int k = 0 ; k < matches->nitems ; k++) {
+            useq_t *match = (useq_t *) matches->items[k];
+            // Found my canonical, give counts and ids.
+            if (match->canonical == match) {
+               useq->canonical = match;
+               match->count += useq->count;
+               useq->count = 0;
+               // Add myself to canonical's match list.
+               addmatch(match, useq, j, tau);
+               // Transfer seq ids.
+               if (transfer_ids)
+                  transfer_useq_ids(match, useq);
+               break;
+            }
+         }
+      }
+      
+      // Check canonical again.
+      if (useq->canonical != NULL) continue;
+      // Proclaim myself a canonical.
+      useq->canonical = useq;
+
       for (int j = 0 ; (matches = useq->matches[j]) != TOWER_TOP ; j++) {
          for (int k = 0 ; k < matches->nitems ; k++) {
             useq_t *match = (useq_t *) matches->items[k];
+            // If a sequence has been already claimed, remove it from list.
+            if (match->canonical != NULL) {
+               matches->items[k--] = matches->items[--matches->nitems];
+               continue;
+            }
+            // Otherwise, claim the sequence.
             match->canonical = useq;
             useq->count += match->count;
             match->count = 0;

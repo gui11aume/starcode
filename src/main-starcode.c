@@ -3,7 +3,7 @@
 **
 ** File authors:
 **  Guillaume Filion     (guillaume.filion@gmail.com)
-**  Eduard Valera Zorita (ezorita@mit.edu)
+**  Eduard Valera Zorita (eduardvalera@gmail.com)
 **
 ** License: 
 **  This program is free software: you can redistribute it and/or modify
@@ -45,10 +45,13 @@ char *USAGE =
 "  general options:\n"
 "    -d --dist: maximum Levenshtein distance (default auto)\n"
 "    -t --threads: number of concurrent threads (default 1)\n"
-"    -r --cluster-ratio: minumum cluster size ratio (default 5)\n"
-"    -s --sphere: sphere clustering (default message passing)\n"
 "    -q --quiet: quiet output (default verbose)\n"
 "    -v --version: display version and exit\n"
+"\n"
+"  cluster options: (default algorithm: message passing)\n"
+"    -r --cluster-ratio: minumum cluster size ratio (message passing, default 5)\n"
+"    -s --sphere: use sphere clustering algorithm\n"
+"    -c --connected-comp: print connected components\n"
 "\n"
 "  input/output options (single file, default)\n"
 "    -i --input: input file (default stdin)\n"
@@ -125,6 +128,7 @@ main(
    static int vb_flag = 1;
    static int cl_flag = 0;
    static int id_flag = 0;
+   static int cp_flag = 0;
 
    // Unset flags (value -1).
    int dist = -1;
@@ -152,6 +156,7 @@ main(
          {"non-redundant",     no_argument,       &nr_flag,  1 },
          {"quiet",             no_argument,       &vb_flag,  0 },
          {"sphere",            no_argument,       &sp_flag, 's'},
+         {"connected-comp",    no_argument,       &cp_flag, 'c'},
          {"version",           no_argument,              0, 'v'},
          {"dist",              required_argument,        0, 'd'},
          {"cluster-ratio",     required_argument,        0, 'r'},
@@ -164,7 +169,7 @@ main(
          {0, 0, 0, 0}
       };
 
-      c = getopt_long(argc, argv, "1:2:d:hi:o:qst:r:v",
+      c = getopt_long(argc, argv, "1:2:d:hi:o:qcst:r:v",
             long_options, &option_index);
  
       // Done parsing //
@@ -247,6 +252,10 @@ main(
 
       case 's':
          sp_flag = 1;
+         break;
+
+      case 'c':
+         cp_flag = 1;
          break;
 
       case 't':
@@ -347,10 +356,17 @@ main(
       say_usage();
       return EXIT_FAILURE;
    }
+   if (sp_flag && cp_flag) {
+      fprintf(stderr, "%s --sphere and --connected-comp are "
+              "incompatible\n", ERRM);
+      say_usage();
+      return EXIT_FAILURE;
+   }
 
    // Set output type. //
    int output_type;
         if (nr_flag) output_type = PRINT_NRED;
+   else if (cp_flag) output_type = COMPONENTS_OUTPUT;
    else if (sp_flag) output_type = SPHERES_OUTPUT;
    else              output_type = DEFAULT_OUTPUT;
 

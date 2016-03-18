@@ -3,7 +3,7 @@
 **
 ** File authors:
 **  Guillaume Filion     (guillaume.filion@gmail.com)
-**  Eduard Valera Zorita (ezorita@mit.edu)
+**  Eduard Valera Zorita (eduardvalera@gmail.com)
 **
 ** License: 
 **  This program is free software: you can redistribute it and/or modify
@@ -157,8 +157,12 @@ int        size_order (const void *a, const void *b);
 int        addmatch (useq_t*, useq_t*, int, int);
 int        bisection (int, int, char *, useq_t **, int, int);
 int        canonical_order (const void*, const void*);
+int        cluster_count (const void *, const void *);
+gstack_t * compute_clusters (gstack_t *);
+void       connected_components (useq_t *, gstack_t **);
 long int   count_trie_nodes (useq_t **, int, int);
 int        count_order (const void *, const void *);
+int        count_order_spheres (const void *, const void *);
 void       destroy_useq (useq_t *);
 void       destroy_lookup (lookup_t *);
 void     * do_query (void*);
@@ -180,7 +184,7 @@ gstack_t * read_PE_fastq (FILE *, FILE *, gstack_t *);
 int        seq2id (char *, int);
 gstack_t * seq2useq (gstack_t*, int);
 int        seqsort (useq_t **, int, int);
-void       sphere_clustering (gstack_t *, int, int);
+void       sphere_clustering (gstack_t *, int);
 void       transfer_counts_and_update_canonicals (useq_t*, int);
 void       transfer_useq_ids (useq_t *, useq_t *);
 void       unpad_useq (gstack_t*);
@@ -425,7 +429,7 @@ starcode
    else if (OUTPUTT == SPHERES_OUTPUT) {
 
       // Cluster the pairs.
-      sphere_clustering(uSQ, showids, tau);
+      sphere_clustering(uSQ, showids);
 
       // Sort in count order.
       qsort(uSQ->items, uSQ->nitems, sizeof(useq_t *), count_order);
@@ -476,6 +480,24 @@ starcode
 
       }
 
+   }
+
+   else if (OUTPUTT == COMPONENTS_OUTPUT) {
+      gstack_t * clusters = compute_clusters(uSQ);
+      for (int i = 0; i < clusters->nitems; i++) {
+         gstack_t * cluster = (gstack_t *) clusters->items[i];
+         // Get canonical.
+         useq_t * canonical = (useq_t *) cluster->items[0];
+         // Print canonical and cluster count.
+         fprintf(OUTPUTF1, "%s\t%d", canonical->seq, canonical->count);
+         if (showclusters) {
+            fprintf (OUTPUTF1, "\t%s", canonical->seq);
+            for (int k = 1; k < cluster->nitems; k++) {
+               fprintf (OUTPUTF1, ",%s", ((useq_t *)cluster->items[k])->seq);
+            }
+         }
+         fprintf(OUTPUTF1, "\n");
+      }
    }
 
    // Do not free anything.
@@ -572,7 +594,7 @@ do_query
    // Define a constant to help the compiler recognize
    // that only one of the two cases will ever be used
    // in the loop below.
-   const int add_match_to_parent = OUTPUTT == SPHERES_OUTPUT;
+   const int bidir_match = (OUTPUTT == SPHERES_OUTPUT || OUTPUTT == COMPONENTS_OUTPUT);
    useq_t * last_query = NULL;
 
    for (int i = job->start ; i <= job->end ; i++) {
@@ -639,34 +661,39 @@ do_query
          for (int j = 0 ; j < hits[dist]->nitems ; j++) {
 
             useq_t *match = (useq_t *) hits[dist]->items[j];
-            // We'll always use parent's mutex.
-            useq_t *parent = match->count > query->count ? match : query;
-            useq_t *child  = match->count > query->count ? query : match;
-            int mutexid;
-
-            if (add_match_to_parent) {
-               // The parent is modified, use the parent mutex.
-               mutexid = match->count > query->count ?
-                  job->trieid : job->queryid;
-               pthread_mutex_lock(job->mutex + mutexid);
-               if (addmatch(parent, child, dist, tau)) {
+            if (bidir_match) {
+               // Make a bidirectional match reference.
+               // Add reference from query to matched node.
+               pthread_mutex_lock(job->mutex + job->queryid);
+               if (addmatch(query, match, dist, tau)) {
                   fprintf(stderr,
                         "Please contact guillaume.filion@gmail.com "
                         "for support with this issue.\n");
                   abort();
                }
-               pthread_mutex_unlock(job->mutex + mutexid);
+               pthread_mutex_unlock(job->mutex + job->queryid);
+               // Add reference from matched node to query.
+               pthread_mutex_lock(job->mutex + job->trieid);
+               if (addmatch(match, query, dist, tau)) {
+                  fprintf(stderr,
+                        "Please contact guillaume.filion@gmail.com "
+                        "for support with this issue.\n");
+                  abort();
+               }
+               pthread_mutex_unlock(job->mutex + job->trieid);
             }
 
             else {
+               useq_t *parent = match->count > query->count ? match : query;
+               useq_t *child  = match->count > query->count ? query : match;
                // If clustering is done by message passing, do not link
                // pair if counts are on the same order of magnitude.
                int mincount = child->count;
                int maxcount = parent->count;
                if (maxcount < CLUSTER_RATIO * mincount) continue;
                // The child is modified, use the child mutex.
-               mutexid = match->count > query->count ?
-                  job->queryid : job->trieid;
+               int mutexid = match->count > query->count ?
+                             job->queryid : job->trieid;
                pthread_mutex_lock(job->mutex + mutexid);
                if (addmatch(child, parent, dist, tau)) {
                   fprintf(stderr,
@@ -854,50 +881,123 @@ count_trie_nodes
    return count;
 }
 
+void
+connected_components
+(
+ useq_t * useq,
+ gstack_t ** cluster
+)
+{
+   // Flag claimed.
+   useq->canonical = useq;
+   // Add myself to cluster.
+   push(useq, cluster);
+   // Recursive call on edges.
+   if (useq->matches == NULL) return;
+   gstack_t * matches;
+   for (int j = 0;  (matches = useq->matches[j]) != TOWER_TOP; j++) {
+      for (int k = 0; k < matches->nitems; k++) {
+         useq_t * match = (useq_t *) matches->items[k];
+         if (match->canonical != NULL) continue;
+         connected_components(match, cluster);
+      }
+   }
+}
+
+gstack_t *
+compute_clusters
+(
+ gstack_t    * uSQ
+)
+{
+   gstack_t * clusters = new_gstack();
+   for (int i = 0; i < uSQ->nitems; i++) {
+      useq_t * useq = (useq_t *) uSQ->items[i];
+
+      // Check sequence flag.
+      if (useq->canonical != NULL) continue;
+
+      // Create new cluster.
+      gstack_t * cluster = new_gstack();
+
+      // Recursively gather connected components.
+      connected_components(useq, &cluster);
+
+      // Find centroid. (max: #counts THEN #edges).
+      // Count useq edges.
+      int edge_count = 0;
+      if (useq->matches != NULL) {
+         gstack_t * matches;
+         for (int j = 0; (matches = useq->matches[j]) != TOWER_TOP; j++)
+            edge_count += matches->nitems;
+      }
+
+      // Find centroid among cluster seqs.
+      size_t cluster_count = useq->count;
+      for (int k = 1; k < cluster->nitems; k++) {
+         useq_t * s = (useq_t *) cluster->items[k];
+         cluster_count += s->count;
+         // Select centroid by count.
+         if (s->count > useq->count) {
+            // Count centroid edges.
+            int cnt = 0;
+            gstack_t * matches;
+            for (int j = 0; (matches = s->matches[j]) != TOWER_TOP; j++)
+               cnt += matches->nitems;
+            // Store centroid at index 0.
+            cluster->items[0] = s;
+            cluster->items[k] = useq;
+            useq = s;
+            // Save centroid edge count.
+            edge_count = cnt;
+         }
+         // If same count, select by edge count.
+         else if (s->count == useq->count && s->matches != NULL) {
+            int cnt = 0;
+            gstack_t * matches;
+            for (int j = 0; (matches = s->matches[j]) != TOWER_TOP; j++)
+               cnt += matches->nitems;
+            if (cnt > edge_count) {
+               // Store centroid at index 0.
+               cluster->items[0] = s;
+               cluster->items[k] = useq;
+               useq = s;
+               // Save centroid edge count.
+               edge_count = cnt;
+
+            }
+         }
+      }
+      useq->count = cluster_count;
+      // Store cluster.
+      push(cluster, &clusters);
+   }
+
+   // Sort clusters by size (counts).
+   qsort(clusters->items, clusters->nitems, sizeof(gstack_t *), cluster_count);
+
+   return clusters;
+}
+
 
 void
 sphere_clustering
 (
  gstack_t *useqS,
- int transfer_ids,
- int tau
+ int transfer_ids
 )
 {
    // Sort in count order.
-   qsort(useqS->items, useqS->nitems, sizeof(useq_t *), count_order);
+   qsort(useqS->items, useqS->nitems, sizeof(useq_t *), count_order_spheres);
 
    for (int i = 0 ; i < useqS->nitems ; i++) {
       useq_t *useq = (useq_t *) useqS->items[i];
       if (useq->canonical != NULL) continue;
-      if (useq->matches == NULL) {
-         useq->canonical = useq;
-         continue;
-      }
-      // Check if there is any canonical within my matches.
-      gstack_t *matches;
-      for (int j = 0 ; (matches = useq->matches[j]) != TOWER_TOP && useq->canonical == NULL ; j++) {
-         for (int k = 0 ; k < matches->nitems ; k++) {
-            useq_t *match = (useq_t *) matches->items[k];
-            // Found my canonical, give counts and ids.
-            if (match->canonical == match) {
-               useq->canonical = match;
-               match->count += useq->count;
-               useq->count = 0;
-               // Add myself to canonical's match list.
-               addmatch(match, useq, j, tau);
-               // Transfer seq ids.
-               if (transfer_ids)
-                  transfer_useq_ids(match, useq);
-               break;
-            }
-         }
-      }
-      
-      // Check canonical again.
-      if (useq->canonical != NULL) continue;
-      // Proclaim myself a canonical.
       useq->canonical = useq;
-
+      if (useq->matches == NULL) continue;
+      // Bidirectional edge references simplifies the algorithm.
+      // Directly proceed to claim neighbor counts.
+      gstack_t *matches;
       for (int j = 0 ; (matches = useq->matches[j]) != TOWER_TOP ; j++) {
          for (int k = 0 ; k < matches->nitems ; k++) {
             useq_t *match = (useq_t *) matches->items[k];
@@ -1951,15 +2051,62 @@ canonical_order
 int
 count_order
 (
-   const void *a,
+ const void *a,
    const void *b
-)
+ )
 {
    useq_t *u1 = *((useq_t **) a);
    useq_t *u2 = *((useq_t **) b);
    if (u1->count == u2->count) return strcmp(u1->seq, u2->seq);
    else return u1->count < u2->count ? 1 : -1;
 } 
+
+
+int
+count_order_spheres
+(
+   const void *a,
+   const void *b
+)
+{
+   useq_t *u1 = *((useq_t **) a);
+   useq_t *u2 = *((useq_t **) b);
+   // Same count, sort by cluster size.
+   if (u1->count == u2->count) {
+      if (u2->matches == NULL) return -1;
+      if (u1->matches == NULL) return 1;
+
+      // This counts the whole cluster size because the edge
+      // references are bidirectional in spheres clustering.
+      long cnt1 = 0, cnt2 = 0;
+      gstack_t *matches;
+      for (int j = 0 ; (matches = u1->matches[j]) != TOWER_TOP ; j++)
+         for (int k = 0; k < matches->nitems; k++)
+            cnt1 += ((useq_t *)matches->items[k])->count;
+
+      for (int j = 0 ; (matches = u2->matches[j]) != TOWER_TOP ; j++)
+         for (int k = 0; k < matches->nitems; k++)
+            cnt2 += ((useq_t *)matches->items[k])->count;
+
+      return cnt1 < cnt2 ? 1 : -1;
+   }
+   else return u1->count < u2->count ? 1 : -1;
+} 
+
+int
+cluster_count
+(
+ const void *a,
+ const void *b
+)
+{
+   gstack_t *s1 = *((gstack_t **) a);
+   gstack_t *s2 = *((gstack_t **) b);
+   if (((useq_t *) s1->items[0])->count < ((useq_t *) s2->items[0])->count)
+      return 1;
+   else
+      return -1;
+}
 
 int
 int_ascending

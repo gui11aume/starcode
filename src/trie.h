@@ -3,9 +3,7 @@
 **
 ** File authors:
 **  Guillaume Filion     (guillaume.filion@gmail.com)
-**  Eduard Valera Zorita (ezorita@mit.edu)
-**
-** Last modified: July 8, 2014
+**  Eduard Valera Zorita (eduardvalera@gmail.com)
 **
 ** License: 
 **  This program is free software: you can redistribute it and/or modify

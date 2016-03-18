@@ -268,3 +268,10 @@ VII. References
 [2] Needleman, S.B. and Wunsch, C.D. (1970), 'A general method applicable
     to the search for similarities in the amino acid sequence of two
     proteins' J. Mol. Biol., 48 (3), 443-53.
+
+VIII. Citation
+--------------
+
+If you use our software, please cite:
+
+Zorita E, Cusco P, Filion GJ. 2015. Starcode: sequence clustering based on all-pairs search. Bioinformatics 31 (12): 1913-1919.

@@ -3,8 +3,7 @@
 **
 ** File authors:
 **  Guillaume Filion     (guillaume.filion@gmail.com)
-**  Eduard Valera Zorita (ezorita@mit.edu)
-**
+**  Eduard Valera Zorita (eduardvalera@gmail.com)
 **
 ** License: 
 **  This program is free software: you can redistribute it and/or modify
@@ -34,6 +33,7 @@
 typedef enum {
    DEFAULT_OUTPUT,
    SPHERES_OUTPUT,
+   COMPONENTS_OUTPUT,
    PRINT_NRED
 } output_t;
 

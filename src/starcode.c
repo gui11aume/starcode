@@ -1062,7 +1062,8 @@ seqsort
 //   problem of sorting merging identical sequences. When two
 //   identical sequences are detected during the sort, they are
 //   merged into a single one with more counts, and one of them
-//   is destroyed (freed).
+//   is destroyed (freed). See 'nukesort()' for a description of
+//   the sort order.
 //
 // PARAMETERS:                                                            
 //   data:       an array of pointers to each element.                    
@@ -1112,7 +1113,11 @@ nukesort
 //   Recursive part of 'seqsort'. The code of 'nukesort()' is
 //   dangerous and should not be reused. It uses a very special
 //   sort order designed for starcode, it destroys some elements
-//   and sets them to NULL as it sorts.
+//   and sets them to NULL as it sorts. The sort order is based
+//   on the sequences and is such that a < b if a is shorter
+//   than b or if a has the same length as b and lower lexical
+//   order. When a is the same as b, the useq containing b is
+//   destroyed (freed) and replaced by NULL.
 //
 // ARGUMENTS:
 //   args: a sortargs_t struct (see private header file).
@@ -1168,7 +1173,7 @@ nukesort
 
    // Merge sets
    while (i+j < sortargs->size) {
-      // Only NULLS at the end of the buffers.
+      // Only NULLs at the end of the buffers.
       if (j == arg2.size || r[j] == NULL) {
          // Right buffer is exhausted. Copy left buffer...
          memcpy(buf+idx, l+i, (arg1.size-i) * sizeof(useq_t *));
@@ -1190,7 +1195,7 @@ nukesort
       else cmp = sl < sr ? -1 : 1;
 
       if (cmp == 0) {
-         // Identical sequences, this is the nuke part.
+         // Identical sequences, this is the "nuke" part.
          // Add sequence counts.
          ul->count += ur->count;
          transfer_useq_ids(ul, ur);

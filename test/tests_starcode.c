@@ -12,7 +12,8 @@ test_starcode_1
    useq_t *u = new_useq(1, "some sequence", NULL);
    test_assert_critical(u != NULL);
    test_assert(u->count == 1);
-   test_assert(strcmp(u->seq, "some sequence") == 0);
+   // Call to 'new_useq()' capitalizes the sequence.
+   test_assert(strcmp(u->seq, "SOME SEQUENCE") == 0);
    test_assert(u->info == NULL);
    test_assert(u->matches == NULL);
    test_assert(u->canonical == NULL);
@@ -22,7 +23,8 @@ test_starcode_1
    u = new_useq(1, "some sequence", "some info");
    test_assert_critical(u != NULL);
    test_assert(u->count == 1);
-   test_assert(strcmp(u->seq, "some sequence") == 0);
+   // Call to 'new_useq()' capitalizes the sequence.
+   test_assert(strcmp(u->seq, "SOME SEQUENCE") == 0);
    test_assert(strcmp(u->info, "some info") == 0);
    test_assert(u->matches == NULL);
    test_assert(u->canonical == NULL);
@@ -321,12 +323,13 @@ test_starcode_5
       "U Ct`3w8(#KAE+z;vh,",  "[S^jXvNS VP' cwg~_iq",
       ".*/@*Q/]]}32kNB#`qqv", "#`Hwp(&,z|bN~07CSID'",
    };
+   // Call to 'new_useq()' will also capitalize the letters.
    const char *sorted_1[10] = {
-      "#`Hwp(&,z|bN~07CSID'", ".*/@*Q/]]}32kNB#`qqv", 
-      "[S^jXvNS VP' cwg~_iq", "U Ct`3w8(#KAE+z;vh,", 
-      "RlEF',$6[}ouJQyWqqT#", ":3ILp'w?)f]4(a;mf%A9", 
-      "hcU+f!=`.Xs6[a,C7XpN", "tW:0K&Mvtax<PP/qY6er", 
-      "tcKvz5JTm!h*X0mSTg",   "IRrLv<'*3S?UU<JF4S<,", 
+      "#`HWP(&,Z|BN~07CSID'", ".*/@*Q/]]}32KNB#`QQV", 
+      "[S^JXVNS VP' CWG~_IQ", "U CT`3W8(#KAE+Z;VH,", 
+      "RLEF',$6[}OUJQYWQQT#", ":3ILP'W?)F]4(A;MF%A9", 
+      "HCU+F!=`.XS6[A,C7XPN", "TW:0K&MVTAX<PP/QY6ER", 
+      "TCKVZ5JTM!H*X0MSTG",   "IRRLV<'*3S?UU<JF4S<,", 
    };
 
    useq_t *to_sort_1[10];
@@ -346,8 +349,9 @@ test_starcode_5
       "repeat", "repeat", "repeat", "abc", "abc", "xyz"
    };
    int counts[6] = {1,1,2,3,4,4};
+   // Call to 'new_useq()' will also capitalize the letters.
    char *sorted_2[6] = {
-      "abc", "xyz", "abc", "repeat", "repeat", "repeat",
+      "ABC", "XYZ", "ABC", "REPEAT", "REPEAT", "REPEAT",
    };
    int sorted_counts[6] = {4,4,3,2,1,1};
 
@@ -386,7 +390,8 @@ test_starcode_6
 
    int med;
    pad_useq(useqS, &med);
-   test_assert(strcmp(u2->seq, "    $Ee6xkB+.Q;Nk)|w[KQ;") == 0);
+   // The call to 'new_useq()' will capitalize the sequence.
+   test_assert(strcmp(u2->seq, "    $EE6XKB+.Q;NK)|W[KQ;") == 0);
    test_assert(med == 20);
 
    useq_t *u3 = new_useq(23, "0sdfd:'!'@{1$Ee6xkB+.Q;[Nk)|w[KQ;", NULL);
@@ -395,14 +400,16 @@ test_starcode_6
    test_assert(useqS->nitems == 3);
 
    pad_useq(useqS, &med);
-   test_assert(strcmp(u1->seq, "         L@[ohztp{2@V(u(x7fLt&x80") == 0);
-   test_assert(strcmp(u2->seq, "             $Ee6xkB+.Q;Nk)|w[KQ;") == 0);
+   // The call to 'new_useq()' will capitalize the sequence.
+   test_assert(strcmp(u1->seq, "         L@[OHZTP{2@V(U(X7FLT&X80") == 0);
+   test_assert(strcmp(u2->seq, "             $EE6XKB+.Q;NK)|W[KQ;") == 0);
    test_assert(med == 24);
 
    unpad_useq(useqS);
-   test_assert(strcmp(u1->seq, "L@[ohztp{2@V(u(x7fLt&x80") == 0);
-   test_assert(strcmp(u2->seq, "$Ee6xkB+.Q;Nk)|w[KQ;") == 0);
-   test_assert(strcmp(u3->seq, "0sdfd:'!'@{1$Ee6xkB+.Q;[Nk)|w[KQ;") == 0);
+   // The call to 'new_useq()' will capitalize the sequence.
+   test_assert(strcmp(u1->seq, "L@[OHZTP{2@V(U(X7FLT&X80") == 0);
+   test_assert(strcmp(u2->seq, "$EE6XKB+.Q;NK)|W[KQ;") == 0);
+   test_assert(strcmp(u3->seq, "0SDFD:'!'@{1$EE6XKB+.Q;[NK)|W[KQ;") == 0);
 
    destroy_useq(u1);
    destroy_useq(u2);
@@ -838,12 +845,13 @@ test_seqsort
       "U Ct`3w8(#KAE+z;vh,",  "[S^jXvNS VP' cwg~_iq",
       ".*/@*Q/]]}32kNB#`qqv", "#`Hwp(&,z|bN~07CSID'",
    };
+   // The call to 'new_useq()' will capitalize the sequences.
    const char *sorted_1[10] = {
-      "tcKvz5JTm!h*X0mSTg",   "U Ct`3w8(#KAE+z;vh,",
-      "#`Hwp(&,z|bN~07CSID'", ".*/@*Q/]]}32kNB#`qqv",
-      ":3ILp'w?)f]4(a;mf%A9", "IRrLv<'*3S?UU<JF4S<,",
-      "RlEF',$6[}ouJQyWqqT#", "[S^jXvNS VP' cwg~_iq",
-      "hcU+f!=`.Xs6[a,C7XpN", "tW:0K&Mvtax<PP/qY6er", 
+      "TCKVZ5JTM!H*X0MSTG",   "U CT`3W8(#KAE+Z;VH,",
+      "#`HWP(&,Z|BN~07CSID'", ".*/@*Q/]]}32KNB#`QQV",
+      ":3ILP'W?)F]4(A;MF%A9", "HCU+F!=`.XS6[A,C7XPN",
+      "IRRLV<'*3S?UU<JF4S<,", "RLEF',$6[}OUJQYWQQT#",
+      "TW:0K&MVTAX<PP/QY6ER", "[S^JXVNS VP' CWG~_IQ",
    };
 
    useq_t *to_sort_1[10];
@@ -866,12 +874,13 @@ test_seqsort
       "U Ct`3w8(#Kz;vh,",     "aS^jXvNS VP' cwg~_iq",
       ".*/@*Q/]]}32#`",       "(&,z|bN~07CSID'",
    };
+   // The call to 'new_useq()' will capitalize the sequences.
    const char *sorted_2[10] = {
-      "IRr",                  "RlEFWqqT#",
-      ".*/@*Q/]]}32#`",       "(&,z|bN~07CSID'",
-      "U Ct`3w8(#Kz;vh,",     "tcKvz5JTm!h*X0mSTg",
-      "z3ILp'w?)f]4(a;mf9",   "aS^jXvNS VP' cwg~_iq",
-      "tW:0K&Mvtax<PP/qY6er", "hcU+f!=`.Xs6[a,C7XpNwoi~OWe88",
+      "IRR",                  "RLEFWQQT#",
+      ".*/@*Q/]]}32#`",       "(&,Z|BN~07CSID'",
+      "U CT`3W8(#KZ;VH,",     "TCKVZ5JTM!H*X0MSTG",
+      "Z3ILP'W?)F]4(A;MF9",   "AS^JXVNS VP' CWG~_IQ",
+      "TW:0K&MVTAX<PP/QY6ER", "HCU+F!=`.XS6[A,C7XPNWOI~OWE88",
    };
 
    useq_t *to_sort_2[10];
@@ -890,8 +899,9 @@ test_seqsort
    char *sequences_3[6] = {
       "repeat", "repeat", "repeat", "repeat", "repeat", "xyz"
    };
+   // The call to 'new_useq()' will capitalize the sequences.
    char *sorted_3[6] = {
-      "xyz", "repeat", NULL, NULL, NULL, NULL,
+      "XYZ", "REPEAT", NULL, NULL, NULL, NULL,
    };
    int counts[2] = {1,5};
 

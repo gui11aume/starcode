@@ -5,15 +5,14 @@ extern void *__libc_malloc(size_t);
 extern void *__libc_realloc(void *, size_t);
 extern void *__libc_calloc(size_t, size_t);
 // Private functions // 
-int    debug_run_test_case (const test_case_t);
 void   redirect_stderr (void);
-int    safe_run_test_case (test_case_t); 
+void * run_test_case (void *); 
 char * sent_to_stderr (void);
 void   unit_test_clean (void);
 void   unit_test_init (void);
 void   unredirect_stderr (void);
-void   test_case_clean (int);
-void   test_case_init (int);
+void   test_case_clean (void);
+void   test_case_init (void);
 void * fail_countdown_calloc (size_t, size_t);
 void * fail_countdown_malloc (size_t);
 void * fail_countdown_realloc (void *, size_t);
@@ -33,11 +32,30 @@ static FILE * DEBUG_DUMP_FILE;
 static int    N_ERROR_MESSAGES;
 static int    ORIG_STDERR_DESCRIPTOR;
 static char * STDERR_BUFFER;
-static int  * STDERR_OFF;
-static int  * TEST_CASE_FAILED;
+static int    STDERR_OFF;
+static int    TEST_CASE_FAILED;
 
 
 //     Function definitions     //
+
+void
+terminate_thread
+(
+   int sig
+)
+{
+
+   // Label the test case as failed. //
+   TEST_CASE_FAILED = 1;
+
+   // Clean it all. //
+   unredirect_stderr();
+   test_case_clean();
+
+   // Return to main thread.
+   pthread_exit(NULL);
+
+}
 
 int
 run_unittest
@@ -48,104 +66,67 @@ run_unittest
 )
 {
 
+   // Initialize test set. //
    unit_test_init();
-   int debug_mode = argc > 1 && strcmp(argv[1], "--debug") == 0;
+
+   pthread_t tid;
 
    int nbad = 0;
-   for (int i = 0 ; ; i++) {
-      if (test_cases[i].fixture == NULL) break;
-      if (debug_mode)
-         nbad += debug_run_test_case(test_cases[i]);
-      else
-         nbad += safe_run_test_case(test_cases[i]);
+
+   // Run test cases in sequential order.
+   for (int i = 0 ; test_cases[i].fixture != NULL ; i++) {
+
+      // Some verbose information. //
+      fprintf(stderr, "%s\n", test_cases[i].test_name);
+
+      // Run test case in thread. //
+      pthread_create(&tid, NULL, run_test_case, (void *) &test_cases[i]);
+      pthread_join(tid, NULL);
+
+      nbad += TEST_CASE_FAILED;
+
    }
 
+   // Clean and return. //
    unit_test_clean();
    return nbad;
 
 }
 
 
-int
-debug_run_test_case
+void *
+run_test_case
 (
-   const test_case_t test_case
+   void * data
 )
 {
 
-   // Initialization //
-   char * test_name = test_case.test_name;
-   fixture_t fixture = test_case.fixture;
+   // Unpack argument. //
+   const test_case_t test_case = *(test_case_t *) data;
 
-   test_case_init(FORK_NO);
-   unredirect_stderr();
-   fprintf(stderr, "%s\n", test_name);
+   // -- Initialize -- //
 
-   // Do the test //
-   int test_case_failed = 0;
-   (*fixture)();
-
-   if (*TEST_CASE_FAILED) {
-      unredirect_stderr();
-      fprintf(stderr, "FAILED\n");
-      test_case_failed = 1;
-   }
-
-   test_case_clean(FORK_NO);
-   return test_case_failed;
-
-}
-
-
-int
-safe_run_test_case
-(
-   const test_case_t test_case
-)
-{
-
-   int test_case_status;
-   pid_t pid;
-
-   // Initialization //
-   char * test_name = test_case.test_name;
-   fixture_t fixture = test_case.fixture;
+   // Register signal handlers. This will allow execution
+   // to return to main thread in case of crash.
+   signal(SIGSEGV, terminate_thread);
+   signal(SIGTERM, terminate_thread);
    
-   test_case_init(FORK_YES);
+   // Get test name and fixture (test function). //
+   fixture_t fixture = test_case.fixture;
+
+   // Initialize variable, empty buffers... //
+   test_case_init();
    unredirect_stderr();
-   fprintf(stderr, "%s\n", test_name);
 
-   // Fork //
-   if ((pid = fork()) == -1) {
-      fprintf(stderr, "unittest error (%s:%d)\n", __FILE__, __LINE__);
-      exit(EXIT_FAILURE);
-   }
+   //  -- Run the test -- //
+   (*fixture)();
+   
+   // -- Clean -- //
+   unredirect_stderr();
+   test_case_clean();
 
-   if (pid == 0) {
-      // Child process. Perform the unit test.
-      (*fixture)();
-      exit(EXIT_SUCCESS);
-   }
-   else {
-      // Parent process. Wait for child to terminate, then report.
-      pid = wait(&test_case_status);
-
-      unredirect_stderr();
-      int test_case_failed = 0;
-
-      if (pid == -1) {
-         fprintf(stderr, "unittest error (%s:%d)\n", __FILE__, __LINE__);
-         exit(EXIT_FAILURE);
-      }
-      if (*TEST_CASE_FAILED || WIFEXITED(test_case_status) == 0) {
-         fprintf(stderr, "FAILED\n");
-         test_case_failed = 1;
-      }
-
-      test_case_clean(FORK_YES);
-      return test_case_failed;
+   return NULL;
   
-   }
 
 }
 
@@ -168,7 +149,7 @@ unit_test_clean
 (void)
 {
 
-   fprintf(DEBUG_DUMP_FILE, "run --debug\n");
+   fprintf(DEBUG_DUMP_FILE, "run\n");
    fclose(DEBUG_DUMP_FILE);
 
 }
@@ -176,40 +157,15 @@ unit_test_clean
 
 void
 test_case_init
-(
-   int run_flags
-)
+(void) 
 {
 
    reset_alloc();
 
    N_ERROR_MESSAGES = 0;
 
-   if (run_flags & FORK_YES) {
-#ifndef MAP_ANONYMOUS
-#define MAP_ANONYMOUS 0
-#endif
-      // Shared variables //
-      TEST_CASE_FAILED = mmap(NULL, sizeof(*TEST_CASE_FAILED),
-            PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-      STDERR_OFF = mmap(NULL, sizeof(*STDERR_OFF),
-            PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-   }
-   else {
-      TEST_CASE_FAILED = malloc(sizeof(int));
-      if (TEST_CASE_FAILED == NULL) {
-         fprintf(stderr, "unittest error (%s:%d)\n", __FILE__, __LINE__);
-         exit(EXIT_FAILURE);
-      }
-      STDERR_OFF = malloc(sizeof(int));
-      if (STDERR_OFF == NULL) {
-         fprintf(stderr, "unittest error (%s:%d)\n", __FILE__, __LINE__);
-         exit(EXIT_FAILURE);
-      }
-   }
-
-   *TEST_CASE_FAILED = 0;
-   *STDERR_OFF = 0;
+   TEST_CASE_FAILED = 0;
+   STDERR_OFF = 0;
 
    ORIG_STDERR_DESCRIPTOR = dup(STDERR_FILENO);
    if (ORIG_STDERR_DESCRIPTOR == -1) {
@@ -228,20 +184,9 @@ test_case_init
 
 void
 test_case_clean
-(
-   int run_flags
-)
+(void)
 {
 
-   if (run_flags & FORK_YES) {
-      // Shared variables //
-      munmap(TEST_CASE_FAILED, sizeof *TEST_CASE_FAILED);
-      munmap(STDERR_OFF, sizeof *STDERR_OFF);
-   }
-   else {
-      free(TEST_CASE_FAILED);
-      free(STDERR_OFF);
-   }
    free(STDERR_BUFFER);
    STDERR_BUFFER = NULL;
 
@@ -252,7 +197,7 @@ void
 redirect_stderr
 (void)
 {
-   if (*STDERR_OFF) return;
+   if (STDERR_OFF) return;
    // Flush stderr, redirect to /dev/null and set buffer.
    fflush(stderr);
    int temp = open("/dev/null", O_WRONLY);
@@ -275,7 +220,7 @@ redirect_stderr
    }
    fprintf(stderr, "$");
    fflush(stderr);
-   *STDERR_OFF = 1;
+   STDERR_OFF = 1;
 }
 
 
@@ -283,7 +228,7 @@ void
 unredirect_stderr
 (void)
 {
-   if (!*STDERR_OFF) return;
+   if (!STDERR_OFF) return;
    fflush(stderr);
    if (dup2(ORIG_STDERR_DESCRIPTOR, STDERR_FILENO) == -1) {
       // Could not restore stderr. No need to give an error
@@ -294,7 +239,7 @@ unredirect_stderr
       fprintf(stderr, "unittest error: %s:%d\n", __FILE__, __LINE__);
       exit(EXIT_FAILURE);
    }
-   *STDERR_OFF = 0;
+   STDERR_OFF = 0;
 }
 
 
@@ -307,9 +252,9 @@ assert_fail_non_critical
    const char         * function
 )
 {
-   *TEST_CASE_FAILED = 1;
+   TEST_CASE_FAILED = 1;
    if (++N_ERROR_MESSAGES > MAX_N_ERROR_MESSAGES + 1) return;
-   int switch_stderr = *STDERR_OFF;
+   int switch_stderr = STDERR_OFF;
    if (switch_stderr) unredirect_stderr();
    if (N_ERROR_MESSAGES == MAX_N_ERROR_MESSAGES + 1) {
       fprintf(stderr, "more than %d failed assertions...\n",
@@ -333,7 +278,7 @@ assert_fail_critical
    const char         * function
 )
 {
-   *TEST_CASE_FAILED = 1;
+   TEST_CASE_FAILED = 1;
    unredirect_stderr();
    fprintf(stderr, "assertion failed in %s(), %s:%d: `%s' (CRITICAL)\n",
          function, file, lineno, assertion);

@@ -19,7 +19,7 @@ $(P): $(OBJECTS) runtests.c
 	$(CC) $(CFLAGS) runtests.c $(OBJECTS) $(LDLIBS) -o $@
 
 libunittest.so: unittest.c
-	$(CC) -fPIC -shared $(CFLAGS) -o libunittest.so lib/unittest.c
+	$(CC) -fPIC -shared $(CFLAGS) -o libunittest.so lib/unittest.c -lpthread
 
 test: $(P)
 	./$(P)

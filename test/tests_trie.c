@@ -1657,3 +1657,24 @@ test_mem_6
    reset_alloc();
 
 }
+
+// Test cases for export.
+const test_case_t test_cases_trie[] = {
+      {"trie/base/1", test_base_1},
+      {"trie/base/2", test_base_2},
+      {"trie/base/3", test_base_3},
+      {"trie/base/4", test_base_4},
+      {"trie/base/5", test_base_5},
+      {"trie/base/6", test_base_6},
+      {"trie/base/7", test_base_7},
+      {"trie/base/8", test_base_8},
+      {"errmsg",      test_errmsg},
+      {"search",      test_search},
+      {"mem/1",       test_mem_1},
+      {"mem/2",       test_mem_2},
+      {"mem/3",       test_mem_3},
+      {"mem/4",       test_mem_4},
+      {"mem/5",       test_mem_5},
+      {"mem/6",       test_mem_6},
+      {NULL, NULL},
+};

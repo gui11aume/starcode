@@ -6,7 +6,7 @@ extern void *__libc_realloc(void *, size_t);
 extern void *__libc_calloc(size_t, size_t);
 // Private functions // 
 void   redirect_stderr (void);
-void * run_test_case (void *); 
+void * run_testset (void *); 
 char * sent_to_stderr (void);
 void   unit_test_clean (void);
 void   unit_test_init (void);
@@ -45,6 +45,8 @@ terminate_thread
 )
 {
 
+   fprintf(stderr, "caught SIGTERM (interrupting)\n");
+
    // Label the test case as failed. //
    TEST_CASE_FAILED = 1;
 
@@ -62,7 +64,7 @@ run_unittest
 (
          int            argc,
          char        ** argv,
-   const test_case_t    test_cases[]
+   const test_case_t  * test_case_list[]
 )
 {
 
@@ -74,16 +76,21 @@ run_unittest
    int nbad = 0;
 
    // Run test cases in sequential order.
-   for (int i = 0 ; test_cases[i].fixture != NULL ; i++) {
+   for (int j = 0 ; test_case_list[j] != NULL ; j++) {
 
-      // Some verbose information. //
-      fprintf(stderr, "%s\n", test_cases[i].test_name);
+      const test_case_t *test_cases = test_case_list[j];
+      for (int i = 0 ; test_cases[i].fixture != NULL ; i++) {
 
-      // Run test case in thread. //
-      pthread_create(&tid, NULL, run_test_case, (void *) &test_cases[i]);
-      pthread_join(tid, NULL);
+         // Some verbose information. //
+         fprintf(stderr, "%s\n", test_cases[i].test_name);
 
-      nbad += TEST_CASE_FAILED;
+         // Run test case in thread. //
+         pthread_create(&tid, NULL, run_testset, (void *) &test_cases[i]);
+         pthread_join(tid, NULL);
+
+         nbad += TEST_CASE_FAILED;
+
+      }
 
    }
 
@@ -95,7 +102,7 @@ run_unittest
 
 
 void *
-run_test_case
+run_testset
 (
    void * data
 )
@@ -109,7 +116,6 @@ run_test_case
    // Register signal handlers. This will allow execution
    // to return to main thread in case of crash.
    signal(SIGSEGV, terminate_thread);
-   signal(SIGTERM, terminate_thread);
    
    // Get test name and fixture (test function). //
    fixture_t fixture = test_case.fixture;
@@ -149,6 +155,7 @@ unit_test_clean
 (void)
 {
 
+   fprintf(DEBUG_DUMP_FILE, "b run_unittest\n");
    fprintf(DEBUG_DUMP_FILE, "run\n");
    fclose(DEBUG_DUMP_FILE);
 

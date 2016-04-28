@@ -1001,3 +1001,19 @@ test_seqsort
    free(useqS);
 
 }
+
+// Test cases for export.
+const test_case_t test_cases_starcode[] = {
+   {"starcode/base/1",  test_starcode_1},
+   {"starcode/base/2",  test_starcode_2},
+   {"starcode/base/3",  test_starcode_3},
+   {"starcode/base/4",  test_starcode_4},
+   {"starcode/base/5",  test_starcode_5},
+   {"starcode/base/6",  test_starcode_6},
+   {"starcode/base/7",  test_starcode_7},
+   {"starcode/base/8",  test_starcode_8},
+   {"starcode/base/9",  test_starcode_9},
+   {"starcode/base/10", test_starcode_10},
+   {"starcode/seqsort", test_seqsort},
+   {NULL, NULL}
+};

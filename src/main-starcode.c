@@ -61,6 +61,10 @@ char *USAGE =
 "    -1 --input1: input file 1\n"
 "    -2 --input2: input file 2\n"
 "\n"
+"  output options (paired-end fastq files, --non-redundant only)\n"
+"       --output1: output file1 (default input1-starcode.fastq)\n"
+"       --output2: output file2 (default input2-starcode.fastq)\n"
+"\n"
 "  output format options\n"
 "       --print-clusters: outputs cluster compositions\n"
 "       --non-redundant: remove redundant sequences\n"
@@ -90,7 +94,7 @@ outname
 )
 {
 
-   static char name[320] = {0};
+   char * name = calloc(320,1);
    if (strlen(path) > 310) {
       fprintf(stderr, "input file name too long (%s)\n", path);
       abort();
@@ -141,6 +145,9 @@ main(
    char * input1  = UNSET;
    char * input2  = UNSET;
    char * output  = UNSET;
+   char * output1 = UNSET;
+   char * output2 = UNSET;
+
 
    if (argc == 1 && isatty(0)) {
       say_usage();
@@ -166,10 +173,13 @@ main(
          {"input2",            required_argument,        0, '2'},
          {"output",            required_argument,        0, 'o'},
          {"threads",           required_argument,        0, 't'},
+         {"output1",           required_argument,        0, '3'},
+         {"output2",           required_argument,        0, '4'},
+
          {0, 0, 0, 0}
       };
 
-      c = getopt_long(argc, argv, "1:2:d:hi:o:qcst:r:v",
+      c = getopt_long(argc, argv, "1:2:3:4:d:hi:o:qcst:r:v",
             long_options, &option_index);
  
       // Done parsing //
@@ -201,6 +211,29 @@ main(
             return EXIT_FAILURE;
          }
          break;
+
+      case '3':
+         if (output1 == UNSET) {
+            output1 = optarg;
+         }
+         else {
+            fprintf(stderr, "%s --output1 set more than once\n", ERRM);
+            say_usage();
+            return EXIT_FAILURE;
+         }
+         break;
+
+      case '4':
+         if (output2 == UNSET) {
+            output2 = optarg;
+         }
+         else {
+            fprintf(stderr, "%s --output2 set more than once\n", ERRM);
+            say_usage();
+            return EXIT_FAILURE;
+         }
+         break;
+
 
       case 'd':
          if (dist < 0) {
@@ -413,14 +446,30 @@ main(
       }
    }
    else if (nr_flag && input1 != UNSET && input2 != UNSET) {
-      outputf1 = fopen(outname(input1), "w");
+      // Set default names as inputX-starcode.fastq
+      if (output1 == UNSET) {
+         output1 = outname(input1);
+         outputf1 = fopen(output1, "w");
+         free(output1);
+      } else {
+         outputf1 = fopen(output1, "w");
+      }
+
       if (outputf1 == NULL) {
          fprintf(stderr,
                "%s cannot write to file %s\n", ERRM, outname(input1));
          say_usage();
          return EXIT_FAILURE;
       }
-      outputf2 = fopen(outname(input2), "w");
+
+      if (output2 == UNSET) {
+         output2 = outname(input2);
+         outputf2 = fopen(output2, "w");
+         free(output2);
+      } else {
+         outputf2 = fopen(output2, "w");
+      }
+
       if (outputf2 == NULL) {
          fprintf(stderr,
                "%s cannot write to file %s\n", ERRM, outname(input2));

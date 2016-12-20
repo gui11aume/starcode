@@ -37,6 +37,11 @@ typedef enum {
    PRINT_NRED
 } output_t;
 
+typedef enum {
+   SMART_TAU,
+   SPHERE_SEARCH
+} algorithm_t;
+
 int starcode(
          FILE * inputf1,
          FILE * inputf2,

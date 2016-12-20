@@ -143,6 +143,9 @@ struct mttrie_t {
    char              flag;
    int               currentjob;
    int               njobs;
+   long              node_cnt;
+   trie_t          * trie;
+   node_t          * node_pos;
    struct mtjob_t  * jobs;
 };
 
@@ -617,6 +620,11 @@ do_query
       // find itself upon search.
       void **data = NULL;
       if (job->build) {
+
+         // TODO-memory: This should be done during build jobs.
+         // trie_t *local_trie  = new_trie(height);
+         // node_t *local_nodes = (node_t *) malloc(nnodes[i] * sizeof(node_t));
+
          if (lut_insert(lut, query)) {
             alert();
             krash();
@@ -746,11 +754,12 @@ do_query
 mtplan_t *
 plan_mt
 (
-    int       tau,
-    int       height,
-    int       medianlen,
-    int       ntries,
-    gstack_t *useqS
+    int          tau,
+    int          height,
+    int          medianlen,
+    int          ntries,
+    gstack_t    *useqS,
+    algorithm_t  algorithm
 )
 // SYNOPSIS:                                                              
 //   The scheduler makes the key assumption that the number of tries is   
@@ -813,16 +822,14 @@ plan_mt
    for (int i = 0 ; i < ntries; i++) {
       // Remember that 'ntries' is odd.
       int njobs = (ntries+1)/2;
-      trie_t *local_trie  = new_trie(height);
-      node_t *local_nodes = (node_t *) malloc(nnodes[i] * sizeof(node_t));
-      mtjob_t *jobs = malloc(njobs * sizeof(mtjob_t));
+      int totaljobs = njobs * (algorithm == SMART_TAU ? tau : 1);
+      mtjob_t *jobs = malloc(totaljobs * sizeof(mtjob_t));
       if (local_trie == NULL || jobs == NULL) {
          alert();
          krash();
       }
 
       // Allocate lookup struct.
-      // TODO: Try only one lut as well. (It will always return 1 in the query step though).
       lookup_t * local_lut = new_lookup(medianlen, height, tau);
       if (local_lut == NULL) {
          alert();
@@ -833,30 +840,38 @@ plan_mt
       mttries[i].currentjob = 0;
       mttries[i].njobs      = njobs;
       mttries[i].jobs       = jobs;
+      mttries[i].trie       = NULL;
+      mttries[i].node_pos   = NULL;
+      mttries[i].node_cnt   = count_trie_nodes((useq_t **)useqS->items, bounds[i], bounds[i+1]);
 
-      for (int j = 0 ; j < njobs ; j++) {
-         // Shift boundaries in a way that every trie is built
-         // exactly once and that no redundant jobs are allocated.
-         int idx = (i+j) % ntries;
-         int only_if_first_job = j == 0;
-         // Specifications of j-th job of the local trie.
-         jobs[j].start    = bounds[idx];
-         jobs[j].end      = bounds[idx+1]-1;
-         jobs[j].tau      = tau;
-         jobs[j].build    = only_if_first_job;
-         jobs[j].useqS    = useqS;
-         jobs[j].trie     = local_trie;
-         jobs[j].node_pos = local_nodes;
-         jobs[j].lut      = local_lut;
-         jobs[j].mutex    = mutex;
-         jobs[j].monitor  = monitor;
-         jobs[j].jobsdone = &(mtplan->jobsdone);
-         jobs[j].trieflag = &(mttries[i].flag);
-         jobs[j].active   = &(mtplan->active);
-         // Mutex ids. (mutex[0] is reserved for general mutex)
-         jobs[j].queryid  = idx + 1;
-         jobs[j].trieid   = i + 1;
-      }
+      int k = 0;
+      int tau_0 = (algorithm == SMART_TAU ? 1 : tau);
+      for (int t = tau_0 ; t <= tau; t++) {
+         for (int j = 0 ; j < njobs ; j++) {
+            // Shift boundaries in a way that every trie is built
+            // exactly once and that no redundant jobs are allocated.
+            int idx = (i+j) % ntries;
+            int only_if_first_job = k == 0;
+            // Specifications of j-th job of the local trie.
+            jobs[k].start    = bounds[idx];
+            jobs[k].end      = bounds[idx+1]-1;
+            jobs[k].tau      = t;
+            jobs[k].build    = only_if_first_job;
+            jobs[k].useqS    = useqS;
+            jobs[k].trie     = NULL;
+            jobs[k].node_pos = NULL;
+            jobs[k].lut      = local_lut;
+            jobs[k].mutex    = mutex;
+            jobs[k].monitor  = monitor;
+            jobs[k].jobsdone = &(mtplan->jobsdone);
+            jobs[k].trieflag = &(mttries[i].flag);
+            jobs[k].active   = &(mtplan->active);
+            // Mutex ids. (mutex[0] is reserved for general mutex)
+            jobs[k].queryid  = idx + 1;
+            jobs[k].trieid   = i + 1;
+            // Increase job index.
+            k++;
+         }
    }
 
    free(bounds);

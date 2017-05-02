@@ -103,6 +103,11 @@ typedef struct lookup_t lookup_t;
 typedef struct sortargs_t sortargs_t;
 
 
+// The field 'seqid' is either an id number for
+// the unique sequence or a pointer to a struct
+// containing information about the matches. This
+// creates some confusion in the code at times.
+// See function 'transfer_useq_ids()'.
 struct useq_t {
   int              count;
   unsigned int     nids;
@@ -332,7 +337,12 @@ starcode
                         fprintf(OUTPUTF1, ",%u", canonical->seqid[k]);
                   }
                   else 
-                     fprintf(OUTPUTF1, "\t%u", (unsigned int)(unsigned long)canonical->seqid);
+                     // Guillaume Filion: the double cast has to do
+                     // with the fact that the high bit is used to
+                     // specify how the variable is used (as a value
+                     // or a point to a struct).
+                     fprintf(OUTPUTF1, "\t%u",
+                        (unsigned int)(unsigned long)canonical->seqid);
                }
                // Update canonical.
                canonical = u->canonical;
@@ -374,7 +384,9 @@ starcode
                last = canonical->seqid[0];
                fprintf(OUTPUTF1, "\t%u", last);
             } else
-               fprintf(OUTPUTF1, "\t%u", (unsigned int)(unsigned long)canonical->seqid);
+               // Leaving the double cast (see comment above).
+               fprintf(OUTPUTF1, "\t%u",
+                  (unsigned int)(unsigned long)canonical->seqid);
             for (unsigned int k = 1; k < canonical->nids; k++) {
                if (canonical->seqid[k] == last) continue;
                last = canonical->seqid[k];
@@ -414,7 +426,12 @@ starcode
                   for (int k = 0 ; k < hits->nitems ; k++) {
                      useq_t *match = (useq_t *) hits->items[k];
                      if (match->canonical != u) continue;
-                     fprintf(OUTPUTF1, ",%s", match->seq);
+                     if (FORMAT == PE_FASTQ) {
+                        fprintf(OUTPUTF1, ",%s", match->seq);
+                     }
+                     else {
+                        fprintf(OUTPUTF1, ",%s", u->seq);
+                     }
                   }
                }
             }
@@ -423,7 +440,9 @@ starcode
                if (u->nids > 1) {
                   fprintf(OUTPUTF1, "\t%u", u->seqid[0]);
                } else
-                  fprintf(OUTPUTF1, "\t%u", (unsigned int)(unsigned long)u->seqid);
+                  // Leaving the double cast (see comment above).
+                  fprintf(OUTPUTF1, "\t%u",
+                     (unsigned int)(unsigned long)u->seqid);
                for (unsigned int k = 1; k < u->nids; k++) {
                   fprintf(OUTPUTF1, ",%u", u->seqid[k]);
                }
@@ -1702,10 +1721,10 @@ transfer_useq_ids
  useq_t * ud,
  useq_t * us
 )
-// Appends the sequence ID list from us to ud.
-// If ud is only bearing one ID the function
-// will allocate a buffer on ud->seqid. Otherwise
-// the ID beared by us will be appended to the
+// Appends the sequence ID list from 'us' to 'ud'.
+// If 'ud' is only bearing one ID, the function
+// will allocate a buffer on 'ud->seqid'. Otherwise
+// the ID borne by 'us' will be appended to the
 // existing buffer.
 // The sequence ID list from ud is not modified.
 {

@@ -23,6 +23,7 @@ libunittest.so: unittest.c
 
 test: $(P)
 	./$(P)
+	sh extratests.sh
 
 inspect: $(P)
 	gdb --command=.inspect.gdb --args $(P)

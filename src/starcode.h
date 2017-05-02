@@ -32,23 +32,29 @@
 
 typedef enum {
    DEFAULT_OUTPUT,
-   SPHERES_OUTPUT,
-   COMPONENTS_OUTPUT,
-   PRINT_NRED
+   CLUSTER_OUTPUT,
+   NRED_OUTPUT
 } output_t;
 
+typedef enum {
+   MP_CLUSTER,
+   SPHERES_CLUSTER,
+   COMPONENTS_CLUSTER
+} cluster_t;
+
 int starcode(
-         FILE * inputf1,
-         FILE * inputf2,
-         FILE * outputf1,
-         FILE * outputf2,
-   const int    tau,
-   const int    verbose,
-   const int    showclusters,
-   const int    showids,
-         int    maxthreads,
-         int    parent_to_child,
-   const int    outputt
+   FILE *inputf1,
+   FILE *inputf2,
+   FILE *outputf1,
+   FILE *outputf2,
+         int tau,
+   const int verbose,
+         int thrmax,
+   const int clusteralg,
+         int parent_to_child,
+   const int showclusters,
+   const int showids,
+   const int outputt
 );
 
 #endif

@@ -51,7 +51,7 @@ char *USAGE =
 "  cluster options: (default algorithm: message passing)\n"
 "    -r --cluster-ratio: minumum cluster size ratio (message passing, default 5)\n"
 "    -s --sphere: use sphere clustering algorithm\n"
-"    -c --connected-comp: print connected components\n"
+"    -c --connected-comp: cluster connected components\n"
 "\n"
 "  input/output options (single file, default)\n"
 "    -i --input: input file (default stdin)\n"
@@ -66,9 +66,10 @@ char *USAGE =
 "       --output2: output file2 (default input2-starcode.fastq)\n"
 "\n"
 "  output format options\n"
+"       --non-redundant: remove redundant sequences from input file(s)\n"
 "       --print-clusters: outputs cluster compositions\n"
-"       --non-redundant: remove redundant sequences\n"
 "       --seq-id: print sequence id numbers (1-based)\n";
+
 
 void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
 void say_version(void) { fprintf(stderr, VERSION "\n"); }
@@ -353,16 +354,10 @@ main(
    }
 
    // Check options compatibility. //
-   if (nr_flag && cl_flag) {
+   if (nr_flag && (cl_flag || id_flag)) {
       fprintf(stderr,
-            "%s --non-redundant and --print-clusters are "
-            "incompatible\n", ERRM);
-      say_usage();
-      return EXIT_FAILURE;
-   }
-   if (nr_flag && sp_flag) {
-      fprintf(stderr,
-            "%s --non-redundant and --sphere are incompatible\n", ERRM);
+            "%s --non-redundant flag is incompatible with "
+            "--print-clusters and --seq-id\n", ERRM);
       say_usage();
       return EXIT_FAILURE;
    }
@@ -398,10 +393,15 @@ main(
 
    // Set output type. //
    int output_type;
-        if (nr_flag) output_type = PRINT_NRED;
-   else if (cp_flag) output_type = COMPONENTS_OUTPUT;
-   else if (sp_flag) output_type = SPHERES_OUTPUT;
+   if      (nr_flag) output_type = NRED_OUTPUT;
    else              output_type = DEFAULT_OUTPUT;
+
+   int cluster_alg;
+   if      (cp_flag) cluster_alg = COMPONENTS_CLUSTER;
+   else if (sp_flag) cluster_alg = SPHERES_CLUSTER;
+   else              cluster_alg = MP_CLUSTER;
+
+
 
    // Set input file(s). //
    FILE *inputf1 = NULL;
@@ -493,10 +493,11 @@ main(
        outputf2,
        dist,
        vb_flag,
+       threads,
+       cluster_alg,
+       cluster_ratio,
        cl_flag,
        id_flag,
-       threads,
-       cluster_ratio,
        output_type
    );
 

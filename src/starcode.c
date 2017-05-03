@@ -255,6 +255,7 @@ members_mp_default
 )
 {
 
+   if (!propt.showclusters) return;
    char * seq = propt.pe_fastq ? u->info : u->seq;
    fprintf(OUTPUTF1, ",%s", seq);
 
@@ -310,6 +311,80 @@ print_ids
    }
 
 }
+
+
+void
+print_nr_raw
+(
+   useq_t  * u,
+   propt_t   propt
+)
+{
+   fprintf(OUTPUTF1, "%s\n", u->seq);
+}
+
+
+void
+print_nr_fasta
+(
+   useq_t  * u,
+   propt_t   propt
+)
+{
+   fprintf(OUTPUTF1, "%s\n%s\n", u->info, u->seq);
+}
+
+
+void
+print_nr_fastq
+(
+   useq_t  * u,
+   propt_t   propt
+)
+{
+   char header[M] = {0};
+   char quality[M] = {0};
+   sscanf(u->info, "%s\n%s", header, quality);
+   fprintf(OUTPUTF1, "%s\n%s\n+\n%s\n",
+           header, u->seq, quality);
+}
+   
+
+void
+print_nr_pe_fastq
+(
+   useq_t  * u,
+   propt_t   propt
+)
+{
+   char head1[M] = {0};
+   char head2[M] = {0};
+   char qual1[M] = {0};
+   char qual2[M] = {0};
+   char seq1[M] = {0};
+   char seq2[M] = {0};
+
+   // Split the sequences.
+   char *c = strrchr(u->seq, '-');
+   strncpy(seq1, u->seq, c-u->seq - STARCODE_MAX_TAU);
+   strcpy(seq2, c+1);
+
+   // Split the info field.
+   {
+      char *c = u->info;
+      strcpy(head1, strsep(&c, "\n"));
+      strcpy(qual1, strsep(&c, "\n"));
+      strcpy(head2, strsep(&c, "\n"));
+      strcpy(qual2, strsep(&c, "\n"));
+   }
+
+   // Print to separate files.
+   fprintf(OUTPUTF1, "%s\n%s\n+\n%s\n",
+           head1, seq1, qual1);
+   fprintf(OUTPUTF2, "%s\n%s\n+\n%s\n",
+           head2, seq2, qual2);
+}
+
 
 
 int
@@ -498,57 +573,24 @@ starcode
     */
 
    if (OUTPUTT == NRED_OUTPUT) {
+
       if (verbose) fprintf(stderr, "non-redundant output\n");
       // If print non redundant sequences, just print the
       // canonicals with their info.
-      for (int i = 0 ; i < uSQ->nitems ; i++) {
 
+      void (* print_nr) (useq_t *, propt_t) = {0};
+           if (FORMAT == RAW)      print_nr = print_nr_raw;
+      else if (FORMAT == FASTA)    print_nr = print_nr_fasta;
+      else if (FORMAT == FASTQ)    print_nr = print_nr_fastq;
+      else if (FORMAT == PE_FASTQ) print_nr = print_nr_pe_fastq;
+
+      for (int i = 0 ; i < uSQ->nitems ; i++) {
          useq_t *u = (useq_t *) uSQ->items[i];
          if (u->canonical == NULL) break;
          if (u->canonical != u) continue;
-
-         if (FORMAT == RAW) {
-            fprintf(OUTPUTF1, "%s\n", u->seq);
-         }
-         else if (FORMAT == FASTA) {
-            fprintf(OUTPUTF1, "%s\n%s\n", u->info, u->seq);
-         }
-         else if (FORMAT == FASTQ) {
-            char header[M] = {0};
-            char quality[M] = {0};
-            sscanf(u->info, "%s\n%s", header, quality);
-            fprintf(OUTPUTF1, "%s\n%s\n+\n%s\n",
-                    header, u->seq, quality);
-         }
-         else if (FORMAT == PE_FASTQ) {
-            char head1[M] = {0};
-            char head2[M] = {0};
-            char qual1[M] = {0};
-            char qual2[M] = {0};
-            char seq1[M] = {0};
-            char seq2[M] = {0};
-
-            // Split the sequences.
-            char *c = strrchr(u->seq, '-');
-            strncpy(seq1, u->seq, c-u->seq - STARCODE_MAX_TAU);
-            strcpy(seq2, c+1);
-
-            // Split the info field.
-            {
-               char *c = u->info;
-               strcpy(head1, strsep(&c, "\n"));
-               strcpy(qual1, strsep(&c, "\n"));
-               strcpy(head2, strsep(&c, "\n"));
-               strcpy(qual2, strsep(&c, "\n"));
-            }
-
-            // Print to separate files.
-            fprintf(OUTPUTF1, "%s\n%s\n+\n%s\n",
-                    head1, seq1, qual1);
-            fprintf(OUTPUTF2, "%s\n%s\n+\n%s\n",
-                    head2, seq2, qual2);
-         }
+         print_nr(u, propt);
       }
+
    }
 
    // Do not free anything.

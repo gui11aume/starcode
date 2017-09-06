@@ -1392,9 +1392,9 @@ read_fastq
       krash();
    }
 
-   char seq[M] = {0};
-   char header[M] = {0};
-   char info[2*M] = {0};
+   char seq[M+1] = {0};
+   char header[M+1] = {0};
+   char info[2*M+2] = {0};
    int lineno = 0;
 
    int const readh = OUTPUTT == NRED_OUTPUT;
@@ -1425,7 +1425,7 @@ read_fastq
       }
       else if (lineno % 4 == 0) {
          if (readh) {
-            int status = snprintf(info, 2*M, "%s\n%s", header, line);
+            int status = snprintf(info, 2*M+2, "%s\n%s", header, line);
             if (status < 0 || status > 2*M - 1) {
                alert();
                krash();

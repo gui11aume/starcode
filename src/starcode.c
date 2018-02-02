@@ -426,12 +426,7 @@ starcode
                   for (int k = 0 ; k < hits->nitems ; k++) {
                      useq_t *match = (useq_t *) hits->items[k];
                      if (match->canonical != u) continue;
-                     if (FORMAT == PE_FASTQ) {
-                        fprintf(OUTPUTF1, ",%s", match->seq);
-                     }
-                     else {
-                        fprintf(OUTPUTF1, ",%s", u->seq);
-                     }
+                     fprintf(OUTPUTF1, ",%s", match->seq);
                   }
                }
             }
@@ -1040,7 +1035,7 @@ sphere_clustering
       if (useq->canonical != NULL) continue;
       useq->canonical = useq;
       if (useq->matches == NULL) continue;
-      // Bidirectional edge references simplifies the algorithm.
+      // Bidirectional edge references simplifie the algorithm.
       // Directly proceed to claim neighbor counts.
       gstack_t *matches;
       for (int j = 0 ; (matches = useq->matches[j]) != TOWER_TOP ; j++) {

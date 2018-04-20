@@ -110,13 +110,13 @@ typedef struct sortargs_t sortargs_t;
 // creates some confusion in the code at times.
 // See function 'transfer_useq_ids()'.
 struct useq_t {
-  int              count;
-  unsigned int     nids;
-  char          *  seq;
-  char          *  info;
-  gstack_t      ** matches;
-  struct useq_t *  canonical;
-  int           *  seqid;
+  int              count;       // Number of sequences
+  unsigned int     nids;        // Number of associated IDs
+  char          *  seq;         // Sequence
+  char          *  info;        // Multi-function text field
+  gstack_t      ** matches;     // Matches stratified by distance
+  struct useq_t *  canonical;   // Pointer to canonical sequence
+  int           *  seqid;       // Unique ID / pointer (see above).
 };
 
 struct lookup_t {
@@ -214,6 +214,7 @@ void       transfer_counts_and_update_canonicals (useq_t*, int);
 void       transfer_useq_ids (useq_t *, useq_t *);
 void       unpad_useq (gstack_t*);
 void     * nukesort (void *); 
+void       warn_about_missing_sequences (void);
 
 
 //    Global variables    //
@@ -385,6 +386,17 @@ print_nr_pe_fastq
            head2, seq2, qual2);
 }
 
+void
+warn_about_missing_sequences
+(
+   void
+)
+{
+   fprintf(stderr,
+         "warning: sequences that could not be unambiguously\n"
+         "assigned to a cluster were removed from output\n");
+   return;
+}
 
 
 int
@@ -454,9 +466,9 @@ starcode
    // Remove padding characters.
    unpad_useq(uSQ);
 
-   /*
-    *  MESSAGE PASSING ALGORITHM
-    */
+   //
+   //  MESSAGE PASSING ALGORITHM
+   //
 
    propt_t propt = {
       .first         = {0},
@@ -468,6 +480,11 @@ starcode
    if (CLUSTERALG == MP_CLUSTER) {
 
       if (verbose) fprintf(stderr, "message passing clustering\n");
+
+      // User must be warned when sequences without
+      // canonical are removed from the output.
+      int user_warned_about_missing_sequences = 0;
+
       // Cluster the pairs.
       message_passing_clustering(uSQ, showids);
       // Sort in canonical order.
@@ -489,7 +506,17 @@ starcode
          // Run through the clustered items.
          for (int i = 1 ; i < uSQ->nitems ; i++) {
             useq_t *u = (useq_t *) uSQ->items[i];
-            if (u->canonical == NULL) break;
+            if (u->canonical == NULL) {
+               // Sequences without canonical are not printed
+               // at all (but their counts are transferred).
+               // Issue a warning when this happens, even if
+               // verbose mode is off.
+               if (!user_warned_about_missing_sequences) {
+                  user_warned_about_missing_sequences = 1;
+                  warn_about_missing_sequences();
+               }
+               break;
+            }
             if (u->canonical != canonical) {
                // Print cluster seqIDs of previous canonical.
                if (showids) print_ids(canonical, propt);
@@ -507,9 +534,9 @@ starcode
          fprintf(OUTPUTF1, "\n");
       }
 
-   /*
-    *  SPHERES ALGORITHM
-    */
+   //
+   //  SPHERES ALGORITHM
+   // 
 
    } else if (CLUSTERALG == SPHERES_CLUSTER) {
 
@@ -777,6 +804,10 @@ do_query
             }
 
             else {
+               // The parent is the sequence with highest count.
+               // For ties, parent is the query and child is the match.
+               // Matches are stored in child only (i.e. children
+               // know their parents).
                useq_t *parent = match->count > query->count ? match : query;
                useq_t *child  = match->count > query->count ? query : match;
                // If clustering is done by message passing, do not link
@@ -904,7 +935,8 @@ plan_mt
       }
 
       // Allocate lookup struct.
-      // TODO: Try only one lut as well. (It will always return 1 in the query step though).
+      // TODO: Try only one lut as well. (It will always return 1
+      // in the query step though). #
       lookup_t * local_lut = new_lookup(medianlen, height, tau);
       if (local_lut == NULL) {
          alert();
@@ -1820,23 +1852,28 @@ transfer_counts_and_update_canonicals
 // SYNOPSIS:
 //   Function used in message passing clustering.
 {
-   // If the read has no matches, it is canonical.
+   // If the read has no matches, it has no parent, so
+   // it is an ancestor and it must be canonical.
    if (useq->matches == NULL) {
       useq->canonical = useq;
       return;
    }
+
    // If the read has already been assigned a canonical, directly
    // transfer counts and ids to the canonical and return.
    if (useq->canonical != NULL) {
       useq->canonical->count += useq->count;
       if (transfer_ids)
          transfer_useq_ids(useq->canonical, useq);
-      // Reset useq count.
+      // Counts transferred, remove from self.
       useq->count = 0;
       return;
    }
 
-   // Get the lowest match stratum.
+   // The field 'matches' stores parents (useq with higher
+   // counts) stratified by distance to self.
+   // Consider that direct parents are the lowest nonempty
+   // match stratum. Others are disregarded (indirect).
    gstack_t *matches;
    for (int i = 0 ; (matches = useq->matches[i]) != TOWER_TOP ; i++) {
       if (matches->nitems > 0) break;
@@ -1856,16 +1893,20 @@ transfer_counts_and_update_canonicals
       if (transfer_ids)
          transfer_useq_ids(match, useq);
    }
-   // Transfer done.
+   // Counts transferred, remove from self.
    useq->count = 0;
 
-   // Continue propagation. This will update the canonicals.
+   // Continue propagation to direct parents. This will update
+   // the canonicals of the whole ancestry.
    for (int i = 0 ; i < matches->nitems ; i++) {
       useq_t *match = (useq_t *) matches->items[i];
       transfer_counts_and_update_canonicals(match, transfer_ids);
    }
 
+   // Self canonical is the canonical of the first parent...
    useq_t *canonical = ((useq_t *) matches->items[0])->canonical;
+   // ... but if parents have different canonicals then
+   // self canonical is set to 'NULL'.
    for (int i = 1 ; i < matches->nitems ; i++) {
       useq_t *match = (useq_t *) matches->items[i];
       if (match->canonical != canonical) {

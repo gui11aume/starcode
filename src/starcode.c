@@ -99,6 +99,7 @@ typedef struct mtplan_t mtplan_t;
 typedef struct mttrie_t mttrie_t;
 typedef struct mtjob_t mtjob_t;
 typedef struct lookup_t lookup_t;
+typedef struct propt_t propt_t;
 
 typedef struct sortargs_t sortargs_t;
 
@@ -109,13 +110,13 @@ typedef struct sortargs_t sortargs_t;
 // creates some confusion in the code at times.
 // See function 'transfer_useq_ids()'.
 struct useq_t {
-  int              count;
-  unsigned int     nids;
-  char          *  seq;
-  char          *  info;
-  gstack_t      ** matches;
-  struct useq_t *  canonical;
-  int           *  seqid;
+  int              count;       // Number of sequences
+  unsigned int     nids;        // Number of associated IDs
+  char          *  seq;         // Sequence
+  char          *  info;        // Multi-function text field
+  gstack_t      ** matches;     // Matches stratified by distance
+  struct useq_t *  canonical;   // Pointer to canonical sequence
+  int           *  seqid;       // Unique ID / pointer (see above).
 };
 
 struct lookup_t {
@@ -169,6 +170,14 @@ struct mtjob_t {
    char             * active;
 };
 
+struct propt_t {
+   char  first[5];
+   int   pe_fastq;
+   int   showclusters;
+   int   showids;
+};
+
+
 int        size_order (const void *a, const void *b);
 int        addmatch (useq_t*, useq_t*, int, int);
 int        bisection (int, int, char *, useq_t **, int, int);
@@ -205,6 +214,7 @@ void       transfer_counts_and_update_canonicals (useq_t*, int);
 void       transfer_useq_ids (useq_t *, useq_t *);
 void       unpad_useq (gstack_t*);
 void     * nukesort (void *); 
+void       warn_about_missing_sequences (void);
 
 
 //    Global variables    //
@@ -215,6 +225,179 @@ static output_t   OUTPUTT       = DEFAULT_OUTPUT; // output type
 static cluster_t  CLUSTERALG    = MP_CLUSTER;     // cluster algorithm
 static int        CLUSTER_RATIO = 5;              // min parent/child ratio
                                                   // to link clusters
+
+
+void
+head_default
+(
+   useq_t  * u,
+   propt_t   propt
+)
+{
+
+   useq_t * cncal = u->canonical;
+   char * seq = propt.pe_fastq ? cncal->info : cncal->seq;
+
+   fprintf(OUTPUTF1, "%s%s\t%d",
+         propt.first, seq, cncal->count);
+
+   if (propt.showclusters) {
+      char * seq = propt.pe_fastq ? u->info : u->seq;
+      fprintf(OUTPUTF1, "\t%s", seq);
+   }
+
+}
+
+void
+members_mp_default
+(
+   useq_t  * u,
+   propt_t   propt
+)
+{
+
+   if (!propt.showclusters) return;
+   char * seq = propt.pe_fastq ? u->info : u->seq;
+   fprintf(OUTPUTF1, ",%s", seq);
+
+}
+
+void
+members_sc_default
+(
+   useq_t * u,
+   propt_t  propt
+)
+{
+
+   // Nothing to print if clusters are not shown, or
+   // if this sequence has no match.
+   if (!propt.showclusters || u->matches == NULL) return;
+
+   gstack_t *hits;
+   for (int j = 0 ; (hits = u->matches[j]) != TOWER_TOP ; j++) {
+      for (int k = 0 ; k < hits->nitems ; k++) {
+         useq_t *match = (useq_t *) hits->items[k];
+         if (match->canonical != u) continue;
+         char *seq = propt.pe_fastq ? match->seq : u->seq;
+         fprintf(OUTPUTF1, ",%s", seq);
+      }
+   }
+
+}
+
+
+void
+print_ids
+(
+   useq_t  * u,
+   propt_t   propt
+)
+{
+
+   // If there are more than one ID then 'u->seqid' is
+   // a pointer to the IDs.
+   if (u->nids > 1) {
+      fprintf(OUTPUTF1, "\t%u", u->seqid[0]);
+      for (unsigned int k = 1; k < u->nids; k++)
+         fprintf(OUTPUTF1, ",%u", u->seqid[k]);
+   }
+   // If there is only one ID, then 'u->seqid' is that ID.
+   else {
+      // Guillaume Filion: the double cast has to do
+      // with the fact that the high bit is used to
+      // specify how the variable is used (as a value
+      // or a point to a struct).
+      fprintf(OUTPUTF1, "\t%u", (unsigned int) (unsigned long) u->seqid);
+   }
+
+}
+
+
+void
+print_nr_raw
+(
+   useq_t  * u,
+   propt_t   propt
+)
+{
+   fprintf(OUTPUTF1, "%s\n", u->seq);
+}
+
+
+void
+print_nr_fasta
+(
+   useq_t  * u,
+   propt_t   propt
+)
+{
+   fprintf(OUTPUTF1, "%s\n%s\n", u->info, u->seq);
+}
+
+
+void
+print_nr_fastq
+(
+   useq_t  * u,
+   propt_t   propt
+)
+{
+   char header[M] = {0};
+   char quality[M] = {0};
+   sscanf(u->info, "%s\n%s", header, quality);
+   fprintf(OUTPUTF1, "%s\n%s\n+\n%s\n",
+           header, u->seq, quality);
+}
+   
+
+void
+print_nr_pe_fastq
+(
+   useq_t  * u,
+   propt_t   propt
+)
+{
+   char head1[M] = {0};
+   char head2[M] = {0};
+   char qual1[M] = {0};
+   char qual2[M] = {0};
+   char seq1[M] = {0};
+   char seq2[M] = {0};
+
+   // Split the sequences.
+   char *c = strrchr(u->seq, '-');
+   strncpy(seq1, u->seq, c-u->seq - STARCODE_MAX_TAU);
+   strcpy(seq2, c+1);
+
+   // Split the info field.
+   {
+      char *c = u->info;
+      strcpy(head1, strsep(&c, "\n"));
+      strcpy(qual1, strsep(&c, "\n"));
+      strcpy(head2, strsep(&c, "\n"));
+      strcpy(qual2, strsep(&c, "\n"));
+   }
+
+   // Print to separate files.
+   fprintf(OUTPUTF1, "%s\n%s\n+\n%s\n",
+           head1, seq1, qual1);
+   fprintf(OUTPUTF2, "%s\n%s\n+\n%s\n",
+           head2, seq2, qual2);
+}
+
+void
+warn_about_missing_sequences
+(
+   void
+)
+{
+   fprintf(stderr,
+         "warning: sequences that could not be unambiguously\n"
+         "assigned to a cluster were removed from output\n");
+   return;
+}
+
 
 int
 starcode
@@ -283,124 +466,80 @@ starcode
    // Remove padding characters.
    unpad_useq(uSQ);
 
-   /*
-    *  MESSAGE PASSING ALGORITHM
-    */
+   //
+   //  MESSAGE PASSING ALGORITHM
+   //
+
+   propt_t propt = {
+      .first         = {0},
+      .showclusters  = showclusters,
+      .showids       = showids,
+      .pe_fastq      = PE_FASTQ == FORMAT,
+   };
 
    if (CLUSTERALG == MP_CLUSTER) {
 
       if (verbose) fprintf(stderr, "message passing clustering\n");
+
+      // User must be warned when sequences without
+      // canonical are removed from the output.
+      int user_warned_about_missing_sequences = 0;
+
       // Cluster the pairs.
       message_passing_clustering(uSQ, showids);
       // Sort in canonical order.
       qsort(uSQ->items, uSQ->nitems, sizeof(useq_t *), canonical_order);
 
       if (OUTPUTT == DEFAULT_OUTPUT) {
+
          useq_t *first = (useq_t *) uSQ->items[0];
          useq_t *canonical = first->canonical;
 
-         // If the first canonical is NULL they all are.
+         // If the first canonical is NULL, then they all are.
          if (first->canonical == NULL) return 0;
 
-         if (FORMAT == PE_FASTQ) {
-            if (showclusters) {
-               fprintf(OUTPUTF1, "%s\t%d\t%s",
-                       first->canonical->info, first->canonical->count,
-                       first->info);
-            }
-            else {
-               fprintf(OUTPUTF1, "%s\t%d",
-                       first->canonical->info, first->canonical->count);
-            }
-         }
-         else {
-            if (showclusters) {
-               fprintf(OUTPUTF1, "%s\t%d\t%s",
-                       first->canonical->seq, first->canonical->count,
-                       first->seq);
-            }
-            else {
-               fprintf(OUTPUTF1, "%s\t%d",
-                       first->canonical->seq, first->canonical->count);
-            }
-         }
+         head_default(first, propt);
 
+         // Use newline separator.
+         memcpy(propt.first, "\n", 3);
+
+         // Run through the clustered items.
          for (int i = 1 ; i < uSQ->nitems ; i++) {
             useq_t *u = (useq_t *) uSQ->items[i];
-            if (u->canonical == NULL) break;
+            if (u->canonical == NULL) {
+               // Sequences without canonical are not printed
+               // at all (but their counts are transferred).
+               // Issue a warning when this happens, even if
+               // verbose mode is off.
+               if (!user_warned_about_missing_sequences) {
+                  user_warned_about_missing_sequences = 1;
+                  warn_about_missing_sequences();
+               }
+               break;
+            }
             if (u->canonical != canonical) {
                // Print cluster seqIDs of previous canonical.
-               if (showids) {
-                  if (canonical->nids > 1) {
-                     fprintf(OUTPUTF1, "\t%u", canonical->seqid[0]);
-                     for (unsigned int k = 1; k < canonical->nids; k++)
-                        fprintf(OUTPUTF1, ",%u", canonical->seqid[k]);
-                  }
-                  else 
-                     // Guillaume Filion: the double cast has to do
-                     // with the fact that the high bit is used to
-                     // specify how the variable is used (as a value
-                     // or a point to a struct).
-                     fprintf(OUTPUTF1, "\t%u",
-                        (unsigned int)(unsigned long)canonical->seqid);
-               }
-               // Update canonical.
+               if (showids) print_ids(canonical, propt);
+               // Update canonical and print.
                canonical = u->canonical;
-               if (FORMAT == PE_FASTQ) {
-                  if (showclusters) {
-                     fprintf(OUTPUTF1, "\n%s\t%d\t%s",
-                             canonical->info, canonical->count, u->info);
-                  }
-                  else {
-                     fprintf(OUTPUTF1, "\n%s\t%d",
-                             canonical->info, canonical->count);
-                  }
-               }
-               else {
-                  if (showclusters) {
-                     fprintf(OUTPUTF1, "\n%s\t%d\t%s",
-                             canonical->seq, canonical->count, u->seq);
-                  }
-                  else {
-                     fprintf(OUTPUTF1, "\n%s\t%d",
-                             canonical->seq, canonical->count);
-                  }
-               }
+               head_default(canonical, propt);
             }
-            else if (showclusters) {
-               if (FORMAT == PE_FASTQ) {
-                  fprintf(OUTPUTF1, ",%s", u->info);
-               }
-               else {
-                  fprintf(OUTPUTF1, ",%s", u->seq);
-               }
+            else {
+               members_mp_default(u, propt);
             }
          }
 
          // Print last cluster seqIDs.
-         if (showids) {
-            int last = -1;
-            if (canonical->nids > 1) {
-               last = canonical->seqid[0];
-               fprintf(OUTPUTF1, "\t%u", last);
-            } else
-               // Leaving the double cast (see comment above).
-               fprintf(OUTPUTF1, "\t%u",
-                  (unsigned int)(unsigned long)canonical->seqid);
-            for (unsigned int k = 1; k < canonical->nids; k++) {
-               if (canonical->seqid[k] == last) continue;
-               last = canonical->seqid[k];
-               fprintf(OUTPUTF1, ",%u", last);
-            }
-         }
+         if (showids) print_ids(canonical, propt);
          fprintf(OUTPUTF1, "\n");
       }
 
-   /*
-    *  SPHERES ALGORITHM
-    */
+   //
+   //  SPHERES ALGORITHM
+   // 
 
    } else if (CLUSTERALG == SPHERES_CLUSTER) {
+
       if (verbose) fprintf(stderr, "spheres clustering\n");
       // Cluster the pairs.
       sphere_clustering(uSQ, showids);
@@ -487,57 +626,24 @@ starcode
     */
 
    if (OUTPUTT == NRED_OUTPUT) {
+
       if (verbose) fprintf(stderr, "non-redundant output\n");
       // If print non redundant sequences, just print the
       // canonicals with their info.
-      for (int i = 0 ; i < uSQ->nitems ; i++) {
 
+      void (* print_nr) (useq_t *, propt_t) = {0};
+           if (FORMAT == RAW)      print_nr = print_nr_raw;
+      else if (FORMAT == FASTA)    print_nr = print_nr_fasta;
+      else if (FORMAT == FASTQ)    print_nr = print_nr_fastq;
+      else if (FORMAT == PE_FASTQ) print_nr = print_nr_pe_fastq;
+
+      for (int i = 0 ; i < uSQ->nitems ; i++) {
          useq_t *u = (useq_t *) uSQ->items[i];
          if (u->canonical == NULL) break;
          if (u->canonical != u) continue;
-
-         if (FORMAT == RAW) {
-            fprintf(OUTPUTF1, "%s\n", u->seq);
-         }
-         else if (FORMAT == FASTA) {
-            fprintf(OUTPUTF1, "%s\n%s\n", u->info, u->seq);
-         }
-         else if (FORMAT == FASTQ) {
-            char header[M] = {0};
-            char quality[M] = {0};
-            sscanf(u->info, "%s\n%s", header, quality);
-            fprintf(OUTPUTF1, "%s\n%s\n+\n%s\n",
-                    header, u->seq, quality);
-         }
-         else if (FORMAT == PE_FASTQ) {
-            char head1[M] = {0};
-            char head2[M] = {0};
-            char qual1[M] = {0};
-            char qual2[M] = {0};
-            char seq1[M] = {0};
-            char seq2[M] = {0};
-
-            // Split the sequences.
-            char *c = strrchr(u->seq, '-');
-            strncpy(seq1, u->seq, c-u->seq - STARCODE_MAX_TAU);
-            strcpy(seq2, c+1);
-
-            // Split the info field.
-            {
-               char *c = u->info;
-               strcpy(head1, strsep(&c, "\n"));
-               strcpy(qual1, strsep(&c, "\n"));
-               strcpy(head2, strsep(&c, "\n"));
-               strcpy(qual2, strsep(&c, "\n"));
-            }
-
-            // Print to separate files.
-            fprintf(OUTPUTF1, "%s\n%s\n+\n%s\n",
-                    head1, seq1, qual1);
-            fprintf(OUTPUTF2, "%s\n%s\n+\n%s\n",
-                    head2, seq2, qual2);
-         }
+         print_nr(u, propt);
       }
+
    }
 
    // Do not free anything.
@@ -724,6 +830,10 @@ do_query
             }
 
             else {
+               // The parent is the sequence with highest count.
+               // For ties, parent is the query and child is the match.
+               // Matches are stored in child only (i.e. children
+               // know their parents).
                useq_t *parent = match->count > query->count ? match : query;
                useq_t *child  = match->count > query->count ? query : match;
                // If clustering is done by message passing, do not link
@@ -851,7 +961,8 @@ plan_mt
       }
 
       // Allocate lookup struct.
-      // TODO: Try only one lut as well. (It will always return 1 in the query step though).
+      // TODO: Try only one lut as well. (It will always return 1
+      // in the query step though). #
       lookup_t * local_lut = new_lookup(medianlen, height, tau);
       if (local_lut == NULL) {
          alert();
@@ -1767,23 +1878,28 @@ transfer_counts_and_update_canonicals
 // SYNOPSIS:
 //   Function used in message passing clustering.
 {
-   // If the read has no matches, it is canonical.
+   // If the read has no matches, it has no parent, so
+   // it is an ancestor and it must be canonical.
    if (useq->matches == NULL) {
       useq->canonical = useq;
       return;
    }
+
    // If the read has already been assigned a canonical, directly
    // transfer counts and ids to the canonical and return.
    if (useq->canonical != NULL) {
       useq->canonical->count += useq->count;
       if (transfer_ids)
          transfer_useq_ids(useq->canonical, useq);
-      // Reset useq count.
+      // Counts transferred, remove from self.
       useq->count = 0;
       return;
    }
 
-   // Get the lowest match stratum.
+   // The field 'matches' stores parents (useq with higher
+   // counts) stratified by distance to self.
+   // Consider that direct parents are the lowest nonempty
+   // match stratum. Others are disregarded (indirect).
    gstack_t *matches;
    for (int i = 0 ; (matches = useq->matches[i]) != TOWER_TOP ; i++) {
       if (matches->nitems > 0) break;
@@ -1803,16 +1919,20 @@ transfer_counts_and_update_canonicals
       if (transfer_ids)
          transfer_useq_ids(match, useq);
    }
-   // Transfer done.
+   // Counts transferred, remove from self.
    useq->count = 0;
 
-   // Continue propagation. This will update the canonicals.
+   // Continue propagation to direct parents. This will update
+   // the canonicals of the whole ancestry.
    for (int i = 0 ; i < matches->nitems ; i++) {
       useq_t *match = (useq_t *) matches->items[i];
       transfer_counts_and_update_canonicals(match, transfer_ids);
    }
 
+   // Self canonical is the canonical of the first parent...
    useq_t *canonical = ((useq_t *) matches->items[0])->canonical;
+   // ... but if parents have different canonicals then
+   // self canonical is set to 'NULL'.
    for (int i = 1 ; i < matches->nitems ; i++) {
       useq_t *match = (useq_t *) matches->items[i];
       if (match->canonical != canonical) {

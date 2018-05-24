@@ -8,7 +8,7 @@ SOURCES= $(addprefix $(SRC_DIR)/,$(SOURCE_FILES))
 INCLUDES= $(addprefix -I, $(INC_DIR))
 
 # Development and debug flags.
-#CFLAGS= -std=c99 -g -O0 -Wunused-parameter -Wredundant-decls \
+CFLAGS= -std=c99 -g -O0 -Wunused-parameter -Wredundant-decls \
 	-Wreturn-type -Wswitch-default -Wunused-value -Wimplicit \
 	-Wimplicit-function-declaration -Wimplicit-int -Wimport \
 	-Wunused  -Wunused-function -Wunused-label -Wbad-function-cast \
@@ -19,7 +19,7 @@ INCLUDES= $(addprefix -I, $(INC_DIR))
 	-Wunused-variable -Wformat-nonliteral -Wparentheses -Wundef \
 	-Wsequence-point -Wuninitialized -Wbad-function-cast
 # Release flags.
-CFLAGS= -std=c99 -O3 -Wall
+#CFLAGS= -std=c99 -O3 -Wall
 
 LDLIBS= -lpthread -lm
 CC= gcc

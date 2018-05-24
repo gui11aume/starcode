@@ -398,6 +398,178 @@ warn_about_missing_sequences
    return;
 }
 
+void
+print_starcode_output
+(
+   FILE *outputf1,
+   FILE *outputf2,
+   gstack_t *clusters,
+   const int clusteralg,
+   const int showclusters,
+   const int showids,
+   const int outputt,
+   const int verbose
+)
+{
+
+   OUTPUTF1 = outputf1;
+   OUTPUTF2 = outputf2;
+   OUTPUTT = outputt;
+   CLUSTERALG = clusteralg;
+
+   propt_t propt = {
+      .first         = {0},
+      .showclusters  = showclusters,
+      .showids       = showids,
+      .pe_fastq      = PE_FASTQ == FORMAT,
+   };
+
+   if (CLUSTERALG == MP_CLUSTER) {
+
+      // User must be warned when sequences without
+      // canonical are removed from the output.
+      int user_warned_about_missing_sequences = 0;
+
+      if (OUTPUTT == DEFAULT_OUTPUT) {
+         useq_t *first = (useq_t *) clusters->items[0];
+         useq_t *canonical = first->canonical;
+
+         // If the first canonical is NULL, then they all are.
+         if (first->canonical == NULL) return;
+
+         head_default(first, propt);
+
+         // Use newline separator.
+         memcpy(propt.first, "\n", 3);
+
+         // Run through the clustered items.
+         for (int i = 1 ; i < clusters->nitems ; i++) {
+            useq_t *u = (useq_t *) clusters->items[i];
+            if (u->canonical == NULL) {
+               // Sequences without canonical are not printed
+               // at all (but their counts are transferred).
+               // Issue a warning when this happens, even if
+               // verbose mode is off.
+               if (!user_warned_about_missing_sequences) {
+                  user_warned_about_missing_sequences = 1;
+                  warn_about_missing_sequences();
+               }
+               break;
+            }
+            if (u->canonical != canonical) {
+               // Print cluster seqIDs of previous canonical.
+               if (showids) print_ids(canonical, propt);
+               // Update canonical and print.
+               canonical = u->canonical;
+               head_default(canonical, propt);
+            }
+            else {
+               members_mp_default(u, propt);
+            }
+         }
+
+         // Print last cluster seqIDs.
+         if (showids) print_ids(canonical, propt);
+         fprintf(OUTPUTF1, "\n");
+      }
+
+   //
+   //  SPHERES ALGORITHM
+   // 
+
+   } else if (clusteralg == SPHERES_CLUSTER) {
+      // Default output.
+      if (OUTPUTT == DEFAULT_OUTPUT) {
+         for (int i = 0 ; i < clusters->nitems ; i++) {
+            useq_t *u = (useq_t *) clusters->items[i];
+            if (u->canonical != u) break;
+
+            fprintf(OUTPUTF1, "%s\t", u->seq);
+            if (showclusters) {
+               fprintf(OUTPUTF1, "%d\t%s", u->count, u->seq);
+            }
+            else {
+               fprintf(OUTPUTF1, "%d", u->count);
+            }
+            if (showclusters && u->matches != NULL) {
+               gstack_t *hits;
+               for (int j = 0 ; (hits = u->matches[j]) != TOWER_TOP ; j++) {
+                  for (int k = 0 ; k < hits->nitems ; k++) {
+                     useq_t *match = (useq_t *) hits->items[k];
+                     if (match->canonical != u) continue;
+                     fprintf(outputf1, ",%s", match->seq);
+                  }
+               }
+            }
+            // Print cluster seqIDs.
+            if (showids) {
+               if (u->nids > 1) {
+                  fprintf(OUTPUTF1, "\t%u", u->seqid[0]);
+               } else
+                  // Leaving the double cast (see comment above).
+                  fprintf(OUTPUTF1, "\t%u",
+                     (unsigned int)(unsigned long)u->seqid);
+               for (unsigned int k = 1; k < u->nids; k++) {
+                  fprintf(OUTPUTF1, ",%u", u->seqid[k]);
+               }
+            }
+            fprintf(OUTPUTF1, "\n");
+         }
+      }
+
+   /*
+    *  CONNECTED COMPONENTS ALGORITHM
+    */
+
+   } else if (clusteralg == COMPONENTS_CLUSTER) {
+      // Default output.
+      if (OUTPUTT == DEFAULT_OUTPUT) {
+         for (int i = 0; i < clusters->nitems; i++) {
+            gstack_t * cluster = (gstack_t *) clusters->items[i];
+            // Get canonical.
+            useq_t * canonical = (useq_t *) cluster->items[0];
+            // Print canonical and cluster count.
+            fprintf(outputf1, "%s\t%d", canonical->seq, canonical->count);
+            if (showclusters) {
+               fprintf (outputf1, "\t%s", canonical->seq);
+               for (int k = 1; k < cluster->nitems; k++) {
+                  fprintf (outputf1, ",%s", ((useq_t *)cluster->items[k])->seq);
+               }
+            }
+            fprintf(outputf1, "\n");
+         }
+      }
+   }
+
+   /*
+    * ALTERNATIVE OUTPUT FORMAT: NON-REDUNDANT
+    */
+
+   if (outputt == NRED_OUTPUT) {
+
+      if (verbose) fprintf(stderr, "non-redundant output\n");
+      // If print non redundant sequences, just print the
+      // canonicals with their info.
+
+      void (* print_nr) (useq_t *, propt_t) = {0};
+           if (FORMAT == RAW)      print_nr = print_nr_raw;
+      else if (FORMAT == FASTA)    print_nr = print_nr_fasta;
+      else if (FORMAT == FASTQ)    print_nr = print_nr_fastq;
+      else if (FORMAT == PE_FASTQ) print_nr = print_nr_pe_fastq;
+
+      for (int i = 0 ; i < clusters->nitems ; i++) {
+         useq_t *u = (useq_t *) clusters->items[i];
+         if (u->canonical == NULL) break;
+         if (u->canonical != u) continue;
+         print_nr(u, propt);
+      }
+
+   }
+
+   // Do not free anything.
+   OUTPUTF1 = NULL;
+   OUTPUTF2 = NULL;
+}
 
 int
 starcode
@@ -481,58 +653,14 @@ starcode
 
       if (verbose) fprintf(stderr, "message passing clustering\n");
 
-      // User must be warned when sequences without
-      // canonical are removed from the output.
-      int user_warned_about_missing_sequences = 0;
-
       // Cluster the pairs.
       message_passing_clustering(uSQ, showids);
       // Sort in canonical order.
       qsort(uSQ->items, uSQ->nitems, sizeof(useq_t *), canonical_order);
 
-      if (OUTPUTT == DEFAULT_OUTPUT) {
-
-         useq_t *first = (useq_t *) uSQ->items[0];
-         useq_t *canonical = first->canonical;
-
-         // If the first canonical is NULL, then they all are.
-         if (first->canonical == NULL) return 0;
-
-         head_default(first, propt);
-
-         // Use newline separator.
-         memcpy(propt.first, "\n", 3);
-
-         // Run through the clustered items.
-         for (int i = 1 ; i < uSQ->nitems ; i++) {
-            useq_t *u = (useq_t *) uSQ->items[i];
-            if (u->canonical == NULL) {
-               // Sequences without canonical are not printed
-               // at all (but their counts are transferred).
-               // Issue a warning when this happens, even if
-               // verbose mode is off.
-               if (!user_warned_about_missing_sequences) {
-                  user_warned_about_missing_sequences = 1;
-                  warn_about_missing_sequences();
-               }
-               break;
-            }
-            if (u->canonical != canonical) {
-               // Print cluster seqIDs of previous canonical.
-               if (showids) print_ids(canonical, propt);
-               // Update canonical and print.
-               canonical = u->canonical;
-               head_default(canonical, propt);
-            }
-            else {
-               members_mp_default(u, propt);
-            }
-         }
-
-         // Print last cluster seqIDs.
-         if (showids) print_ids(canonical, propt);
-         fprintf(OUTPUTF1, "\n");
-      }
+      // print output
+      print_starcode_output(outputf1, outputf2, 
+	  uSQ, CLUSTERALG, showclusters, showids, OUTPUTT, verbose);
 
    //
    //  SPHERES ALGORITHM
@@ -546,44 +674,9 @@ starcode
       // Sort in count order.
       qsort(uSQ->items, uSQ->nitems, sizeof(useq_t *), count_order);
 
-      // Default output.
-      if (OUTPUTT == DEFAULT_OUTPUT) {
-         for (int i = 0 ; i < uSQ->nitems ; i++) {
-            useq_t *u = (useq_t *) uSQ->items[i];
-            if (u->canonical != u) break;
-
-            fprintf(OUTPUTF1, "%s\t", u->seq);
-            if (showclusters) {
-               fprintf(OUTPUTF1, "%d\t%s", u->count, u->seq);
-            }
-            else {
-               fprintf(OUTPUTF1, "%d", u->count);
-            }
-            if (showclusters && u->matches != NULL) {
-               gstack_t *hits;
-               for (int j = 0 ; (hits = u->matches[j]) != TOWER_TOP ; j++) {
-                  for (int k = 0 ; k < hits->nitems ; k++) {
-                     useq_t *match = (useq_t *) hits->items[k];
-                     if (match->canonical != u) continue;
-                     fprintf(OUTPUTF1, ",%s", match->seq);
-                  }
-               }
-            }
-            // Print cluster seqIDs.
-            if (showids) {
-               if (u->nids > 1) {
-                  fprintf(OUTPUTF1, "\t%u", u->seqid[0]);
-               } else
-                  // Leaving the double cast (see comment above).
-                  fprintf(OUTPUTF1, "\t%u",
-                     (unsigned int)(unsigned long)u->seqid);
-               for (unsigned int k = 1; k < u->nids; k++) {
-                  fprintf(OUTPUTF1, ",%u", u->seqid[k]);
-               }
-            }
-            fprintf(OUTPUTF1, "\n");
-         }
-      }
+      // print output
+      print_starcode_output(outputf1, outputf2, 
+	  uSQ, CLUSTERALG, showclusters, showids, OUTPUTT, verbose);
 
    /*
     *  CONNECTED COMPONENTS ALGORITHM
@@ -597,58 +690,11 @@ starcode
       // stored in centroid->count.
       gstack_t * clusters = compute_clusters(uSQ);
 
-      // Default output.
-      if (OUTPUTT == DEFAULT_OUTPUT) {
-         for (int i = 0; i < clusters->nitems; i++) {
-            gstack_t * cluster = (gstack_t *) clusters->items[i];
-            // Get canonical.
-            useq_t * canonical = (useq_t *) cluster->items[0];
-            // Print canonical and cluster count.
-            fprintf(OUTPUTF1, "%s\t%d", canonical->seq, canonical->count);
-            if (showclusters) {
-               fprintf (OUTPUTF1, "\t%s", canonical->seq);
-               for (int k = 1; k < cluster->nitems; k++) {
-                  fprintf (OUTPUTF1, ",%s", ((useq_t *)cluster->items[k])->seq);
-               }
-            }
-            fprintf(OUTPUTF1, "\n");
-         }
-      } else if (OUTPUTT == NRED_OUTPUT) {
-         uSQ->nitems = 0;
-         // Fill uSQ with cluster centroids.
-         for (int i = 0 ; i < clusters->nitems ; i++)
-            push(((gstack_t *)clusters->items[i])->items[0], &uSQ);
-      }
+      // print output
+      print_starcode_output(outputf1, outputf2, 
+	  clusters, CLUSTERALG, showclusters, showids, OUTPUTT, verbose);
    }
 
-   /*
-    * ALTERNATIVE OUTPUT FORMAT: NON-REDUNDANT
-    */
-
-   if (OUTPUTT == NRED_OUTPUT) {
-
-      if (verbose) fprintf(stderr, "non-redundant output\n");
-      // If print non redundant sequences, just print the
-      // canonicals with their info.
-
-      void (* print_nr) (useq_t *, propt_t) = {0};
-           if (FORMAT == RAW)      print_nr = print_nr_raw;
-      else if (FORMAT == FASTA)    print_nr = print_nr_fasta;
-      else if (FORMAT == FASTQ)    print_nr = print_nr_fastq;
-      else if (FORMAT == PE_FASTQ) print_nr = print_nr_pe_fastq;
-
-      for (int i = 0 ; i < uSQ->nitems ; i++) {
-         useq_t *u = (useq_t *) uSQ->items[i];
-         if (u->canonical == NULL) break;
-         if (u->canonical != u) continue;
-         print_nr(u, propt);
-      }
-
-   }
-
-   // Do not free anything.
-   OUTPUTF1 = NULL;
-   OUTPUTF2 = NULL;
    return 0;
 
 }

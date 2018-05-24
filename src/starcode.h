@@ -26,6 +26,7 @@
 
 #define _GNU_SOURCE
 #include <stdio.h>
+#include "trie.h"
 
 #define VERSION          "starcode-v1.2 20-04-2018"
 #define STARCODE_MAX_TAU 8
@@ -42,9 +43,16 @@ typedef enum {
    COMPONENTS_CLUSTER
 } cluster_t;
 
+gstack_t *
+read_file
+(
+   FILE      * inputf1,
+   FILE      * inputf2,
+   const int   verbose
+);
+  
 int starcode(
-   FILE *inputf1,
-   FILE *inputf2,
+   gstack_t *uSQ,
    FILE *outputf1,
    FILE *outputf2,
          int tau,

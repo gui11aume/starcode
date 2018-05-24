@@ -574,8 +574,7 @@ print_starcode_output
 int
 starcode
 (
-   FILE *inputf1,
-   FILE *inputf2,
+   gstack_t *uSQ,
    FILE *outputf1,
    FILE *outputf2,
          int tau,
@@ -594,17 +593,6 @@ starcode
    OUTPUTT = outputt;
    CLUSTERALG = clusteralg;
    CLUSTER_RATIO = parent_to_child;
-
-   if (verbose) {
-      fprintf(stderr, "running starcode with %d thread%s\n",
-           thrmax, thrmax > 1 ? "s" : "");
-      fprintf(stderr, "reading input files\n");
-   }
-   gstack_t *uSQ = read_file(inputf1, inputf2, verbose);
-   if (uSQ == NULL || uSQ->nitems < 1) {
-      fprintf(stderr, "input file empty\n");
-      return 1;
-   }
 
    // Sort/reduce.
    if (verbose) fprintf(stderr, "sorting\n");

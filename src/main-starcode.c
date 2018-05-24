@@ -28,6 +28,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "starcode.h"
+#include "trie.h"
 
 #define ERRM "starcode error:"
 
@@ -486,10 +487,20 @@ main(
    if (threads < 0) threads = 1;
    if (cluster_ratio < 0) cluster_ratio = 5;
 
+   if (vb_flag) {
+      fprintf(stderr, "running starcode with %d thread%s\n",
+           threads, threads > 1 ? "s" : "");
+      fprintf(stderr, "reading input files\n");
+   }
+   gstack_t *uSQ = read_file(inputf1, inputf2, vb_flag);
+   if (uSQ == NULL || uSQ->nitems < 1) {
+      fprintf(stderr, "input file empty\n");
+      return 1;
+   }
+
    int exitcode =
    starcode(
-       inputf1,
-       inputf2,
+       uSQ,
        outputf1,
        outputf2,
        dist,

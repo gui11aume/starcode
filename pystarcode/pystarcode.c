@@ -43,14 +43,23 @@ static PyObject *pystarcode_starcode(PyObject *self, PyObject *args, PyObject *k
   char *in_filename, *out_filename;
   int tau, cluster_ratio;
   int clusteralg = 0;
+  int verbose = 1;
 
-  static char *kwlist[] = {"input","output","dist","cluster_ratio","clusteralg",NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "sshh|h", kwlist,
+  static char *kwlist[] = {
+    "input",
+    "output",
+    "dist",
+    "cluster_ratio",
+    "clusteralg",
+    "verbose",
+    NULL};
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "ssii|ii", kwlist,
 	&in_filename,
 	&out_filename,
 	&tau,
 	&cluster_ratio,
-	&clusteralg))
+	&clusteralg,
+	&verbose))
     return NULL;
 
   // open input and output files
@@ -61,11 +70,12 @@ static PyObject *pystarcode_starcode(PyObject *self, PyObject *args, PyObject *k
   if (outputf1 == NULL) return NULL;
   FILE *outputf2 = NULL;
 
-  const int verbose = 1;
   int thrmax = 4;
   const int showclusters = 1;
   const int showids = 0;
   const int outputt = 0;
+
+  // printf("%s %s %d %d %d %d\n",in_filename,out_filename,tau,cluster_ratio,clusteralg,verbose);
 
   int out = starcode(
       inputf1,
@@ -82,6 +92,7 @@ static PyObject *pystarcode_starcode(PyObject *self, PyObject *args, PyObject *k
       outputt
   );
 
+  // int out = 0;
 
   PyObject *ret = Py_BuildValue("h", out);
 

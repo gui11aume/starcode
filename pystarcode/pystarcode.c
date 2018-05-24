@@ -44,6 +44,7 @@ static PyObject *pystarcode_starcode(PyObject *self, PyObject *args, PyObject *k
   int tau, cluster_ratio;
   int clusteralg = 0;
   int verbose = 1;
+  int thrmax = 4;
 
   static char *kwlist[] = {
     "input",
@@ -52,14 +53,16 @@ static PyObject *pystarcode_starcode(PyObject *self, PyObject *args, PyObject *k
     "cluster_ratio",
     "clusteralg",
     "verbose",
+    "threads",
     NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "ssii|ii", kwlist,
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "ssii|iii", kwlist,
 	&in_filename,
 	&out_filename,
 	&tau,
 	&cluster_ratio,
 	&clusteralg,
-	&verbose))
+	&verbose,
+	&thrmax))
     return NULL;
 
   // open input and output files
@@ -70,7 +73,6 @@ static PyObject *pystarcode_starcode(PyObject *self, PyObject *args, PyObject *k
   if (outputf1 == NULL) return NULL;
   FILE *outputf2 = NULL;
 
-  int thrmax = 4;
   const int showclusters = 1;
   const int showids = 0;
   const int outputt = 0;

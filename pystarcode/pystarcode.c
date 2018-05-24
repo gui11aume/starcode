@@ -23,6 +23,20 @@ PyMODINIT_FUNC initpystarcode(void)
     return;
 }
 
+FILE *py_fopen(const char *fname, const char *mode)
+{
+  FILE *f = fopen(fname, mode);
+  if (f==NULL)
+  {
+    char error_message[MAX_STR_LENGTH];
+    sprintf(error_message, "Cannot open file %s", fname);
+    PyErr_SetString(PyExc_IOError, error_message);
+    return NULL;
+  }
+  else
+    return f;
+}
+
 static PyObject *pystarcode_starcode(PyObject *self, PyObject *args)
 {
   // Parse the input
@@ -35,17 +49,14 @@ static PyObject *pystarcode_starcode(PyObject *self, PyObject *args)
 	&cluster_ratio))
     return NULL;
 
-  FILE *inputf1 = fopen(in_filename,"r");
-  if (inputf1==NULL)
-  {
-    char error_message[MAX_STR_LENGTH];
-    sprintf(error_message, "Cannot open %s for reading", in_filename);
-    PyErr_SetString(PyExc_IOError, error_message);
-    return NULL;
-  }
+  // open input and output files
+  FILE *inputf1 = py_fopen(in_filename,"r");
+  if (inputf1 == NULL) return NULL;
   FILE *inputf2 = NULL;
-  FILE *outputf1 = fopen(out_filename, "w");
+  FILE *outputf1 = py_fopen(out_filename, "w");
+  if (outputf1 == NULL) return NULL;
   FILE *outputf2 = NULL;
+
   const int verbose = 1;
   int thrmax = 4;
   const int clusteralg = 0;

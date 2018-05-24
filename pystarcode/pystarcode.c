@@ -9,10 +9,10 @@ static char module_docstring[] =
 static char starcode_docstring[] = 
        "Starcode invocation";
 
-static PyObject *pystarcode_starcode(PyObject *self, PyObject *args);
+static PyObject *pystarcode_starcode(PyObject *self, PyObject *args, PyObject *kwargs);
 
 static PyMethodDef module_methods[] = {
-  {"starcode", pystarcode_starcode, METH_VARARGS, starcode_docstring},
+  {"starcode", pystarcode_starcode, METH_VARARGS|METH_KEYWORDS, starcode_docstring},
   {NULL, NULL, 0, NULL}
 };
 
@@ -37,16 +37,20 @@ FILE *py_fopen(const char *fname, const char *mode)
     return f;
 }
 
-static PyObject *pystarcode_starcode(PyObject *self, PyObject *args)
+static PyObject *pystarcode_starcode(PyObject *self, PyObject *args, PyObject *kwargs)
 {
   // Parse the input
   char *in_filename, *out_filename;
   int tau, cluster_ratio;
-  if (!PyArg_ParseTuple(args, "sshh",
+  int clusteralg = 0;
+
+  static char *kwlist[] = {"input","output","dist","cluster_ratio","clusteralg",NULL};
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "sshh|h", kwlist,
 	&in_filename,
 	&out_filename,
 	&tau,
-	&cluster_ratio))
+	&cluster_ratio,
+	&clusteralg))
     return NULL;
 
   // open input and output files
@@ -59,7 +63,6 @@ static PyObject *pystarcode_starcode(PyObject *self, PyObject *args)
 
   const int verbose = 1;
   int thrmax = 4;
-  const int clusteralg = 0;
   const int showclusters = 1;
   const int showids = 0;
   const int outputt = 0;

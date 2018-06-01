@@ -204,7 +204,6 @@ void       run_plan (mtplan_t *, int, int);
 gstack_t * read_rawseq (FILE *, gstack_t *);
 gstack_t * read_fasta (FILE *, gstack_t *);
 gstack_t * read_fastq (FILE *, gstack_t *);
-gstack_t * read_file (FILE *, FILE *, int);
 gstack_t * read_PE_fastq (FILE *, FILE *, gstack_t *);
 int        seq2id (char *, int);
 gstack_t * seq2useq (gstack_t*, int);
@@ -629,13 +628,6 @@ starcode
    //
    //  MESSAGE PASSING ALGORITHM
    //
-
-   propt_t propt = {
-      .first         = {0},
-      .showclusters  = showclusters,
-      .showids       = showids,
-      .pe_fastq      = PE_FASTQ == FORMAT,
-   };
 
    if (CLUSTERALG == MP_CLUSTER) {
 

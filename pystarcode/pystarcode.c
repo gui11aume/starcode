@@ -1,6 +1,7 @@
 #include <Python.h>
 #include <stdlib.h>
 #include "../src/starcode.h"
+#include "../src/trie.h"
 
 #define MAX_STR_LENGTH 2048
 
@@ -9,10 +10,10 @@ static char module_docstring[] =
 static char starcode_docstring[] = 
        "Starcode invocation";
 
-static PyObject *pystarcode_starcode(PyObject *self, PyObject *args, PyObject *kwargs);
+static PyObject* pystarcode_starcode(PyObject *self, PyObject *args, PyObject *kwargs);
 
 static PyMethodDef module_methods[] = {
-  {"starcode", pystarcode_starcode, METH_VARARGS|METH_KEYWORDS, starcode_docstring},
+  {"starcode", (PyCFunction) pystarcode_starcode, METH_VARARGS|METH_KEYWORDS, starcode_docstring},
   {NULL, NULL, 0, NULL}
 };
 
@@ -37,7 +38,7 @@ FILE *py_fopen(const char *fname, const char *mode)
     return f;
 }
 
-static PyObject *pystarcode_starcode(PyObject *self, PyObject *args, PyObject *kwargs)
+static PyObject* pystarcode_starcode(PyObject *self, PyObject *args, PyObject *kwargs)
 {
   // Parse the input
   char *in_filename, *out_filename;
@@ -82,11 +83,14 @@ static PyObject *pystarcode_starcode(PyObject *self, PyObject *args, PyObject *k
   if (outputf1 == NULL) return NULL;
   FILE *outputf2 = NULL;
 
-  // printf("%s %s %d %d %d %d\n",in_filename,out_filename,tau,cluster_ratio,clusteralg,verbose);
+  printf("%s %s %d %d %d %d\n",in_filename,out_filename,tau,cluster_ratio,clusteralg,verbose);
+
+  // init the "gstack_t" data structure, which will contain the information on
+  // the sequences to analyze
+  gstack_t *uSQ = read_file(inputf1, inputf2, verbose);
 
   int out = starcode(
-      inputf1,
-      inputf2,
+      uSQ,
       outputf1,
       outputf2,
       tau,

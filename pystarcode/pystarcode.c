@@ -102,23 +102,21 @@ static PyObject* pystarcode_starcode_c(PyObject *self, PyObject *args, PyObject 
   // the sequences to analyze
   gstack_t *uSQ = read_file(inputf1, inputf2, verbose);
 
-  int out = starcode(
+  gstack_t *result = starcode(
       uSQ,
-      outputf1,
-      outputf2,
       tau,
       verbose,
       thrmax,
       clusteralg,
       cluster_ratio,
-      showclusters,
-      showids,
-      outputt
+      showids
   );
 
-  // int out = 0;
+  // print output
+  print_starcode_output(outputf1, outputf2, 
+    result, clusteralg, showclusters, showids, outputt, verbose);
 
-  PyObject *ret = Py_BuildValue("h", out);
+  PyObject *ret = Py_BuildValue("h", 0);
 
   return ret;
 }
@@ -162,9 +160,6 @@ static PyObject* pystarcode_starcode(PyObject *self, PyObject *args, PyObject *k
   // get the number of sequence elements in the input list
   int numLines = PyList_Size(in_list);
 
-  // init the return object
-  PyObject * retList = PyList_New(numLines); /* the list to return */
-
   // should raise an error here
   if (numLines < 0) {
     PyErr_SetString(PyExc_ValueError, "Input element is not list.");
@@ -205,10 +200,44 @@ static PyObject* pystarcode_starcode(PyObject *self, PyObject *args, PyObject *k
     new->nids = 1;
     new->seqid = (void *)(unsigned long)uSQ->nitems+1;
     push(new, &uSQ);
-
-    if (PyList_SetItem(retList, i, strObj) == -1)
-      Py_RETURN_FALSE;
   }
 
-  return retList;
+  // we're now ready to invoke the main starcode core function
+  gstack_t *clusters = starcode(
+      uSQ,
+      tau,
+      verbose,
+      thrmax,
+      clusteralg,
+      cluster_ratio,
+      showids
+  );
+
+  // init the return object
+  PyObject * d = PyDict_New();
+
+  // fill in the dictionary
+  PyObject *seq_list = PyList_New(0);
+  useq_t *first = (useq_t *) clusters->items[0];
+  useq_t *canonical = first->canonical;
+  for (size_t i = 0 ; i < clusters->nitems ; i++) {
+    useq_t *u = (useq_t *) clusters->items[i];
+    printf("%s\n", u->seq);
+    if (u->canonical != canonical) {
+      // Update canonical and set key of dictionary, reset list
+      // printf("Sequence %lu: Updating canonical: old = %s", i, canonical->seq);
+      canonical = u->canonical;
+      // printf(" new = %s\n", canonical->seq);
+      PyDict_SetItemString(d, canonical->seq, seq_list);
+      seq_list = PyList_New(0);
+    }
+    else {
+      // printf ("Sequence %lu: canonical = %s, current = %s\n", i, canonical->seq, u->seq);
+      PyObject *val = PyString_FromString(u->seq);
+      PyList_Append(seq_list, val);
+    }
+  }
+
+  // return the created dictionary
+  return d;
 }

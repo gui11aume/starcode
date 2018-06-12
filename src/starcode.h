@@ -199,18 +199,14 @@ print_starcode_output
    const int verbose
 );
 
-int starcode(
+gstack_t * starcode(
    gstack_t *uSQ,
-   FILE *outputf1,
-   FILE *outputf2,
          int tau,
    const int verbose,
          int thrmax,
    const int clusteralg,
          int parent_to_child,
-   const int showclusters,
-   const int showids,
-   const int outputt
+   const int showids
 );
 
 #endif

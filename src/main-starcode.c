@@ -393,26 +393,27 @@ main(
       return 1;
    }
 
-   int exitcode =
+   // invoke the main starcode routine
+   gstack_t *result =
    starcode(
        uSQ,
-       outputf1,
-       outputf2,
        dist,
        vb_flag,
        threads,
        cluster_alg,
        cluster_ratio,
-       cl_flag,
-       id_flag,
-       output_type
+       id_flag
    );
+
+   // print output
+   print_starcode_output(outputf1, outputf2, 
+      result, cluster_alg, cl_flag, id_flag, output_type, vb_flag);
 
    if (inputf1 != stdin)   fclose(inputf1);
    if (inputf2 != NULL)    fclose(inputf2);
    if (outputf1 != stdout) fclose(outputf1);
    if (outputf2 != NULL)   fclose(outputf2);
 
-   return exitcode;
+   return 0;
 
 }

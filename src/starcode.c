@@ -782,26 +782,19 @@ set_input_and_output
    return IO_OK;
 }
 
-int
+gstack_t *
 starcode
 (
    gstack_t *uSQ,
-   FILE *outputf1,
-   FILE *outputf2,
          int tau,
    const int verbose,
          int thrmax,
    const int clusteralg,
          int parent_to_child,
-   const int showclusters,
-   const int showids,
-   const int outputt
+   const int showids
 )
 {
 
-   OUTPUTF1 = outputf1;
-   OUTPUTF2 = outputf2;
-   OUTPUTT = outputt;
    CLUSTERALG = clusteralg;
    CLUSTER_RATIO = parent_to_child;
 
@@ -850,9 +843,7 @@ starcode
       // Sort in canonical order.
       qsort(uSQ->items, uSQ->nitems, sizeof(useq_t *), canonical_order);
 
-      // print output
-      print_starcode_output(outputf1, outputf2, 
-	  uSQ, CLUSTERALG, showclusters, showids, OUTPUTT, verbose);
+      return uSQ;
 
    //
    //  SPHERES ALGORITHM
@@ -866,9 +857,7 @@ starcode
       // Sort in count order.
       qsort(uSQ->items, uSQ->nitems, sizeof(useq_t *), count_order);
 
-      // print output
-      print_starcode_output(outputf1, outputf2, 
-	  uSQ, CLUSTERALG, showclusters, showids, OUTPUTT, verbose);
+      return uSQ;
 
    /*
     *  CONNECTED COMPONENTS ALGORITHM
@@ -880,15 +869,10 @@ starcode
       // Returns a stack containing stacks of clusters, where clusters->item[i]->item[0] is
       // the centroid of the i-th cluster. The output is sorted by cluster count, which is
       // stored in centroid->count.
-      gstack_t * clusters = compute_clusters(uSQ);
-
-      // print output
-      print_starcode_output(outputf1, outputf2, 
-	  clusters, CLUSTERALG, showclusters, showids, OUTPUTT, verbose);
+      return compute_clusters(uSQ);
    }
 
-   return 0;
-
+   return NULL;
 }
 
 void

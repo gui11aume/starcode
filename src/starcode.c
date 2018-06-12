@@ -80,7 +80,6 @@ static const char capitalize[128] = {
    80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90,123,124,125,126,127
 };
 
-struct useq_t;
 struct c_t;
 struct match_t;
 
@@ -92,32 +91,15 @@ typedef enum {
    UNSET,
 } format_t;
 
-typedef struct useq_t useq_t;
 typedef struct c_t ustack_t;
 typedef struct match_t match_t;
 typedef struct mtplan_t mtplan_t;
 typedef struct mttrie_t mttrie_t;
 typedef struct mtjob_t mtjob_t;
 typedef struct lookup_t lookup_t;
-typedef struct propt_t propt_t;
 
 typedef struct sortargs_t sortargs_t;
 
-
-// The field 'seqid' is either an id number for
-// the unique sequence or a pointer to a struct
-// containing information about the matches. This
-// creates some confusion in the code at times.
-// See function 'transfer_useq_ids()'.
-struct useq_t {
-  int              count;       // Number of sequences
-  unsigned int     nids;        // Number of associated IDs
-  char          *  seq;         // Sequence
-  char          *  info;        // Multi-function text field
-  gstack_t      ** matches;     // Matches stratified by distance
-  struct useq_t *  canonical;   // Pointer to canonical sequence
-  int           *  seqid;       // Unique ID / pointer (see above).
-};
 
 struct lookup_t {
             int    slen;
@@ -170,13 +152,6 @@ struct mtjob_t {
    char             * active;
 };
 
-struct propt_t {
-   char  first[5];
-   int   pe_fastq;
-   int   showclusters;
-   int   showids;
-};
-
 
 int        size_order (const void *a, const void *b);
 int        addmatch (useq_t*, useq_t*, int, int);
@@ -224,6 +199,71 @@ static output_t   OUTPUTT       = DEFAULT_OUTPUT; // output type
 static cluster_t  CLUSTERALG    = MP_CLUSTER;     // cluster algorithm
 static int        CLUSTER_RATIO = 5;              // min parent/child ratio
                                                   // to link clusters
+char *
+outname
+(
+   char *path
+)
+{
+
+   char * name = calloc(320,1);
+   if (strlen(path) > 310) {
+      fprintf(stderr, "input file name too long (%s)\n", path);
+      abort();
+   }
+
+   // Find final dot, append "-starcode" just before.
+   // If no final dot, just append starcode as suffix.
+   char *c = strrchr(path, '.');
+   if (c == NULL) {
+      sprintf(name, "%s-starcode", path);
+   }
+   else {
+      *c = '\0';
+      sprintf(name, "%s-starcode.%s", path, c+1);
+      *c = '.';
+   }
+
+   return (char *) name;
+
+}
+
+void say_usage(void) { 
+  char *USAGE =
+  "\n"
+  "Usage:"
+  "  starcode [options]\n"
+  "\n"
+  "  general options:\n"
+  "    -d --dist: maximum Levenshtein distance (default auto)\n"
+  "    -t --threads: number of concurrent threads (default 1)\n"
+  "    -q --quiet: quiet output (default verbose)\n"
+  "    -v --version: display version and exit\n"
+  "\n"
+  "  cluster options: (default algorithm: message passing)\n"
+  "    -r --cluster-ratio: min size ratio for merging clusters in\n"
+  "               message passing (default 5)\n"
+  "    -s --sphere: use sphere clustering algorithm\n"
+  "    -c --connected-comp: cluster connected components\n"
+  "\n"
+  "  input/output options (single file, default)\n"
+  "    -i --input: input file (default stdin)\n"
+  "    -o --output: output file (default stdout)\n"
+  "\n"
+  "  input options (paired-end fastq files)\n"
+  "    -1 --input1: input file 1\n"
+  "    -2 --input2: input file 2\n"
+  "\n"
+  "  output options (paired-end fastq files, --non-redundant only)\n"
+  "       --output1: output file1 (default input1-starcode.fastq)\n"
+  "       --output2: output file2 (default input2-starcode.fastq)\n"
+  "\n"
+  "  output format options\n"
+  "       --non-redundant: remove redundant sequences from input file(s)\n"
+  "       --print-clusters: outputs cluster compositions\n"
+  "       --seq-id: print sequence id numbers (1-based)\n";
+  fprintf(stderr, "%s\n", USAGE);
+}
 
 
 void
@@ -293,6 +333,7 @@ print_ids
    propt_t   propt
 )
 {
+   (void) propt;
 
    // If there are more than one ID then 'u->seqid' is
    // a pointer to the IDs.
@@ -320,6 +361,7 @@ print_nr_raw
    propt_t   propt
 )
 {
+   (void) propt;
    fprintf(OUTPUTF1, "%s\n", u->seq);
 }
 
@@ -331,6 +373,7 @@ print_nr_fasta
    propt_t   propt
 )
 {
+   (void) propt;
    fprintf(OUTPUTF1, "%s\n%s\n", u->info, u->seq);
 }
 
@@ -342,6 +385,7 @@ print_nr_fastq
    propt_t   propt
 )
 {
+   (void) propt;
    char header[M] = {0};
    char quality[M] = {0};
    sscanf(u->info, "%s\n%s", header, quality);
@@ -357,6 +401,7 @@ print_nr_pe_fastq
    propt_t   propt
 )
 {
+   (void) propt;
    char head1[M] = {0};
    char head2[M] = {0};
    char qual1[M] = {0};
@@ -578,7 +623,6 @@ check_input
  int id_flag,
  int sp_flag,
  int cp_flag,
- int vb_flag,
  int * threads,
  int * cluster_ratio,
  char *input1,

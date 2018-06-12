@@ -33,6 +33,33 @@
 
 #define ERRM "starcode error:"
 
+char * outname (char *);
+
+struct useq_t;
+typedef struct useq_t useq_t;
+// The field 'seqid' is either an id number for
+// the unique sequence or a pointer to a struct
+// containing information about the matches. This
+// creates some confusion in the code at times.
+// See function 'transfer_useq_ids()'.
+struct useq_t {
+  int              count;       // Number of sequences
+  unsigned int     nids;        // Number of associated IDs
+  char          *  seq;         // Sequence
+  char          *  info;        // Multi-function text field
+  gstack_t      ** matches;     // Matches stratified by distance
+  struct useq_t *  canonical;   // Pointer to canonical sequence
+  int           *  seqid;       // Unique ID / pointer (see above).
+};
+
+typedef struct propt_t propt_t;
+struct propt_t {
+   char  first[5];
+   int   pe_fastq;
+   int   showclusters;
+   int   showids;
+};
+
 typedef enum {
    DEFAULT_OUTPUT,
    CLUSTER_OUTPUT,
@@ -71,7 +98,6 @@ check_input
  int id_flag,
  int sp_flag,
  int cp_flag,
- int vb_flag,
  int * threads,
  int * cluster_ratio,
  char *input1,
@@ -87,10 +113,70 @@ typedef struct {
   FILE *outputf2;
 } starcode_io_t;
 
+output_t set_output_type (int);
+
 typedef enum {
   IO_OK,
   IO_FILERR
 } starcode_io_check;
+
+starcode_io_check
+set_input_and_output
+(
+ starcode_io_t *io,
+ char * input1,
+ char * input2,
+ char * input,
+ char * output1,
+ char * output2,
+ char * output,
+ int nr_flag
+);
+
+cluster_t set_cluster_alg (int, int);
+
+void say_usage (void);
+
+void
+head_default
+(
+   useq_t  * u,
+   propt_t   propt
+);
+
+void
+members_mp_default
+(
+   useq_t  * u,
+   propt_t   propt
+);
+  
+void
+members_sc_default
+(
+   useq_t * u,
+   propt_t  propt
+);
+
+// print functions
+void print_ids (useq_t *, propt_t);
+void print_nr_raw (useq_t *, propt_t);
+void print_nr_fasta (useq_t *, propt_t);
+void print_nr_fastq (useq_t *, propt_t);
+void print_nr_pe_fastq (useq_t *, propt_t);
+
+void
+print_starcode_output
+(
+   FILE *outputf1,
+   FILE *outputf2,
+   gstack_t *clusters,
+   const int clusteralg,
+   const int showclusters,
+   const int showids,
+   const int outputt,
+   const int verbose
+);
 
 int starcode(
    gstack_t *uSQ,

@@ -31,47 +31,9 @@
 #include "trie.h"
 
 // Prototypes for utilities of the main.
-char * outname (char *);
-void   say_usage (void);
 void   say_version (void);
 void   SIGSEGV_handler (int);
 
-char *USAGE =
-"\n"
-"Usage:"
-"  starcode [options]\n"
-"\n"
-"  general options:\n"
-"    -d --dist: maximum Levenshtein distance (default auto)\n"
-"    -t --threads: number of concurrent threads (default 1)\n"
-"    -q --quiet: quiet output (default verbose)\n"
-"    -v --version: display version and exit\n"
-"\n"
-"  cluster options: (default algorithm: message passing)\n"
-"    -r --cluster-ratio: min size ratio for merging clusters in\n"
-"               message passing (default 5)\n"
-"    -s --sphere: use sphere clustering algorithm\n"
-"    -c --connected-comp: cluster connected components\n"
-"\n"
-"  input/output options (single file, default)\n"
-"    -i --input: input file (default stdin)\n"
-"    -o --output: output file (default stdout)\n"
-"\n"
-"  input options (paired-end fastq files)\n"
-"    -1 --input1: input file 1\n"
-"    -2 --input2: input file 2\n"
-"\n"
-"  output options (paired-end fastq files, --non-redundant only)\n"
-"       --output1: output file1 (default input1-starcode.fastq)\n"
-"       --output2: output file2 (default input2-starcode.fastq)\n"
-"\n"
-"  output format options\n"
-"       --non-redundant: remove redundant sequences from input file(s)\n"
-"       --print-clusters: outputs cluster compositions\n"
-"       --seq-id: print sequence id numbers (1-based)\n";
-
-
-void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
 void say_version(void) { fprintf(stderr, VERSION "\n"); }
 
 void SIGSEGV_handler(int sig) {
@@ -87,35 +49,6 @@ void SIGSEGV_handler(int sig) {
    exit(1);
 }
 
-
-char *
-outname
-(
-   char *path
-)
-{
-
-   char * name = calloc(320,1);
-   if (strlen(path) > 310) {
-      fprintf(stderr, "input file name too long (%s)\n", path);
-      abort();
-   }
-
-   // Find final dot, append "-starcode" just before.
-   // If no final dot, just append starcode as suffix.
-   char *c = strrchr(path, '.');
-   if (c == NULL) {
-      sprintf(name, "%s-starcode", path);
-   }
-   else {
-      *c = '\0';
-      sprintf(name, "%s-starcode.%s", path, c+1);
-      *c = '.';
-   }
-
-   return (char *) name;
-
-}
 
 
 int
@@ -354,7 +287,7 @@ main(
    }
 
    // set default input and check flag compatibility
-   input_compatibility_t ic = check_input (nr_flag,cl_flag,id_flag,sp_flag,cp_flag,vb_flag,
+   input_compatibility_t ic = check_input (nr_flag,cl_flag,id_flag,sp_flag,cp_flag,
        &threads,&cluster_ratio,input1,input2,input,output);
    if (ic != INPUT_OK) return EXIT_FAILURE;
 

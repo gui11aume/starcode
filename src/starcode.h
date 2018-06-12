@@ -31,6 +31,8 @@
 #define VERSION          "starcode-v1.2 20-04-2018"
 #define STARCODE_MAX_TAU 8
 
+#define ERRM "starcode error:"
+
 typedef enum {
    DEFAULT_OUTPUT,
    CLUSTER_OUTPUT,
@@ -50,7 +52,46 @@ read_file
    FILE      * inputf2,
    const int   verbose
 );
-  
+
+typedef enum {
+  INPUT_OK,
+  NR_CL_ID_INCOMPATIBILITY,
+  INPUT_INPUT12_INCOMPATIBILITY,
+  ONLY_INPUT2_INCOMPATIBILITY,
+  ONLY_INPUT1_INCOMPATIBILITY,
+  NR_OUTPUT_INCOMPATIBILITY,
+  SP_CP_INCOMPATIBILITY,
+} input_compatibility_t;
+
+input_compatibility_t
+check_input
+(
+ int nr_flag,
+ int cl_flag,
+ int id_flag,
+ int sp_flag,
+ int cp_flag,
+ int vb_flag,
+ int * threads,
+ int * cluster_ratio,
+ char *input1,
+ char *input2,
+ char *input,
+ char *output
+);
+
+typedef struct {
+  FILE *inputf1;
+  FILE *inputf2;
+  FILE *outputf1;
+  FILE *outputf2;
+} starcode_io_t;
+
+typedef enum {
+  IO_OK,
+  IO_FILERR
+} starcode_io_check;
+
 int starcode(
    gstack_t *uSQ,
    FILE *outputf1,

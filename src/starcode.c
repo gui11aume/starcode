@@ -570,6 +570,194 @@ print_starcode_output
    OUTPUTF2 = NULL;
 }
 
+input_compatibility_t
+check_input
+(
+ int nr_flag,
+ int cl_flag,
+ int id_flag,
+ int sp_flag,
+ int cp_flag,
+ int vb_flag,
+ int * threads,
+ int * cluster_ratio,
+ char *input1,
+ char *input2,
+ char *input,
+ char *output
+)
+{
+   char * const UNSET = "unset";
+
+   // Check options compatibility. //
+   if (nr_flag && (cl_flag || id_flag)) {
+      fprintf(stderr,
+            "%s --non-redundant flag is incompatible with "
+            "--print-clusters and --seq-id\n", ERRM);
+      say_usage();
+      return NR_CL_ID_INCOMPATIBILITY;
+   }
+   if (input != UNSET && (input1 != UNSET || input2 != UNSET)) {
+      fprintf(stderr,
+            "%s --input and --input1/2 are incompatible\n", ERRM);
+      say_usage();
+      return INPUT_INPUT12_INCOMPATIBILITY;
+   }
+   if (input1 == UNSET && input2 != UNSET) {
+      fprintf(stderr, "%s --input2 set without --input1\n", ERRM);
+      say_usage();
+      return ONLY_INPUT2_INCOMPATIBILITY;
+   }
+   if (input2 == UNSET && input1 != UNSET) {
+      fprintf(stderr, "%s --input1 set without --input2\n", ERRM);
+      say_usage();
+      return ONLY_INPUT1_INCOMPATIBILITY;
+   }
+   if (nr_flag && output != UNSET &&
+         (input1 != UNSET || input2 != UNSET)) {
+      fprintf(stderr, "%s cannot specify --output for paired-end "
+            "fastq file with --non-redundant\n", ERRM);
+      say_usage();
+      return NR_OUTPUT_INCOMPATIBILITY;
+   }
+   if (sp_flag && cp_flag) {
+      fprintf(stderr, "%s --sphere and --connected-comp are "
+              "incompatible\n", ERRM);
+      say_usage();
+      return SP_CP_INCOMPATIBILITY;
+   }
+
+   // Set remaining default options.
+   if (*threads < 0) *threads = 1;
+   if (*cluster_ratio < 0) *cluster_ratio = 5;
+
+   // all went well: return
+   return INPUT_OK;
+}
+
+
+output_t
+set_output_type
+(
+ int nr_flag
+)
+{
+   // Set output type. //
+   int output_type;
+   if      (nr_flag) output_type = NRED_OUTPUT;
+   else              output_type = DEFAULT_OUTPUT;
+   return output_type;
+}
+
+cluster_t set_cluster_alg
+(
+ int cp_flag,
+ int sp_flag
+)
+{
+   int cluster_alg;
+   if      (cp_flag) cluster_alg = COMPONENTS_CLUSTER;
+   else if (sp_flag) cluster_alg = SPHERES_CLUSTER;
+   else              cluster_alg = MP_CLUSTER;
+   return cluster_alg;
+}
+
+
+starcode_io_check
+set_input_and_output
+(
+ starcode_io_t *io,
+ char * input1,
+ char * input2,
+ char * input,
+ char * output1,
+ char * output2,
+ char * output,
+ int nr_flag
+)
+{
+   char * const UNSET = "unset";
+
+   // Set input file(s). //
+   io->inputf1 = NULL;
+   io->inputf2 = NULL;
+
+   // Set output file(s). //
+   io->outputf1 = NULL;
+   io->outputf2 = NULL;
+
+   if (input != UNSET) {
+      io->inputf1 = fopen(input, "r");
+      if (io->inputf1 == NULL) {
+         fprintf(stderr, "%s cannot open file %s\n", ERRM, input);
+         say_usage();
+         return IO_FILERR;
+      }
+   }
+   else if (input1 != UNSET) {
+      io->inputf1 = fopen(input1, "r");
+      if (io->inputf1 == NULL) {
+         fprintf(stderr, "%s cannot open file %s\n", ERRM, input1);
+         say_usage();
+         return IO_FILERR;
+      }
+      io->inputf2 = fopen(input2, "r");
+      if (io->inputf2 == NULL) {
+         fprintf(stderr, "%s cannot open file %s\n", ERRM, input2);
+         say_usage();
+         return IO_FILERR;
+      }
+   }
+   else {
+      io->inputf1 = stdin;
+   }
+
+   if (output != UNSET) {
+      io->outputf1 = fopen(output, "w");
+      if (io->outputf1 == NULL) {
+         fprintf(stderr, "%s cannot write to file %s\n", ERRM, output);
+         say_usage();
+         return IO_FILERR;
+      }
+   }
+   else if (nr_flag && input1 != UNSET && input2 != UNSET) {
+      // Set default names as inputX-starcode.fastq
+      if (output1 == UNSET) {
+         output1 = outname(input1);
+         io->outputf1 = fopen(output1, "w");
+         free(output1);
+      } else {
+         io->outputf1 = fopen(output1, "w");
+      }
+
+      if (io->outputf1 == NULL) {
+         fprintf(stderr,
+               "%s cannot write to file %s\n", ERRM, outname(input1));
+         say_usage();
+         return IO_FILERR;
+      }
+
+      if (output2 == UNSET) {
+         output2 = outname(input2);
+         io->outputf2 = fopen(output2, "w");
+         free(output2);
+      } else {
+         io->outputf2 = fopen(output2, "w");
+      }
+
+      if (io->outputf2 == NULL) {
+         fprintf(stderr,
+               "%s cannot write to file %s\n", ERRM, outname(input2));
+         say_usage();
+         return IO_FILERR;
+      }
+   }
+   else {
+      io->outputf1 = stdout;
+   }
+   return IO_OK;
+}
+
 int
 starcode
 (

@@ -30,8 +30,6 @@
 #include "starcode.h"
 #include "trie.h"
 
-#define ERRM "starcode error:"
-
 // Prototypes for utilities of the main.
 char * outname (char *);
 void   say_usage (void);
@@ -355,43 +353,11 @@ main(
       }
    }
 
-   // Check options compatibility. //
-   if (nr_flag && (cl_flag || id_flag)) {
-      fprintf(stderr,
-            "%s --non-redundant flag is incompatible with "
-            "--print-clusters and --seq-id\n", ERRM);
-      say_usage();
-      return EXIT_FAILURE;
-   }
-   if (input != UNSET && (input1 != UNSET || input2 != UNSET)) {
-      fprintf(stderr,
-            "%s --input and --input1/2 are incompatible\n", ERRM);
-      say_usage();
-      return EXIT_FAILURE;
-   }
-   if (input1 == UNSET && input2 != UNSET) {
-      fprintf(stderr, "%s --input2 set without --input1\n", ERRM);
-      say_usage();
-      return EXIT_FAILURE;
-   }
-   if (input2 == UNSET && input1 != UNSET) {
-      fprintf(stderr, "%s --input1 set without --input2\n", ERRM);
-      say_usage();
-      return EXIT_FAILURE;
-   }
-   if (nr_flag && output != UNSET &&
-         (input1 != UNSET || input2 != UNSET)) {
-      fprintf(stderr, "%s cannot specify --output for paired-end "
-            "fastq file with --non-redundant\n", ERRM);
-      say_usage();
-      return EXIT_FAILURE;
-   }
-   if (sp_flag && cp_flag) {
-      fprintf(stderr, "%s --sphere and --connected-comp are "
-              "incompatible\n", ERRM);
-      say_usage();
-      return EXIT_FAILURE;
-   }
+   // set default input and check flag compatibility
+   input_compatibility_t ic = check_input (nr_flag,cl_flag,id_flag,sp_flag,cp_flag,vb_flag,
+       &threads,&cluster_ratio,input1,input2,input,output);
+   if (ic != INPUT_OK) return EXIT_FAILURE;
+
 
    // Set output type. //
    int output_type;
@@ -482,10 +448,6 @@ main(
    else {
       outputf1 = stdout;
    }
-
-   // Set remaining default options.
-   if (threads < 0) threads = 1;
-   if (cluster_ratio < 0) cluster_ratio = 5;
 
    if (vb_flag) {
       fprintf(stderr, "running starcode with %d thread%s\n",

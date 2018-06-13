@@ -217,27 +217,13 @@ static PyObject* pystarcode_starcode(PyObject *self, PyObject *args, PyObject *k
   PyObject * d = PyDict_New();
 
   // fill in the dictionary
-  PyObject *seq_list = PyList_New(0);
   useq_t *first = (useq_t *) clusters->items[0];
   useq_t *canonical = first->canonical;
-  for (size_t i = 0 ; i < clusters->nitems ; i++) {
+  PyDict_SetItemString(d, first->seq, PyString_FromString(canonical->seq));
+  for (size_t i = 1 ; i < clusters->nitems ; i++) {
     useq_t *u = (useq_t *) clusters->items[i];
-    printf("%s\n", u->seq);
-    if (u->canonical != canonical) {
-      // Update canonical and set key of dictionary, reset list
-      // printf("Sequence %lu: Updating canonical: old = %s", i, canonical->seq);
-      canonical = u->canonical;
-      // printf(" new = %s\n", canonical->seq);
-      PyDict_SetItemString(d, canonical->seq, seq_list);
-      seq_list = PyList_New(0);
-    }
-    else {
-      // printf ("Sequence %lu: canonical = %s, current = %s\n", i, canonical->seq, u->seq);
-      PyObject *val = PyString_FromString(u->seq);
-      PyList_Append(seq_list, val);
-    }
+    PyDict_SetItemString(d, u->seq, PyString_FromString(u->canonical->seq));
   }
-
   // return the created dictionary
   return d;
 }

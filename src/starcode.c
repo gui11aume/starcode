@@ -605,14 +605,12 @@ check_input
  int cp_flag,
  int * threads,
  int * cluster_ratio,
- char *input1,
- char *input2,
- char *input,
- char *output
+ int input_set,
+ int input1_set,
+ int input2_set,
+ int output_set
 )
 {
-   char * const UNSET = "unset";
-
    // Check options compatibility. //
    if (nr_flag && (cl_flag || id_flag)) {
       fprintf(stderr,
@@ -621,24 +619,25 @@ check_input
       say_usage();
       return NR_CL_ID_INCOMPATIBILITY;
    }
-   if (input != UNSET && (input1 != UNSET || input2 != UNSET)) {
+   if (input_set && (input1_set || input2_set)) {
       fprintf(stderr,
             "%s --input and --input1/2 are incompatible\n", ERRM);
       say_usage();
       return INPUT_INPUT12_INCOMPATIBILITY;
    }
-   if (input1 == UNSET && input2 != UNSET) {
+   if (!input1_set && input2_set) {
       fprintf(stderr, "%s --input2 set without --input1\n", ERRM);
+      printf ("input1_set = %d, input2_set = %d\n", input1_set, input2_set);
       say_usage();
       return ONLY_INPUT2_INCOMPATIBILITY;
    }
-   if (input2 == UNSET && input1 != UNSET) {
+   if (!input2_set && input1_set) {
       fprintf(stderr, "%s --input1 set without --input2\n", ERRM);
       say_usage();
       return ONLY_INPUT1_INCOMPATIBILITY;
    }
-   if (nr_flag && output != UNSET &&
-         (input1 != UNSET || input2 != UNSET)) {
+   if (nr_flag && output_set &&
+         (input1_set || input2_set)) {
       fprintf(stderr, "%s cannot specify --output for paired-end "
             "fastq file with --non-redundant\n", ERRM);
       say_usage();
@@ -691,17 +690,21 @@ starcode_io_check
 set_input_and_output
 (
  starcode_io_t *io,
- char * input1,
- char * input2,
- char * input,
- char * output1,
- char * output2,
- char * output,
+ char *input,
+ char *input1,
+ char *input2,
+ char *output,
+ char *output1,
+ char *output2,
+ int input1_set,
+ int input2_set,
+ int input_set,
+ int output1_set,
+ int output2_set,
+ int output_set,
  int nr_flag
 )
 {
-   char * const UNSET = "unset";
-
    // Set input file(s). //
    io->inputf1 = NULL;
    io->inputf2 = NULL;
@@ -710,7 +713,7 @@ set_input_and_output
    io->outputf1 = NULL;
    io->outputf2 = NULL;
 
-   if (input != UNSET) {
+   if (input_set) {
       io->inputf1 = fopen(input, "r");
       if (io->inputf1 == NULL) {
          fprintf(stderr, "%s cannot open file %s\n", ERRM, input);
@@ -718,7 +721,7 @@ set_input_and_output
          return IO_FILERR;
       }
    }
-   else if (input1 != UNSET) {
+   else if (input1_set) {
       io->inputf1 = fopen(input1, "r");
       if (io->inputf1 == NULL) {
          fprintf(stderr, "%s cannot open file %s\n", ERRM, input1);
@@ -736,7 +739,7 @@ set_input_and_output
       io->inputf1 = stdin;
    }
 
-   if (output != UNSET) {
+   if (output_set) {
       io->outputf1 = fopen(output, "w");
       if (io->outputf1 == NULL) {
          fprintf(stderr, "%s cannot write to file %s\n", ERRM, output);
@@ -744,9 +747,9 @@ set_input_and_output
          return IO_FILERR;
       }
    }
-   else if (nr_flag && input1 != UNSET && input2 != UNSET) {
+   else if (nr_flag && input1_set && input2_set) {
       // Set default names as inputX-starcode.fastq
-      if (output1 == UNSET) {
+      if (!output1_set) {
          output1 = outname(input1);
          io->outputf1 = fopen(output1, "w");
          free(output1);
@@ -761,7 +764,7 @@ set_input_and_output
          return IO_FILERR;
       }
 
-      if (output2 == UNSET) {
+      if (!output2_set) {
          output2 = outname(input2);
          io->outputf2 = fopen(output2, "w");
          free(output2);

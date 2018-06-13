@@ -121,10 +121,10 @@ check_input
  int cp_flag,
  int * threads,
  int * cluster_ratio,
- char *input1,
- char *input2,
- char *input,
- char *output
+ int input_set,
+ int input1_set,
+ int input2_set,
+ int output_set
 );
 
 typedef struct {
@@ -145,12 +145,18 @@ starcode_io_check
 set_input_and_output
 (
  starcode_io_t *io,
- char * input1,
- char * input2,
- char * input,
- char * output1,
- char * output2,
- char * output,
+ char *input,
+ char *input1,
+ char *input2,
+ char *output,
+ char *output1,
+ char *output2,
+ int input1_set,
+ int input2_set,
+ int input_set,
+ int output1_set,
+ int output2_set,
+ int output_set,
  int nr_flag
 );
 

@@ -72,15 +72,20 @@ main(
    int dist = -1;
    int threads = -1;
    int cluster_ratio = -1;
+   int input_set = 0;
+   int input1_set = 0;
+   int input2_set = 0;
+   int output_set = 0;
+   int output1_set = 0;
+   int output2_set = 0;
 
-   // Unset options (value 'UNSET').
-   char * const UNSET = "unset";
-   char * input   = UNSET;
-   char * input1  = UNSET;
-   char * input2  = UNSET;
-   char * output  = UNSET;
-   char * output1 = UNSET;
-   char * output2 = UNSET;
+   // file names
+   char * input;
+   char * input1;
+   char * input2;
+   char * output;
+   char * output1;
+   char * output2;
 
 
    if (argc == 1 && isatty(0)) {
@@ -125,8 +130,9 @@ main(
          break;
 
       case '1':
-         if (input1 == UNSET) {
+         if (!input1_set) {
             input1 = optarg;
+	    input1_set = 1;
          }
          else {
             fprintf(stderr, "%s --input1 set more than once\n", ERRM);
@@ -136,8 +142,9 @@ main(
          break;
 
       case '2':
-         if (input2 == UNSET) {
+         if (!input2_set) {
             input2 = optarg;
+	    input2_set = 1;
          }
          else {
             fprintf(stderr, "%s --input2 set more than once\n", ERRM);
@@ -147,8 +154,9 @@ main(
          break;
 
       case '3':
-         if (output1 == UNSET) {
+         if (!output1_set) {
             output1 = optarg;
+	    output1_set = 1;
          }
          else {
             fprintf(stderr, "%s --output1 set more than once\n", ERRM);
@@ -158,8 +166,9 @@ main(
          break;
 
       case '4':
-         if (output2 == UNSET) {
+         if (!output2_set) {
             output2 = optarg;
+	    output2_set = 1;
          }
          else {
             fprintf(stderr, "%s --output2 set more than once\n", ERRM);
@@ -192,8 +201,9 @@ main(
          return 0;
 
       case 'i':
-         if (input == UNSET) {
+         if (!input_set) {
             input = optarg;
+	    input_set = 1;
          }
          else {
             fprintf(stderr, "%s --input set more than once\n", ERRM);
@@ -203,8 +213,9 @@ main(
          break;
 
       case 'o':
-         if (output == UNSET) {
+         if (!output_set) {
             output = optarg;
+	    output_set = 1;
          }
          else {
             fprintf(stderr, "%s --output set more than once\n", ERRM);
@@ -276,7 +287,7 @@ main(
    if (optind < argc) {
       // If no input is specified, assume first positional argument
       // is the name of the input file.
-      if ((optind == argc-1) && (input == UNSET && input1 == UNSET)) {
+      if ((optind == argc-1) && (!input_set && !input1_set)) {
          input = argv[optind];
       }
       else {
@@ -288,7 +299,7 @@ main(
 
    // set default input and check flag compatibility
    input_compatibility_t ic = check_input (nr_flag,cl_flag,id_flag,sp_flag,cp_flag,
-       &threads,&cluster_ratio,input1,input2,input,output);
+       &threads,&cluster_ratio,input_set,input1_set,input2_set,output_set);
    if (ic != INPUT_OK) return EXIT_FAILURE;
 
 
@@ -312,7 +323,7 @@ main(
    FILE *outputf1 = NULL;
    FILE *outputf2 = NULL;
 
-   if (input != UNSET) {
+   if (input_set) {
       inputf1 = fopen(input, "r");
       if (inputf1 == NULL) {
          fprintf(stderr, "%s cannot open file %s\n", ERRM, input);
@@ -320,7 +331,7 @@ main(
          return EXIT_FAILURE;
       }
    }
-   else if (input1 != UNSET) {
+   else if (input1_set) {
       inputf1 = fopen(input1, "r");
       if (inputf1 == NULL) {
          fprintf(stderr, "%s cannot open file %s\n", ERRM, input1);
@@ -338,7 +349,7 @@ main(
       inputf1 = stdin;
    }
 
-   if (output != UNSET) {
+   if (output_set) {
       outputf1 = fopen(output, "w");
       if (outputf1 == NULL) {
          fprintf(stderr, "%s cannot write to file %s\n", ERRM, output);
@@ -346,9 +357,9 @@ main(
          return EXIT_FAILURE;
       }
    }
-   else if (nr_flag && input1 != UNSET && input2 != UNSET) {
+   else if (nr_flag && input1_set && input2_set) {
       // Set default names as inputX-starcode.fastq
-      if (output1 == UNSET) {
+      if (!output1_set) {
          output1 = outname(input1);
          outputf1 = fopen(output1, "w");
          free(output1);
@@ -363,7 +374,7 @@ main(
          return EXIT_FAILURE;
       }
 
-      if (output2 == UNSET) {
+      if (!output2_set) {
          output2 = outname(input2);
          outputf2 = fopen(output2, "w");
          free(output2);

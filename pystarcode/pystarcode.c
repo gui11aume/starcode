@@ -213,17 +213,37 @@ static PyObject* pystarcode_starcode(PyObject *self, PyObject *args, PyObject *k
       showids
   );
 
-  // init the return object
+  // init the return object: a python dictionary for the sequence -> canonical
+  // association, and another dictionary for the canonical -> counts association
   PyObject * d = PyDict_New();
+  PyObject * counts = PyDict_New();
 
-  // fill in the dictionary
-  useq_t *first = (useq_t *) clusters->items[0];
-  useq_t *canonical = first->canonical;
-  PyDict_SetItemString(d, first->seq, PyString_FromString(canonical->seq));
-  for (size_t i = 1 ; i < clusters->nitems ; i++) {
+  // init the canonical sequence
+  useq_t *canonical = ((useq_t *)clusters->items[0])->canonical;
+  PyDict_SetItemString(counts, canonical->seq, PyInt_FromSize_t(canonical->count));
+
+  // fill in the dictionaries
+  for (size_t i = 0 ; i < clusters->nitems ; i++) {
     useq_t *u = (useq_t *) clusters->items[i];
     PyDict_SetItemString(d, u->seq, PyString_FromString(u->canonical->seq));
+
+    // let's see if the current canonical is the same as the last one
+    if (u->canonical != canonical) {
+
+      // in this case we update the canonical
+      canonical = u->canonical;
+
+      // and we write the new element in the dictionary of counts
+      PyDict_SetItemString(counts, canonical->seq, PyInt_FromSize_t(canonical->count));
+    }
   }
-  // return the created dictionary
-  return d;
+
+  // let's now build the return object, which will be a tuple of the two
+  // dictionaries
+  PyObject *ret = PyTuple_New(2);
+  PyTuple_SetItem(ret, 0, counts);
+  PyTuple_SetItem(ret, 1, d);
+
+  // return the created tuple
+  return ret;
 }

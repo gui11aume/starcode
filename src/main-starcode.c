@@ -298,107 +298,35 @@ main(
    }
 
    // set default input and check flag compatibility
-   input_compatibility_t ic = check_input (nr_flag,cl_flag,id_flag,sp_flag,cp_flag,
+   int ic = check_input (nr_flag,cl_flag,id_flag,sp_flag,cp_flag,
        &threads,&cluster_ratio,input_set,input1_set,input2_set,output_set);
    if (ic != INPUT_OK) return EXIT_FAILURE;
 
+   // Set output type
+   int output_type = set_output_type(nr_flag);
 
-   // Set output type. //
-   int output_type;
-   if      (nr_flag) output_type = NRED_OUTPUT;
-   else              output_type = DEFAULT_OUTPUT;
+   // Set clustering algorithm
+   int cluster_alg = set_cluster_alg(cp_flag, sp_flag);
 
-   int cluster_alg;
-   if      (cp_flag) cluster_alg = COMPONENTS_CLUSTER;
-   else if (sp_flag) cluster_alg = SPHERES_CLUSTER;
-   else              cluster_alg = MP_CLUSTER;
+   // Set starcode input and output files
+   starcode_io_t io;
+   int io_ok = set_input_and_output(&io,
+       input, input1, input2,
+       output, output1, output2,
+       input1_set, input2_set, input_set,
+       output1_set, output2_set, output_set,
+       nr_flag);
+   if (io_ok != IO_OK) return EXIT_FAILURE;
 
-
-
-   // Set input file(s). //
-   FILE *inputf1 = NULL;
-   FILE *inputf2 = NULL;
-
-   // Set output file(s). //
-   FILE *outputf1 = NULL;
-   FILE *outputf2 = NULL;
-
-   if (input_set) {
-      inputf1 = fopen(input, "r");
-      if (inputf1 == NULL) {
-         fprintf(stderr, "%s cannot open file %s\n", ERRM, input);
-         say_usage();
-         return EXIT_FAILURE;
-      }
-   }
-   else if (input1_set) {
-      inputf1 = fopen(input1, "r");
-      if (inputf1 == NULL) {
-         fprintf(stderr, "%s cannot open file %s\n", ERRM, input1);
-         say_usage();
-         return EXIT_FAILURE;
-      }
-      inputf2 = fopen(input2, "r");
-      if (inputf2 == NULL) {
-         fprintf(stderr, "%s cannot open file %s\n", ERRM, input2);
-         say_usage();
-         return EXIT_FAILURE;
-      }
-   }
-   else {
-      inputf1 = stdin;
-   }
-
-   if (output_set) {
-      outputf1 = fopen(output, "w");
-      if (outputf1 == NULL) {
-         fprintf(stderr, "%s cannot write to file %s\n", ERRM, output);
-         say_usage();
-         return EXIT_FAILURE;
-      }
-   }
-   else if (nr_flag && input1_set && input2_set) {
-      // Set default names as inputX-starcode.fastq
-      if (!output1_set) {
-         output1 = outname(input1);
-         outputf1 = fopen(output1, "w");
-         free(output1);
-      } else {
-         outputf1 = fopen(output1, "w");
-      }
-
-      if (outputf1 == NULL) {
-         fprintf(stderr,
-               "%s cannot write to file %s\n", ERRM, outname(input1));
-         say_usage();
-         return EXIT_FAILURE;
-      }
-
-      if (!output2_set) {
-         output2 = outname(input2);
-         outputf2 = fopen(output2, "w");
-         free(output2);
-      } else {
-         outputf2 = fopen(output2, "w");
-      }
-
-      if (outputf2 == NULL) {
-         fprintf(stderr,
-               "%s cannot write to file %s\n", ERRM, outname(input2));
-         say_usage();
-         return EXIT_FAILURE;
-      }
-   }
-   else {
-      outputf1 = stdout;
-   }
-
+   // if verbose flag is set, print some information for the user
    if (vb_flag) {
       fprintf(stderr, "running starcode with %d thread%s\n",
            threads, threads > 1 ? "s" : "");
       fprintf(stderr, "reading input files\n");
    }
-   gstack_t *uSQ = read_file(inputf1, inputf2, vb_flag);
+
+   // initialize the "uSQ" stack with the input sequences
+   gstack_t *uSQ = read_file(io.inputf1, io.inputf2, vb_flag);
    if (uSQ == NULL || uSQ->nitems < 1) {
       fprintf(stderr, "input file empty\n");
       return 1;
@@ -417,13 +345,13 @@ main(
    );
 
    // print output
-   print_starcode_output(outputf1, outputf2, 
+   print_starcode_output(io.outputf1, io.outputf2, 
       result, cluster_alg, cl_flag, id_flag, output_type, vb_flag);
 
-   if (inputf1 != stdin)   fclose(inputf1);
-   if (inputf2 != NULL)    fclose(inputf2);
-   if (outputf1 != stdout) fclose(outputf1);
-   if (outputf2 != NULL)   fclose(outputf2);
+   if (io.inputf1 != stdin)   fclose(io.inputf1);
+   if (io.inputf2 != NULL)    fclose(io.inputf2);
+   if (io.outputf1 != stdout) fclose(io.outputf1);
+   if (io.outputf2 != NULL)   fclose(io.outputf2);
 
    return 0;
 

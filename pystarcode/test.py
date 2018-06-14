@@ -2,12 +2,12 @@ import pystarcode
 
 # parse file
 seq_list = []
-with open('small.txt','r') as f :
+with open('iPCR_rep1_filtered.txt','r') as f :
     for line in f :
         seq_list.append(line.strip('\n'))
 
 # invoke starcode
-counts, d = pystarcode.starcode(seq_list,2,5)
+counts, d = pystarcode.starcode(seq_list,2)
 
 # print counts output
 for key, l in counts.iteritems() :

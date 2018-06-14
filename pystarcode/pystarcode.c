@@ -8,19 +8,13 @@
 // module docstrings
 static char module_docstring[] = 
        "This module is a Python interface to Starcode";
-static char starcode_c_docstring[] = 
-       "Starcode invocation";
 static char starcode_docstring[] = 
-       "Starcode invocation";
+       "Starcode list of input sequences";
 
 // the module methods declaration
-static PyObject* pystarcode_starcode_c(PyObject *self, PyObject *args, PyObject *kwargs);
-
 static PyObject* pystarcode_starcode(PyObject *self, PyObject *args, PyObject *kwargs);
 
 static PyMethodDef module_methods[] = {
-  {"starcode_c", (PyCFunction) pystarcode_starcode_c,
-    METH_VARARGS|METH_KEYWORDS, starcode_c_docstring},
   {"starcode", (PyCFunction) pystarcode_starcode,
     METH_VARARGS|METH_KEYWORDS, starcode_docstring},
   {NULL, NULL, 0, NULL}
@@ -47,78 +41,6 @@ FILE *py_fopen(const char *fname, const char *mode)
   }
   else
     return f;
-}
-
-// this method is used to invoke exactly starcode from within python, without
-// any system call
-static PyObject* pystarcode_starcode_c(PyObject *self, PyObject *args, PyObject *kwargs)
-{
-  // Parse the input
-  char *in_filename, *out_filename;
-  int tau, cluster_ratio;
-  int clusteralg = 0;
-  int verbose = 1;
-  int thrmax = 4;
-  int showclusters = 1;
-  int showids = 0;
-  int outputt = 0;
-
-  static char *kwlist[] = {
-    "input",
-    "output",
-    "dist",
-    "cluster_ratio",
-    "clusteralg",
-    "verbose",
-    "threads",
-    "showclusters",
-    "showids",
-    "outputt",
-    NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "ssii|iiiiii", kwlist,
-	&in_filename,
-	&out_filename,
-	&tau,
-	&cluster_ratio,
-	&clusteralg,
-	&verbose,
-	&thrmax,
-	&showclusters,
-	&showids,
-	&outputt))
-    return NULL;
-
-  // open input and output files
-  FILE *inputf1 = py_fopen(in_filename,"r");
-  if (inputf1 == NULL) return NULL;
-  FILE *inputf2 = NULL;
-  FILE *outputf1 = py_fopen(out_filename, "w");
-  if (outputf1 == NULL) return NULL;
-  FILE *outputf2 = NULL;
-
-  printf("%s %s %d %d %d %d\n",in_filename,out_filename,tau,cluster_ratio,clusteralg,verbose);
-
-  // init the "gstack_t" data structure, which will contain the information on
-  // the sequences to analyze
-  gstack_t *uSQ = read_file(inputf1, inputf2, verbose);
-
-  gstack_t *result = starcode(
-      uSQ,
-      tau,
-      verbose,
-      thrmax,
-      clusteralg,
-      cluster_ratio,
-      showids
-  );
-
-  // print output
-  print_starcode_output(outputf1, outputf2, 
-    result, clusteralg, showclusters, showids, outputt, verbose);
-
-  PyObject *ret = Py_BuildValue("h", 0);
-
-  return ret;
 }
 
 static PyObject* pystarcode_starcode(PyObject *self, PyObject *args, PyObject *kwargs)

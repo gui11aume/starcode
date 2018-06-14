@@ -45,15 +45,16 @@ FILE *py_fopen(const char *fname, const char *mode)
 
 static PyObject* pystarcode_starcode(PyObject *self, PyObject *args, PyObject *kwargs)
 {
-  // Parse the input
-  int tau, cluster_ratio;
-  int clusteralg = 0;
+  // Input variables: required arguments
+  int tau;
+  PyObject * in_list;
+
+  // Input variables: keyword arguments with default values
+  int cluster_ratio = 5;
+  int clusteralg = MP_CLUSTER;
   int verbose = 1;
   int thrmax = 4;
-  int showclusters = 1;
   int showids = 0;
-  int outputt = 0;
-  PyObject * in_list;
 
   static char *kwlist[] = {
     "input_list",
@@ -62,11 +63,9 @@ static PyObject* pystarcode_starcode(PyObject *self, PyObject *args, PyObject *k
     "clusteralg",
     "verbose",
     "threads",
-    "showclusters",
     "showids",
-    "outputt",
     NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O!ii|iiiiii", kwlist,
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O!i|iiiii", kwlist,
 	&PyList_Type,
 	&in_list,
 	&tau,
@@ -74,9 +73,7 @@ static PyObject* pystarcode_starcode(PyObject *self, PyObject *args, PyObject *k
 	&clusteralg,
 	&verbose,
 	&thrmax,
-	&showclusters,
-	&showids,
-	&outputt))
+	&showids))
     return NULL;
 
   // get the number of sequence elements in the input list

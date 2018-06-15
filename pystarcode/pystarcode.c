@@ -1,5 +1,6 @@
 #include <Python.h>
 #include <stdlib.h>
+#include <string.h>
 #include "../src/starcode.h"
 #include "../src/trie.h"
 
@@ -51,7 +52,8 @@ static PyObject* pystarcode_starcode(PyObject *self, PyObject *args, PyObject *k
 
   // Input variables: keyword arguments with default values
   int cluster_ratio = 5;
-  int clusteralg = MP_CLUSTER;
+  int clusteralg_code;
+  char *clusteralg = NULL;
   int verbose = 1;
   int thrmax = 4;
   int showids = 0;
@@ -65,7 +67,7 @@ static PyObject* pystarcode_starcode(PyObject *self, PyObject *args, PyObject *k
     "threads",
     "showids",
     NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O!i|iiiii", kwlist,
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O!i|isiii", kwlist,
 	&PyList_Type,
 	&in_list,
 	&tau,
@@ -83,6 +85,27 @@ static PyObject* pystarcode_starcode(PyObject *self, PyObject *args, PyObject *k
   if (numLines < 0) {
     PyErr_SetString(PyExc_ValueError, "Input element is not list.");
     return NULL;
+  }
+
+  // evaluate the cluster algorithm to use
+  if (clusteralg == NULL) {
+    // if clusteralg is still NULL, then use the default MP clustering
+    clusteralg_code = MP_CLUSTER;
+  }
+  else {
+    if (strcmp(clusteralg, "mp")==0) {
+      clusteralg_code = MP_CLUSTER;
+    }
+    else if (strcmp(clusteralg, "spheres")==0) {
+      clusteralg_code = SPHERES_CLUSTER;
+    }
+    else if (strcmp(clusteralg, "components")==0) {
+      clusteralg_code = COMPONENTS_CLUSTER;
+    }
+    else {
+      PyErr_SetString(PyExc_ValueError, "Unrecognized clustering method");
+      return NULL;
+    }
   }
 
   // init the structure that we will pass to the starcode core function
@@ -127,7 +150,7 @@ static PyObject* pystarcode_starcode(PyObject *self, PyObject *args, PyObject *k
       tau,
       verbose,
       thrmax,
-      clusteralg,
+      clusteralg_code,
       cluster_ratio,
       showids
   );
@@ -137,24 +160,46 @@ static PyObject* pystarcode_starcode(PyObject *self, PyObject *args, PyObject *k
   PyObject * d = PyDict_New();
   PyObject * counts = PyDict_New();
 
-  // init the canonical sequence
-  useq_t *canonical = ((useq_t *)clusters->items[0])->canonical;
-  PyDict_SetItemString(counts, canonical->seq, PyInt_FromSize_t(canonical->count));
+  ////////////////////////////////
+  // WRITE OUTPUT
+  ////////////////////////////////
 
-  // fill in the dictionaries
-  for (size_t i = 0 ; i < clusters->nitems ; i++) {
-    useq_t *u = (useq_t *) clusters->items[i];
-    PyDict_SetItemString(d, u->seq, PyString_FromString(u->canonical->seq));
+  // case of MP clustering
+  if (clusteralg == MP_CLUSTER) {
 
-    // let's see if the current canonical is the same as the last one
-    if (u->canonical != canonical) {
+    // init the canonical sequence
+    useq_t *canonical = ((useq_t *)clusters->items[0])->canonical;
+    PyDict_SetItemString(counts,
+	canonical->seq,
+	PyInt_FromSize_t(canonical->count));
 
-      // in this case we update the canonical
-      canonical = u->canonical;
+    // fill in the dictionaries
+    for (size_t i = 0 ; i < clusters->nitems ; i++) {
+      useq_t *u = (useq_t *) clusters->items[i];
+      PyDict_SetItemString(d,
+	  u->seq,
+	  PyString_FromString(u->canonical->seq));
 
-      // and we write the new element in the dictionary of counts
-      PyDict_SetItemString(counts, canonical->seq, PyInt_FromSize_t(canonical->count));
+      // let's see if the current canonical is the same as the last one
+      if (u->canonical != canonical) {
+
+	// in this case we update the canonical
+	canonical = u->canonical;
+
+	// and we write the new element in the dictionary of counts
+	PyDict_SetItemString(counts, 
+	    canonical->seq, 
+	    PyInt_FromSize_t(canonical->count));
+      }
     }
+  }
+  else if (clusteralg_code == SPHERES_CLUSTER) {
+    PyErr_SetString(PyExc_ValueError, "Output for spheres not implemented\n");
+    return NULL;
+  }
+  else if (clusteralg_code == COMPONENTS_CLUSTER) {
+    PyErr_SetString(PyExc_ValueError, "Output for components not implemented\n");
+    return NULL;
   }
 
   // let's now build the return object, which will be a tuple of the two

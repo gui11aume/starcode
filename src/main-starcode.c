@@ -289,6 +289,7 @@ main(
       // is the name of the input file.
       if ((optind == argc-1) && (!input_set && !input1_set)) {
          input = argv[optind];
+	 input_set = 1;
       }
       else {
          fprintf(stderr, "%s too many options\n", ERRM);

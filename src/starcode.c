@@ -157,9 +157,9 @@ int        pad_useq (gstack_t*, int*);
 mtplan_t * plan_mt (int, int, int, int, gstack_t *);
 void       run_plan (mtplan_t *, int, int);
 gstack_t * read_rawseq (FILE *, gstack_t *);
-gstack_t * read_fasta (FILE *, gstack_t *);
-gstack_t * read_fastq (FILE *, gstack_t *);
-gstack_t * read_PE_fastq (FILE *, FILE *, gstack_t *);
+gstack_t * read_fasta (FILE *, gstack_t *, output_t);
+gstack_t * read_fastq (FILE *, gstack_t *, output_t);
+gstack_t * read_PE_fastq (FILE *, FILE *, gstack_t *, output_t);
 int        seq2id (char *, int);
 gstack_t * seq2useq (gstack_t*, int);
 int        seqsort (useq_t **, int, int);
@@ -175,7 +175,6 @@ void       warn_about_missing_sequences (void);
 static FILE     * OUTPUTF1      = NULL;           // output file 1
 static FILE     * OUTPUTF2      = NULL;           // output file 2
 static format_t   FORMAT        = UNSET;          // input format
-static output_t   OUTPUTT       = DEFAULT_OUTPUT; // output type
 static cluster_t  CLUSTERALG    = MP_CLUSTER;     // cluster algorithm
 static int        CLUSTER_RATIO = 5;              // min parent/child ratio
                                                   // to link clusters
@@ -438,7 +437,6 @@ print_starcode_output
 
    OUTPUTF1 = outputf1;
    OUTPUTF2 = outputf2;
-   OUTPUTT = outputt;
    CLUSTERALG = clusteralg;
 
    propt_t propt = {
@@ -454,7 +452,7 @@ print_starcode_output
       // canonical are removed from the output.
       int user_warned_about_missing_sequences = 0;
 
-      if (OUTPUTT == DEFAULT_OUTPUT) {
+      if (outputt == DEFAULT_OUTPUT) {
          useq_t *first = (useq_t *) clusters->items[0];
          useq_t *canonical = first->canonical;
 
@@ -503,7 +501,7 @@ print_starcode_output
 
    } else if (clusteralg == SPHERES_CLUSTER) {
       // Default output.
-      if (OUTPUTT == DEFAULT_OUTPUT) {
+      if (outputt == DEFAULT_OUTPUT) {
          for (int i = 0 ; i < clusters->nitems ; i++) {
             useq_t *u = (useq_t *) clusters->items[i];
             if (u->canonical != u) break;
@@ -547,7 +545,7 @@ print_starcode_output
 
    } else if (clusteralg == COMPONENTS_CLUSTER) {
       // Default output.
-      if (OUTPUTT == DEFAULT_OUTPUT) {
+      if (outputt == DEFAULT_OUTPUT) {
          for (int i = 0; i < clusters->nitems; i++) {
             gstack_t * cluster = (gstack_t *) clusters->items[i];
             // Get canonical.
@@ -1647,7 +1645,8 @@ gstack_t *
 read_fasta
 (
    FILE     * inputf,
-   gstack_t * uSQ
+   gstack_t * uSQ,
+   output_t outputt
 )
 {
 
@@ -1662,7 +1661,7 @@ read_fasta
    char *header = NULL;
    int lineno = 0;
 
-   int const readh = OUTPUTT == NRED_OUTPUT;
+   int const readh = outputt == NRED_OUTPUT;
    while ((nread = getline(&line, &nchar, inputf)) != -1) {
       lineno++;
       // Strip newline character.
@@ -1711,7 +1710,8 @@ gstack_t *
 read_fastq
 (
    FILE     * inputf,
-   gstack_t * uSQ
+   gstack_t * uSQ,
+   output_t outputt
 )
 {
 
@@ -1728,7 +1728,7 @@ read_fastq
    char info[2*M+2] = {0};
    int lineno = 0;
 
-   int const readh = OUTPUTT == NRED_OUTPUT;
+   int const readh = outputt == NRED_OUTPUT;
    while ((nread = getline(&line, &nchar, inputf)) != -1) {
       lineno++;
       // Strip newline character.
@@ -1784,7 +1784,8 @@ read_PE_fastq
 (
    FILE     * inputf1,
    FILE     * inputf2,
-   gstack_t * uSQ
+   gstack_t * uSQ,
+   output_t outputt
 )
 {
 
@@ -1816,7 +1817,7 @@ read_PE_fastq
    char info[4*M] = {0};
    int lineno = 0;
 
-   int const readh = OUTPUTT == NRED_OUTPUT;
+   int const readh = outputt == NRED_OUTPUT;
    char sep[STARCODE_MAX_TAU+2] = {0};
    memset(sep, '-', STARCODE_MAX_TAU+1);
 
@@ -1913,7 +1914,8 @@ read_file
 (
    FILE      * inputf1,
    FILE      * inputf2,
-   const int   verbose
+   const int   verbose,
+   output_t outputt
 )
 {
 
@@ -1952,9 +1954,9 @@ read_file
    }
 
    if (FORMAT == RAW)      return read_rawseq(inputf1, uSQ);
-   if (FORMAT == FASTA)    return read_fasta(inputf1, uSQ);
-   if (FORMAT == FASTQ)    return read_fastq(inputf1, uSQ);
-   if (FORMAT == PE_FASTQ) return read_PE_fastq(inputf1, inputf2, uSQ);
+   if (FORMAT == FASTA)    return read_fasta(inputf1, uSQ, outputt);
+   if (FORMAT == FASTQ)    return read_fastq(inputf1, uSQ, outputt);
+   if (FORMAT == PE_FASTQ) return read_PE_fastq(inputf1, inputf2, uSQ, outputt);
 
    return NULL;
 

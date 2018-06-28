@@ -327,7 +327,7 @@ main(
    }
 
    // initialize the "uSQ" stack with the input sequences
-   gstack_t *uSQ = read_file(io.inputf1, io.inputf2, vb_flag);
+   gstack_t *uSQ = read_file(io.inputf1, io.inputf2, vb_flag, output_type);
    if (uSQ == NULL || uSQ->nitems < 1) {
       fprintf(stderr, "input file empty\n");
       return 1;

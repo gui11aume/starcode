@@ -98,7 +98,8 @@ read_file
 (
    FILE      * inputf1,
    FILE      * inputf2,
-   const int   verbose
+   const int   verbose,
+   output_t outputt
 );
 
 typedef enum {

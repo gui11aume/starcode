@@ -12,3 +12,4 @@ test/.inspect.gdb
 test/runtests
 doc/*.log
 *\#*
+*.txt

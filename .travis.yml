@@ -9,7 +9,7 @@ branches:
 before_install:
   - sudo pip install cpp-coveralls
 
-script: make && cd test && make test
+script: sudo python setup.py install && make && cd test && make test
 
 after_success:
   - coveralls --verbose --gcov-options '\-lp' -r .. -E '.*test*'

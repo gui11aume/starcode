@@ -702,7 +702,7 @@ test_starcode_10
 
    // Read raw file.
    FILE *f = fopen("test_file.txt", "r");
-   gstack_t *useqS = read_file(f, NULL, 0);
+   gstack_t *useqS = read_file(f, NULL, 0, DEFAULT_OUTPUT);
    test_assert(useqS->nitems == 35);
    for (int i = 0 ; i < useqS->nitems ; i++) {
       useq_t * u = (useq_t *) useqS->items[i];
@@ -719,7 +719,7 @@ test_starcode_10
 
    // Read fasta file.
    f = fopen("test_file.fasta", "r");
-   useqS = read_file(f, NULL, 0);
+   useqS = read_file(f, NULL, 0, DEFAULT_OUTPUT);
    test_assert(useqS->nitems == 5);
    for (int i = 0 ; i < useqS->nitems ; i++) {
       useq_t * u = (useq_t *) useqS->items[i];
@@ -736,7 +736,7 @@ test_starcode_10
 
    // Read fastq file.
    f = fopen("test_file1.fastq", "r");
-   useqS = read_file(f, NULL, 0);
+   useqS = read_file(f, NULL, 0, DEFAULT_OUTPUT);
    test_assert(useqS->nitems == 5);
    for (int i = 0 ; i < useqS->nitems ; i++) {
       useq_t * u = (useq_t *) useqS->items[i];
@@ -770,7 +770,7 @@ test_starcode_10
    // Read paired-end fastq file.
    FILE *f1 = fopen("test_file1.fastq", "r");
    FILE *f2 = fopen("test_file2.fastq", "r");
-   useqS = read_file(f1, f2, 0);
+   useqS = read_file(f1, f2, 0, DEFAULT_OUTPUT);
    test_assert(useqS->nitems == 5);
    for (int i = 0 ; i < useqS->nitems ; i++) {
       useq_t * u = (useq_t *) useqS->items[i];

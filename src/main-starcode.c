@@ -28,51 +28,12 @@
 #include <string.h>
 #include <unistd.h>
 #include "starcode.h"
-
-#define ERRM "starcode error:"
+#include "trie.h"
 
 // Prototypes for utilities of the main.
-char * outname (char *);
-void   say_usage (void);
 void   say_version (void);
 void   SIGSEGV_handler (int);
 
-char *USAGE =
-"\n"
-"Usage:"
-"  starcode [options]\n"
-"\n"
-"  general options:\n"
-"    -d --dist: maximum Levenshtein distance (default auto)\n"
-"    -t --threads: number of concurrent threads (default 1)\n"
-"    -q --quiet: quiet output (default verbose)\n"
-"    -v --version: display version and exit\n"
-"\n"
-"  cluster options: (default algorithm: message passing)\n"
-"    -r --cluster-ratio: min size ratio for merging clusters in\n"
-"               message passing (default 5)\n"
-"    -s --sphere: use sphere clustering algorithm\n"
-"    -c --connected-comp: cluster connected components\n"
-"\n"
-"  input/output options (single file, default)\n"
-"    -i --input: input file (default stdin)\n"
-"    -o --output: output file (default stdout)\n"
-"\n"
-"  input options (paired-end fastq files)\n"
-"    -1 --input1: input file 1\n"
-"    -2 --input2: input file 2\n"
-"\n"
-"  output options (paired-end fastq files, --non-redundant only)\n"
-"       --output1: output file1 (default input1-starcode.fastq)\n"
-"       --output2: output file2 (default input2-starcode.fastq)\n"
-"\n"
-"  output format options\n"
-"       --non-redundant: remove redundant sequences from input file(s)\n"
-"       --print-clusters: outputs cluster compositions\n"
-"       --seq-id: print sequence id numbers (1-based)\n";
-
-
-void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
 void say_version(void) { fprintf(stderr, VERSION "\n"); }
 
 void SIGSEGV_handler(int sig) {
@@ -88,35 +49,6 @@ void SIGSEGV_handler(int sig) {
    exit(1);
 }
 
-
-char *
-outname
-(
-   char *path
-)
-{
-
-   char * name = calloc(320,1);
-   if (strlen(path) > 310) {
-      fprintf(stderr, "input file name too long (%s)\n", path);
-      abort();
-   }
-
-   // Find final dot, append "-starcode" just before.
-   // If no final dot, just append starcode as suffix.
-   char *c = strrchr(path, '.');
-   if (c == NULL) {
-      sprintf(name, "%s-starcode", path);
-   }
-   else {
-      *c = '\0';
-      sprintf(name, "%s-starcode.%s", path, c+1);
-      *c = '.';
-   }
-
-   return (char *) name;
-
-}
 
 
 int
@@ -140,15 +72,20 @@ main(
    int dist = -1;
    int threads = -1;
    int cluster_ratio = -1;
+   int input_set = 0;
+   int input1_set = 0;
+   int input2_set = 0;
+   int output_set = 0;
+   int output1_set = 0;
+   int output2_set = 0;
 
-   // Unset options (value 'UNSET').
-   char * const UNSET = "unset";
-   char * input   = UNSET;
-   char * input1  = UNSET;
-   char * input2  = UNSET;
-   char * output  = UNSET;
-   char * output1 = UNSET;
-   char * output2 = UNSET;
+   // file names
+   char * input;
+   char * input1;
+   char * input2;
+   char * output;
+   char * output1;
+   char * output2;
 
 
    if (argc == 1 && isatty(0)) {
@@ -193,8 +130,9 @@ main(
          break;
 
       case '1':
-         if (input1 == UNSET) {
+         if (!input1_set) {
             input1 = optarg;
+	    input1_set = 1;
          }
          else {
             fprintf(stderr, "%s --input1 set more than once\n", ERRM);
@@ -204,8 +142,9 @@ main(
          break;
 
       case '2':
-         if (input2 == UNSET) {
+         if (!input2_set) {
             input2 = optarg;
+	    input2_set = 1;
          }
          else {
             fprintf(stderr, "%s --input2 set more than once\n", ERRM);
@@ -215,8 +154,9 @@ main(
          break;
 
       case '3':
-         if (output1 == UNSET) {
+         if (!output1_set) {
             output1 = optarg;
+	    output1_set = 1;
          }
          else {
             fprintf(stderr, "%s --output1 set more than once\n", ERRM);
@@ -226,8 +166,9 @@ main(
          break;
 
       case '4':
-         if (output2 == UNSET) {
+         if (!output2_set) {
             output2 = optarg;
+	    output2_set = 1;
          }
          else {
             fprintf(stderr, "%s --output2 set more than once\n", ERRM);
@@ -260,8 +201,9 @@ main(
          return 0;
 
       case 'i':
-         if (input == UNSET) {
+         if (!input_set) {
             input = optarg;
+	    input_set = 1;
          }
          else {
             fprintf(stderr, "%s --input set more than once\n", ERRM);
@@ -271,8 +213,9 @@ main(
          break;
 
       case 'o':
-         if (output == UNSET) {
+         if (!output_set) {
             output = optarg;
+	    output_set = 1;
          }
          else {
             fprintf(stderr, "%s --output set more than once\n", ERRM);
@@ -344,8 +287,9 @@ main(
    if (optind < argc) {
       // If no input is specified, assume first positional argument
       // is the name of the input file.
-      if ((optind == argc-1) && (input == UNSET && input1 == UNSET)) {
+      if ((optind == argc-1) && (!input_set && !input1_set)) {
          input = argv[optind];
+	 input_set = 1;
       }
       else {
          fprintf(stderr, "%s too many options\n", ERRM);
@@ -354,159 +298,62 @@ main(
       }
    }
 
-   // Check options compatibility. //
-   if (nr_flag && (cl_flag || id_flag)) {
-      fprintf(stderr,
-            "%s --non-redundant flag is incompatible with "
-            "--print-clusters and --seq-id\n", ERRM);
-      say_usage();
-      return EXIT_FAILURE;
-   }
-   if (input != UNSET && (input1 != UNSET || input2 != UNSET)) {
-      fprintf(stderr,
-            "%s --input and --input1/2 are incompatible\n", ERRM);
-      say_usage();
-      return EXIT_FAILURE;
-   }
-   if (input1 == UNSET && input2 != UNSET) {
-      fprintf(stderr, "%s --input2 set without --input1\n", ERRM);
-      say_usage();
-      return EXIT_FAILURE;
-   }
-   if (input2 == UNSET && input1 != UNSET) {
-      fprintf(stderr, "%s --input1 set without --input2\n", ERRM);
-      say_usage();
-      return EXIT_FAILURE;
-   }
-   if (nr_flag && output != UNSET &&
-         (input1 != UNSET || input2 != UNSET)) {
-      fprintf(stderr, "%s cannot specify --output for paired-end "
-            "fastq file with --non-redundant\n", ERRM);
-      say_usage();
-      return EXIT_FAILURE;
-   }
-   if (sp_flag && cp_flag) {
-      fprintf(stderr, "%s --sphere and --connected-comp are "
-              "incompatible\n", ERRM);
-      say_usage();
-      return EXIT_FAILURE;
+   // set default input and check flag compatibility
+   int ic = check_input (nr_flag,cl_flag,id_flag,sp_flag,cp_flag,
+       &threads,&cluster_ratio,input_set,input1_set,input2_set,output_set);
+   if (ic != INPUT_OK) return EXIT_FAILURE;
+
+   // Set output type
+   int output_type = set_output_type(nr_flag);
+
+   // Set clustering algorithm
+   int cluster_alg = set_cluster_alg(cp_flag, sp_flag);
+
+   // Set starcode input and output files
+   starcode_io_t io;
+   int io_ok = set_input_and_output(&io,
+       input, input1, input2,
+       output, output1, output2,
+       input1_set, input2_set, input_set,
+       output1_set, output2_set, output_set,
+       nr_flag);
+   if (io_ok != IO_OK) return EXIT_FAILURE;
+
+   // if verbose flag is set, print some information for the user
+   if (vb_flag) {
+      fprintf(stderr, "running starcode with %d thread%s\n",
+           threads, threads > 1 ? "s" : "");
+      fprintf(stderr, "reading input files\n");
    }
 
-   // Set output type. //
-   int output_type;
-   if      (nr_flag) output_type = NRED_OUTPUT;
-   else              output_type = DEFAULT_OUTPUT;
-
-   int cluster_alg;
-   if      (cp_flag) cluster_alg = COMPONENTS_CLUSTER;
-   else if (sp_flag) cluster_alg = SPHERES_CLUSTER;
-   else              cluster_alg = MP_CLUSTER;
-
-
-
-   // Set input file(s). //
-   FILE *inputf1 = NULL;
-   FILE *inputf2 = NULL;
-
-   // Set output file(s). //
-   FILE *outputf1 = NULL;
-   FILE *outputf2 = NULL;
-
-   if (input != UNSET) {
-      inputf1 = fopen(input, "r");
-      if (inputf1 == NULL) {
-         fprintf(stderr, "%s cannot open file %s\n", ERRM, input);
-         say_usage();
-         return EXIT_FAILURE;
-      }
-   }
-   else if (input1 != UNSET) {
-      inputf1 = fopen(input1, "r");
-      if (inputf1 == NULL) {
-         fprintf(stderr, "%s cannot open file %s\n", ERRM, input1);
-         say_usage();
-         return EXIT_FAILURE;
-      }
-      inputf2 = fopen(input2, "r");
-      if (inputf2 == NULL) {
-         fprintf(stderr, "%s cannot open file %s\n", ERRM, input2);
-         say_usage();
-         return EXIT_FAILURE;
-      }
-   }
-   else {
-      inputf1 = stdin;
+   // initialize the "uSQ" stack with the input sequences
+   gstack_t *uSQ = read_file(io.inputf1, io.inputf2, vb_flag, output_type);
+   if (uSQ == NULL || uSQ->nitems < 1) {
+      fprintf(stderr, "input file empty\n");
+      return 1;
    }
 
-   if (output != UNSET) {
-      outputf1 = fopen(output, "w");
-      if (outputf1 == NULL) {
-         fprintf(stderr, "%s cannot write to file %s\n", ERRM, output);
-         say_usage();
-         return EXIT_FAILURE;
-      }
-   }
-   else if (nr_flag && input1 != UNSET && input2 != UNSET) {
-      // Set default names as inputX-starcode.fastq
-      if (output1 == UNSET) {
-         output1 = outname(input1);
-         outputf1 = fopen(output1, "w");
-         free(output1);
-      } else {
-         outputf1 = fopen(output1, "w");
-      }
-
-      if (outputf1 == NULL) {
-         fprintf(stderr,
-               "%s cannot write to file %s\n", ERRM, outname(input1));
-         say_usage();
-         return EXIT_FAILURE;
-      }
-
-      if (output2 == UNSET) {
-         output2 = outname(input2);
-         outputf2 = fopen(output2, "w");
-         free(output2);
-      } else {
-         outputf2 = fopen(output2, "w");
-      }
-
-      if (outputf2 == NULL) {
-         fprintf(stderr,
-               "%s cannot write to file %s\n", ERRM, outname(input2));
-         say_usage();
-         return EXIT_FAILURE;
-      }
-   }
-   else {
-      outputf1 = stdout;
-   }
-
-   // Set remaining default options.
-   if (threads < 0) threads = 1;
-   if (cluster_ratio < 0) cluster_ratio = 5;
-
-   int exitcode =
+   // invoke the main starcode routine
+   gstack_t *result =
    starcode(
-       inputf1,
-       inputf2,
-       outputf1,
-       outputf2,
+       uSQ,
        dist,
        vb_flag,
        threads,
        cluster_alg,
        cluster_ratio,
-       cl_flag,
-       id_flag,
-       output_type
+       id_flag
    );
 
-   if (inputf1 != stdin)   fclose(inputf1);
-   if (inputf2 != NULL)    fclose(inputf2);
-   if (outputf1 != stdout) fclose(outputf1);
-   if (outputf2 != NULL)   fclose(outputf2);
+   // print output
+   print_starcode_output(io.outputf1, io.outputf2, 
+      result, cluster_alg, cl_flag, id_flag, output_type, vb_flag);
 
-   return exitcode;
+   if (io.inputf1 != stdin)   fclose(io.inputf1);
+   if (io.inputf2 != NULL)    fclose(io.inputf2);
+   if (io.outputf1 != stdout) fclose(io.outputf1);
+   if (io.outputf2 != NULL)   fclose(io.outputf2);
+
+   return 0;
 
 }

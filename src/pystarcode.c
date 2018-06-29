@@ -1,8 +1,8 @@
 #include <Python.h>
 #include <stdlib.h>
 #include <string.h>
-#include "src/starcode.h"
-#include "src/trie.h"
+#include "starcode.h"
+#include "trie.h"
 
 #define MAX_STR_LENGTH 2048
 

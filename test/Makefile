@@ -24,6 +24,7 @@ libunittest.so: unittest.c
 test: $(P)
 	./$(P)
 	sh extratests.sh
+	python test.py
 
 inspect: $(P)
 	gdb --command=.inspect.gdb --args $(P)

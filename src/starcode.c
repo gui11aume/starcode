@@ -189,6 +189,7 @@ gstack_t * compute_clusters (gstack_t *);
 void       connected_components (useq_t *, gstack_t **);
 long int   count_trie_nodes (useq_t **, int, int);
 int        sphere_size_order (const void *, const void *);
+int        count_order (const void *, const void *);
 int        count_order_spheres (const void *, const void *);
 void       destroy_useq (useq_t *);
 void       destroy_lookup (lookup_t *);
@@ -2238,7 +2239,7 @@ canonical_order
 int
 sphere_size_order
 (
- const void *a,
+   const void *a,
    const void *b
  )
 {
@@ -2246,7 +2247,23 @@ sphere_size_order
    useq_t *u2 = *((useq_t **) b);
    if (u1->sphere_c == u2->sphere_c) return strcmp(u1->seq, u2->seq);
    else return u1->sphere_c < u2->sphere_c ? 1 : -1;
+}
+
+
+int
+count_order
+(
+   const void *a,
+   const void *b
+ )
+{
+   useq_t *u1 = *((useq_t **) a);
+   useq_t *u2 = *((useq_t **) b);
+   if (u1->count == u2->count) return strcmp(u1->seq, u2->seq);
+   else return u1->count < u2->count ? 1 : -1;
 } 
+
+
 
 
 int

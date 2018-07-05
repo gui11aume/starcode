@@ -112,6 +112,8 @@ typedef struct sortargs_t sortargs_t;
 struct useq_t {
   int              count;       // Number of sequences
   unsigned int     nids;        // Number of associated IDs
+  int              sphere_c;    // Centroid: Size of the sphere.
+  int              sphere_d;    // Distance to current sphere centroid.
   char          *  seq;         // Sequence
   char          *  info;        // Multi-function text field
   gstack_t      ** matches;     // Matches stratified by distance
@@ -186,6 +188,7 @@ int        cluster_count (const void *, const void *);
 gstack_t * compute_clusters (gstack_t *);
 void       connected_components (useq_t *, gstack_t **);
 long int   count_trie_nodes (useq_t **, int, int);
+int        sphere_size_order (const void *, const void *);
 int        count_order (const void *, const void *);
 int        count_order_spheres (const void *, const void *);
 void       destroy_useq (useq_t *);
@@ -209,7 +212,7 @@ gstack_t * read_PE_fastq (FILE *, FILE *, gstack_t *);
 int        seq2id (char *, int);
 gstack_t * seq2useq (gstack_t*, int);
 int        seqsort (useq_t **, int, int);
-void       sphere_clustering (gstack_t *, int);
+void       sphere_clustering (gstack_t *);
 void       transfer_counts_and_update_canonicals (useq_t*, int);
 void       transfer_useq_ids (useq_t *, useq_t *);
 void       unpad_useq (gstack_t*);
@@ -542,9 +545,9 @@ starcode
 
       if (verbose) fprintf(stderr, "spheres clustering\n");
       // Cluster the pairs.
-      sphere_clustering(uSQ, showids);
+      sphere_clustering(uSQ);
       // Sort in count order.
-      qsort(uSQ->items, uSQ->nitems, sizeof(useq_t *), count_order);
+      qsort(uSQ->items, uSQ->nitems, sizeof(useq_t *), sphere_size_order);
 
       // Default output.
       if (OUTPUTT == DEFAULT_OUTPUT) {
@@ -554,10 +557,10 @@ starcode
 
             fprintf(OUTPUTF1, "%s\t", u->seq);
             if (showclusters) {
-               fprintf(OUTPUTF1, "%d\t%s", u->count, u->seq);
+               fprintf(OUTPUTF1, "%d\t%s", u->sphere_c, u->seq);
             }
             else {
-               fprintf(OUTPUTF1, "%d", u->count);
+               fprintf(OUTPUTF1, "%d", u->sphere_c);
             }
             if (showclusters && u->matches != NULL) {
                gstack_t *hits;
@@ -571,6 +574,18 @@ starcode
             }
             // Print cluster seqIDs.
             if (showids) {
+	       // Transfer ids now.
+	       if (u->matches != NULL) {
+		  gstack_t *hits;
+		  for (int j = 0 ; (hits = u->matches[j]) != TOWER_TOP ; j++) {
+		     for (int k = 0 ; k < hits->nitems ; k++) {
+			useq_t *match = (useq_t *) hits->items[k];
+			if (match->canonical != u) continue;
+			transfer_useq_ids(u, match);
+		     }
+		  }
+	       }
+	       // Print ids.
                if (u->nids > 1) {
                   fprintf(OUTPUTF1, "\t%u", u->seqid[0]);
                } else
@@ -1134,8 +1149,7 @@ compute_clusters
 void
 sphere_clustering
 (
- gstack_t *useqS,
- int transfer_ids
+ gstack_t *useqS
 )
 {
    // Sort in count order.
@@ -1145,6 +1159,8 @@ sphere_clustering
       useq_t *useq = (useq_t *) useqS->items[i];
       if (useq->canonical != NULL) continue;
       useq->canonical = useq;
+      useq->sphere_c  = useq->count;
+      useq->sphere_d  = 0;
       if (useq->matches == NULL) continue;
       // Bidirectional edge references simplifie the algorithm.
       // Directly proceed to claim neighbor counts.
@@ -1154,15 +1170,19 @@ sphere_clustering
             useq_t *match = (useq_t *) matches->items[k];
             // If a sequence has been already claimed, remove it from list.
             if (match->canonical != NULL) {
-               matches->items[k--] = matches->items[--matches->nitems];
-               continue;
-            }
-            // Otherwise, claim the sequence.
-            match->canonical = useq;
-            useq->count += match->count;
-            match->count = 0;
-            if (transfer_ids)
-               transfer_useq_ids(useq, match);
+	       // Steal sequence from the other sphere if it is closer to this centroid.
+	       if (j < match->sphere_d) {
+		  // Update other sphere size.
+		  match->canonical->sphere_c -= match->count;
+	       } else {
+		  matches->items[k--] = matches->items[--matches->nitems];
+		  continue;
+	       }
+	    }		  
+	    // Claim the sequence.
+	    useq->sphere_c += match->count;
+	    match->canonical = useq;
+	    match->sphere_d = j;
          }
       }
    }
@@ -2217,9 +2237,23 @@ canonical_order
 
 
 int
+sphere_size_order
+(
+   const void *a,
+   const void *b
+ )
+{
+   useq_t *u1 = *((useq_t **) a);
+   useq_t *u2 = *((useq_t **) b);
+   if (u1->sphere_c == u2->sphere_c) return strcmp(u1->seq, u2->seq);
+   else return u1->sphere_c < u2->sphere_c ? 1 : -1;
+}
+
+
+int
 count_order
 (
- const void *a,
+   const void *a,
    const void *b
  )
 {
@@ -2228,6 +2262,8 @@ count_order
    if (u1->count == u2->count) return strcmp(u1->seq, u2->seq);
    else return u1->count < u2->count ? 1 : -1;
 } 
+
+
 
 
 int

@@ -2014,18 +2014,22 @@ mp_resolve_ambiguous
    // Criteria 1 and 2.
    useq_t * canonical = NULL;
    int      cnt_max = 0;
+   int      ssz_max = 0;
    for (int i = 0; i < matches->nitems ; i++) {
       useq_t *match = (useq_t *) matches->items[i];
       if (match->canonical == match) {
 	 if (match->count > cnt_max) {
-	    cnt_max = match->count;
 	    canonical = match;
+	    cnt_max = canonical->count;
+	    ssz_max = canonical->sphere_c;
 	 }
 	 // Same count, compare sphere size.
 	 else if (match->count == cnt_max && match != canonical) {
-	    if (match->sphere_c > canonical->sphere_c)
+	    if (match->sphere_c > ssz_max) {
 	       canonical = match;
-	    else if (match->sphere_c == canonical->sphere_c)
+	       ssz_max = canonical->sphere_c;
+	    }
+	    else if (match->sphere_c == ssz_max)
 	       canonical = NULL;
 	 }
       }

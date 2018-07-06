@@ -119,27 +119,68 @@ test_starcode_3
    useq_t *u3 = new_useq(1, "{Lu[T}FOCMs}L_zx", NULL);
    useq_t *u4 = new_useq(2, "|kAV|Ch|RZ]h~WjCoDpX", NULL);
    useq_t *u5 = new_useq(2, "}lzHolUky", NULL);
+   useq_t *u6 = new_useq(3, "][asdf31!3R]", NULL);
+   useq_t *u7 = new_useq(1, "kjkdfdHK!}33-34", NULL);
 
    // Add matches to 'u3'.
    addmatch(u3, u4, 1, 1);
    addmatch(u3, u5, 1, 1);
+   addmatch(u5, u6, 1, 1);
+   addmatch(u7, u3, 1, 1);
 
    test_assert(u3->count == 1);
    test_assert(u4->count == 2);
    test_assert(u5->count == 2);
+   test_assert(u6->count == 3);
 
-   transfer_counts_and_update_canonicals(u3,0);
+   // u7 points to u3, which is ambiguous.
+   transfer_counts_and_update_canonicals(u7,0);
 
-   test_assert(u3->count == 0);
-   test_assert(u3->count == 0);
+
    test_assert(u3->canonical == NULL);
+   test_assert(u3->count == 1);
+   test_assert(u3->sphere_d == 1);
+   
+   test_assert(u7->canonical == NULL);
+   test_assert(u7->count == 1);
+   test_assert(u7->sphere_d == 1);
+   
+   test_assert(u5->canonical == u6);
+   test_assert(u5->count == 0);
+   test_assert(u5->sphere_d == 0);
+   
+   test_assert(u6->canonical == u6);
+   test_assert(u6->count == 5);
+   test_assert(u6->sphere_d == 0);
+
    test_assert(u4->canonical == u4);
-   test_assert(u5->canonical == u5);
+   test_assert(u4->count == 2);
+   test_assert(u4->sphere_d == 0);
+
+   // Resolve ambiguous canonicals.
+   mp_resolve_ambiguous(u5, 0);
+   test_assert(u3->canonical == NULL);
+   test_assert(u5->canonical == u6);
+
+   // u3 canonical must be u4, because is a true canonical.
+   mp_resolve_ambiguous(u7, 0);
+
+   test_assert(u3->canonical == u4);
+   test_assert(u7->canonical == u4);
+   test_assert(u4->canonical == u4);
+   test_assert(u5->canonical == u6);
+   test_assert(u6->canonical == u6);
+   test_assert(u3->count == 0);
+   test_assert(u7->count == 0);
+   test_assert(u4->count == 4);
+   test_assert(u5->count == 0);
+   test_assert(u6->count == 5);
 
    destroy_useq(u3);
    destroy_useq(u4);
    destroy_useq(u5);
-
+   destroy_useq(u6);
+   destroy_useq(u7);
 }
 
 

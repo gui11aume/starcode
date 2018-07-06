@@ -113,7 +113,7 @@ struct useq_t {
   int              count;       // Number of sequences
   unsigned int     nids;        // Number of associated IDs
   int              sphere_c;    // Centroid: Size of the sphere.
-  int              sphere_d;    // Distance to current sphere centroid.
+  int              sphere_d;    // Distance to current sphere centroid. / MP: Ambiguous flag.
   char          *  seq;         // Sequence
   char          *  info;        // Multi-function text field
   gstack_t      ** matches;     // Matches stratified by distance
@@ -199,6 +199,7 @@ void       krash (void) __attribute__ ((__noreturn__));
 int        lut_insert (lookup_t *, useq_t *); 
 int        lut_search (lookup_t *, useq_t *); 
 void       message_passing_clustering (gstack_t*, int);
+void       mp_resolve_ambiguous(useq_t*, int);
 lookup_t * new_lookup (int, int, int);
 useq_t   * new_useq (int, char *, char *);
 int        pad_useq (gstack_t*, int*);
@@ -447,7 +448,7 @@ starcode
       ntries = 1;
       thrmax = 1;
    }
- 
+
    // Pad sequences (and return the median size).
    // Compute 'tau' from it in "auto" mode.
    int med = -1;
@@ -458,7 +459,7 @@ starcode
          fprintf(stderr, "setting dist to %d\n", tau);
       }
    }
-   
+
    // Make multithreading plan.
    mtplan_t *mtplan = plan_mt(tau, height, med, ntries, uSQ);
 
@@ -1205,6 +1206,13 @@ message_passing_clustering
       transfer_counts_and_update_canonicals(u, transfer_ids);
    }
 
+   // Resolve ambiguous assignments.
+   for (int i = 0 ; i < useqS->nitems ; i++) {
+      useq_t *u = (useq_t *) useqS->items[i];
+      mp_resolve_ambiguous(u, transfer_ids);
+   }
+
+
    return;
 
 }
@@ -1898,6 +1906,11 @@ transfer_counts_and_update_canonicals
 // SYNOPSIS:
 //   Function used in message passing clustering.
 {
+   // Ambiguous flag set, skip.
+   if (useq->sphere_d) {
+      return;
+   }
+   
    // If the read has no matches, it has no parent, so
    // it is an ancestor and it must be canonical.
    if (useq->matches == NULL) {
@@ -1913,6 +1926,8 @@ transfer_counts_and_update_canonicals
          transfer_useq_ids(useq->canonical, useq);
       // Counts transferred, remove from self.
       useq->count = 0;
+      // Update canonical sphere size.
+      useq->canonical->sphere_c += 1;
       return;
    }
 
@@ -1925,23 +1940,6 @@ transfer_counts_and_update_canonicals
       if (matches->nitems > 0) break;
    }
 
-   // Distribute counts evenly among parents.
-   int Q = useq->count / matches->nitems;
-   int R = useq->count % matches->nitems;
-   // Depending on the order in which matches were made
-   // (which is more or less random), the transferred
-   // counts can differ by 1. For this reason, the output
-   // can be slightly different for different number of tries.
-   for (int i = 0 ; i < matches->nitems ; i++) {
-      useq_t *match = (useq_t *) matches->items[i];
-      match->count += Q + (i < R);
-      // transfer sequence ID to all the matches.
-      if (transfer_ids)
-         transfer_useq_ids(match, useq);
-   }
-   // Counts transferred, remove from self.
-   useq->count = 0;
-
    // Continue propagation to direct parents. This will update
    // the canonicals of the whole ancestry.
    for (int i = 0 ; i < matches->nitems ; i++) {
@@ -1952,19 +1950,110 @@ transfer_counts_and_update_canonicals
    // Self canonical is the canonical of the first parent...
    useq_t *canonical = ((useq_t *) matches->items[0])->canonical;
    // ... but if parents have different canonicals then
-   // self canonical is set to 'NULL'.
+   // self canonical is set to 'NULL'. (ambiguous)
    for (int i = 1 ; i < matches->nitems ; i++) {
       useq_t *match = (useq_t *) matches->items[i];
-      if (match->canonical != canonical) {
+      if (match->canonical == NULL || match->canonical != canonical) {
          canonical = NULL;
          break;
       }
    }
 
-   useq->canonical = canonical;
-
+   // Set canonical and transfer counts and ids.
+   if (canonical) {
+      useq->canonical = canonical;
+      
+      // Transfer counts and seq_ids to canonical.
+      canonical->count += useq->count;
+      useq->count = 0;
+      // transfer sequence IDs to canonical.
+      if (transfer_ids)
+	 transfer_useq_ids(canonical, useq);
+      // Increase canonical sphere size.
+      canonical->sphere_c += 1;
+   }
+   // Otherwise, flag as ambiguous.
+   else {
+      useq->sphere_d = 1;
+   }
+   
    return;
 
+}
+
+void
+mp_resolve_ambiguous
+(
+ useq_t * useq,
+ int      transfer_ids
+)
+{
+   // Ambiguous sequences must have NULL canonicals.
+   if (useq->canonical) {
+      return;
+   }
+
+   // Get parents.
+   gstack_t *matches;
+   for (int i = 0 ; (matches = useq->matches[i]) != TOWER_TOP ; i++) {
+      if (matches->nitems > 0) break;
+   }
+
+   // Propagate if this is descendant of ambiguous.
+   for (int i = 0 ; i < matches->nitems ; i++) {
+      useq_t *match = (useq_t *) matches->items[i];
+      if (match->canonical == NULL)
+	 mp_resolve_ambiguous(match, transfer_ids);
+   }
+
+   // Select canonical. Criteria:
+   // 1. The canonical parent with more counts.
+   // 2. The canonical parent whose sphere has more sequences.
+   // 3. The parent whose canonical has more counts.
+
+   // Criteria 1 and 2.
+   useq_t * canonical = NULL;
+   int      cnt_max = 0;
+   for (int i = 0; i < matches->nitems ; i++) {
+      useq_t *match = (useq_t *) matches->items[i];
+      if (match->canonical == match) {
+	 if (match->count > cnt_max) {
+	    cnt_max = match->count;
+	    canonical = match;
+	 }
+	 // Same count, compare sphere size.
+	 else if (match->count == cnt_max && match != canonical) {
+	    if (match->sphere_c > canonical->sphere_c)
+	       canonical = match;
+	    else if (match->sphere_c == canonical->sphere_c)
+	       canonical = NULL;
+	 }
+      }
+   }
+
+   // Criterion 3.
+   if (!canonical) {
+      cnt_max = 0;
+      for (int i = 0; i < matches->nitems ; i++) {
+	 useq_t *match_canon = ((useq_t *) matches->items[i])->canonical;
+	 if (match_canon->count > cnt_max) {
+	    cnt_max = match_canon->count;
+	    canonical = match_canon;
+	 }
+      }
+   }
+
+   // Transfer counts and seq ids to canonical.
+   useq->canonical = canonical;
+
+   // Transfer counts and seq_ids to canonical.
+   canonical->count += useq->count;
+   useq->count = 0;
+   // transfer sequence IDs to canonical.
+   if (transfer_ids)
+      transfer_useq_ids(canonical, useq);
+   // Increase canonical sphere size.
+   canonical->sphere_c += 1;
 }
 
 
@@ -2188,6 +2277,8 @@ new_useq
    new->seq[slen] = 0;
    new->count = count;
    new->nids  = 0;
+   new->sphere_c = 0;
+   new->sphere_d = 0;
    new->seqid = NULL;
    if (info != NULL) {
       new->info = strdup(info);

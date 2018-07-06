@@ -526,7 +526,7 @@ starcode
                if (showids) print_ids(canonical, propt);
                // Update canonical and print.
                canonical = u->canonical;
-               head_default(canonical, propt);
+               head_default(u, propt);
             }
             else {
                members_mp_default(u, propt);

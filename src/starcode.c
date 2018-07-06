@@ -857,6 +857,17 @@ do_query
                int mincount = child->count;
                int maxcount = parent->count;
                if (maxcount < CLUSTER_RATIO * mincount) continue;
+	       // In case CLUSTER_RATIO is set to 1, set parent to the
+	       // lexicographically smaller. This will avoid circular
+	       // parent references that produce infinite loops when
+	       // clustering.
+	       if (maxcount == mincount) {
+		  if (strcmp(parent->seq, child->seq) > 0) {
+		     useq_t * t = parent;
+		     parent = child;
+		     child = t;
+		  }
+	       }
                // The child is modified, use the child mutex.
                int mutexid = match->count > query->count ?
                              job->queryid : job->trieid;

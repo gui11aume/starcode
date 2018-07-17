@@ -8,7 +8,8 @@ SOURCES= $(addprefix $(SRC_DIR)/,$(SOURCE_FILES))
 INCLUDES= $(addprefix -I, $(INC_DIR))
 
 # Development and debug flags.
-#CFLAGS= -std=c99 -g -O0 -Wunused-parameter -Wredundant-decls \
+GPROF_CFLAGS= -std=c99 -pg -O0
+DEV_CFLAGS= -std=c99 -g -O0 -Wunused-parameter -Wredundant-decls \
 	-Wreturn-type -Wswitch-default -Wunused-value -Wimplicit \
 	-Wimplicit-function-declaration -Wimplicit-int -Wimport \
 	-Wunused  -Wunused-function -Wunused-label -Wbad-function-cast \
@@ -18,14 +19,32 @@ INCLUDES= $(addprefix -I, $(INC_DIR))
 	-Wunused-function -Wunused-parameter -Wunused-value -Wformat \
 	-Wunused-variable -Wformat-nonliteral -Wparentheses -Wundef \
 	-Wsequence-point -Wuninitialized -Wbad-function-cast
-# Release flags.
-CFLAGS= -std=c99 -O3 -Wall
 
+# Release flags.
+REL_CFLAGS= -std=c99 -O3 -Wall
+
+# Defaluts.
+CFLAGS= $(REL_CFLAGS)
 LDLIBS= -lpthread -lm
 CC= gcc
 
-all: starcode
+# General rules.
+all: starcode-release
+release: starcode-release
+dev: starcode-dev
+gprof: starcode-profiling
 
+# Compilation environments.
+starcode-release: CFLAGS= $(REL_CFLAGS)
+starcode-release: starcode
+
+starcode-dev: CFLAGS= $(DEV_CFLAGS)
+starcode-dev: starcode
+
+starcode-profiling: CFLAGS= $(GPROF_CFLAGS)
+starcode-profiling: starcode
+
+# Compilation targets.
 starcode: $(OBJECTS) $(SOURCES)
 	$(CC) $(CFLAGS) $(SOURCES) $(OBJECTS) $(LDLIBS) -o $@
 

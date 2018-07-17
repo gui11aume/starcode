@@ -869,8 +869,7 @@ do_query
 		  }
 	       }
                // The child is modified, use the child mutex.
-               int mutexid = match->count > query->count ?
-                             job->queryid : job->trieid;
+	       int mutexid = parent == query ? job->trieid : job->queryid;
                pthread_mutex_lock(job->mutex + mutexid);
                if (addmatch(child, parent, dist, tau)) {
                   fprintf(stderr,
@@ -1027,6 +1026,7 @@ plan_mt
    }
 
    free(bounds);
+   free(nnodes);
 
    mtplan->active = 0;
    mtplan->ntries = ntries;

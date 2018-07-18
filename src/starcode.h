@@ -27,7 +27,7 @@
 #define _GNU_SOURCE
 #include <stdio.h>
 
-#define VERSION          "starcode-v1.2 20-04-2018"
+#define VERSION          "starcode-v1.3 17-07-2018"
 #define STARCODE_MAX_TAU 8
 
 typedef enum {
@@ -51,7 +51,7 @@ int starcode(
    const int verbose,
          int thrmax,
    const int clusteralg,
-         int parent_to_child,
+         double parent_to_child,
    const int showclusters,
    const int showids,
    const int outputt

@@ -50,7 +50,7 @@ char *USAGE =
 "\n"
 "  cluster options: (default algorithm: message passing)\n"
 "    -r --cluster-ratio: min size ratio for merging clusters in\n"
-"               message passing (default 5)\n"
+"               message passing (default 5.0)\n"
 "    -s --sphere: use sphere clustering algorithm\n"
 "    -c --connected-comp: cluster connected components\n"
 "\n"
@@ -139,7 +139,7 @@ main(
    // Unset flags (value -1).
    int dist = -1;
    int threads = -1;
-   int cluster_ratio = -1;
+   double cluster_ratio = -1;
 
    // Unset options (value 'UNSET').
    char * const UNSET = "unset";
@@ -312,10 +312,10 @@ main(
 
       case 'r':
          if (cluster_ratio < 0) {
-            cluster_ratio = atoi(optarg);
+            cluster_ratio = atof(optarg);
             if (cluster_ratio < 1) {
                fprintf(stderr, "%s --cluster-ratio must be "
-                     "a positive integer\n", ERRM);
+                     "greater or equal than 1.0.\n", ERRM);
                say_usage();
                return EXIT_FAILURE;
             }
@@ -485,6 +485,11 @@ main(
    // Set remaining default options.
    if (threads < 0) threads = 1;
    if (cluster_ratio < 0) cluster_ratio = 5;
+
+   if (cluster_ratio == 1.0 && vb_flag) {
+      fprintf(stderr, "warning: setting cluster-ratio to 1.0" \
+	    " may result in arbitrary cluster breaks.\n");
+   }
 
    int exitcode =
    starcode(

@@ -81,7 +81,6 @@ static const char capitalize[128] = {
 };
 
 struct useq_t;
-struct c_t;
 struct match_t;
 
 typedef enum {
@@ -93,13 +92,13 @@ typedef enum {
 } format_t;
 
 typedef struct useq_t useq_t;
-typedef struct c_t ustack_t;
 typedef struct match_t match_t;
 typedef struct mtplan_t mtplan_t;
 typedef struct mttrie_t mttrie_t;
 typedef struct mtjob_t mtjob_t;
 typedef struct lookup_t lookup_t;
 typedef struct propt_t propt_t;
+typedef struct idstack_t idstack_t;
 
 typedef struct sortargs_t sortargs_t;
 
@@ -111,7 +110,7 @@ typedef struct sortargs_t sortargs_t;
 // See function 'transfer_useq_ids()'.
 struct useq_t {
   int              count;       // Number of sequences
-  unsigned int     nids;        // Number of associated IDs
+  unsigned int     nids;        // Number of associated sequence IDs
   int              sphere_c;    // Centroid: Size of the sphere.
   int              sphere_d;    // Distance to current sphere centroid. / MP: Ambiguous flag.
   char          *  seq;         // Sequence
@@ -179,6 +178,11 @@ struct propt_t {
    int   showids;
 };
 
+struct idstack_t {
+   size_t   pos;
+   size_t   max;
+   int    * elm;
+};
 
 int        size_order (const void *a, const void *b);
 int        addmatch (useq_t*, useq_t*, int, int);
@@ -194,16 +198,20 @@ int        count_order_spheres (const void *, const void *);
 void       destroy_useq (useq_t *);
 void       destroy_lookup (lookup_t *);
 void     * do_query (void*);
+void       idstack_free(idstack_t *);
+idstack_t* idstack_new(size_t);
+void       idstack_push(int *, size_t, idstack_t *);
 int        int_ascending (const void*, const void*);
 void       krash (void) __attribute__ ((__noreturn__));
 int        lut_insert (lookup_t *, useq_t *); 
 int        lut_search (lookup_t *, useq_t *); 
-void       message_passing_clustering (gstack_t*, int);
-void       mp_resolve_ambiguous(useq_t*, int);
+void       message_passing_clustering (gstack_t*);
+void       mp_resolve_ambiguous(useq_t*);
 lookup_t * new_lookup (int, int, int);
 useq_t   * new_useq (int, char *, char *);
 int        pad_useq (gstack_t*, int*);
 mtplan_t * plan_mt (int, int, int, int, gstack_t *);
+void       sort_and_print_ids (idstack_t  *);
 void       run_plan (mtplan_t *, int, int);
 gstack_t * read_rawseq (FILE *, gstack_t *);
 gstack_t * read_fasta (FILE *, gstack_t *);
@@ -214,11 +222,11 @@ int        seq2id (char *, int);
 gstack_t * seq2useq (gstack_t*, int);
 int        seqsort (useq_t **, int, int);
 void       sphere_clustering (gstack_t *);
-void       transfer_counts_and_update_canonicals (useq_t*, int);
+void       transfer_counts_and_update_canonicals (useq_t*);
+void       transfer_sorted_useq_ids (useq_t *, useq_t *);
 void       transfer_useq_ids (useq_t *, useq_t *);
 void       unpad_useq (gstack_t*);
 void     * nukesort (void *); 
-void       warn_about_missing_sequences (void);
 
 
 //    Global variables    //
@@ -227,7 +235,7 @@ static FILE     * OUTPUTF2      = NULL;           // output file 2
 static format_t   FORMAT        = UNSET;          // input format
 static output_t   OUTPUTT       = DEFAULT_OUTPUT; // output type
 static cluster_t  CLUSTERALG    = MP_CLUSTER;     // cluster algorithm
-static int        CLUSTER_RATIO = 5;              // min parent/child ratio
+static double     CLUSTER_RATIO = 5.0;            // min parent/child ratio
                                                   // to link clusters
 
 
@@ -292,29 +300,18 @@ members_sc_default
 
 
 void
-print_ids
+sort_and_print_ids
 (
-   useq_t  * u,
-   propt_t   propt
+   idstack_t  * stack
 )
 {
-
-   // If there are more than one ID then 'u->seqid' is
-   // a pointer to the IDs.
-   if (u->nids > 1) {
-      fprintf(OUTPUTF1, "\t%u", u->seqid[0]);
-      for (unsigned int k = 1; k < u->nids; k++)
-         fprintf(OUTPUTF1, ",%u", u->seqid[k]);
+   // Sort sequence of integers.
+   qsort(stack->elm, stack->pos, sizeof(int), int_ascending);
+   // Print ids.
+   fprintf(OUTPUTF1, "\t%u", stack->elm[0]);
+   for (unsigned int k = 1; k < stack->pos; k++) {
+      fprintf(OUTPUTF1, ",%u", stack->elm[k]);
    }
-   // If there is only one ID, then 'u->seqid' is that ID.
-   else {
-      // Guillaume Filion: the double cast has to do
-      // with the fact that the high bit is used to
-      // specify how the variable is used (as a value
-      // or a point to a struct).
-      fprintf(OUTPUTF1, "\t%u", (unsigned int) (unsigned long) u->seqid);
-   }
-
 }
 
 
@@ -390,18 +387,6 @@ print_nr_pe_fastq
            head2, seq2, qual2);
 }
 
-void
-warn_about_missing_sequences
-(
-   void
-)
-{
-   fprintf(stderr,
-         "warning: sequences that could not be unambiguously\n"
-         "assigned to a cluster were removed from output\n");
-   return;
-}
-
 
 int
 starcode
@@ -414,7 +399,7 @@ starcode
    const int verbose,
          int thrmax,
    const int clusteralg,
-         int parent_to_child,
+         double parent_to_child,
    const int showclusters,
    const int showids,
    const int outputt
@@ -485,12 +470,8 @@ starcode
 
       if (verbose) fprintf(stderr, "message passing clustering\n");
 
-      // User must be warned when sequences without
-      // canonical are removed from the output.
-      int user_warned_about_missing_sequences = 0;
-
       // Cluster the pairs.
-      message_passing_clustering(uSQ, showids);
+      message_passing_clustering(uSQ);
       // Sort in canonical order.
       qsort(uSQ->items, uSQ->nitems, sizeof(useq_t *), canonical_order);
 
@@ -501,41 +482,51 @@ starcode
 
          // If the first canonical is NULL, then they all are.
          if (first->canonical == NULL) return 0;
-
          head_default(first, propt);
 
          // Use newline separator.
          memcpy(propt.first, "\n", 3);
 
+	 // Store sequence ids for the current cluster in a stack.
+	 idstack_t * idstack = NULL;
+	 if (showids) {
+	    idstack = idstack_new(64);
+	    idstack_push(first->seqid, first->nids, idstack);
+	 }
+
          // Run through the clustered items.
          for (int i = 1 ; i < uSQ->nitems ; i++) {
             useq_t *u = (useq_t *) uSQ->items[i];
             if (u->canonical == NULL) {
-               // Sequences without canonical are not printed
-               // at all (but their counts are transferred).
-               // Issue a warning when this happens, even if
-               // verbose mode is off.
-               if (!user_warned_about_missing_sequences) {
-                  user_warned_about_missing_sequences = 1;
-                  warn_about_missing_sequences();
-               }
                break;
             }
             if (u->canonical != canonical) {
                // Print cluster seqIDs of previous canonical.
-               if (showids) print_ids(canonical, propt);
+               if (showids) sort_and_print_ids(idstack);
                // Update canonical and print.
                canonical = u->canonical;
                head_default(u, propt);
+	       // Reset seq_id stack.
+	       if (showids)
+		  idstack->pos = 0;
             }
             else {
                members_mp_default(u, propt);
             }
+	    
+	    // Update seqid list.
+	    if (showids)
+	       idstack_push(u->seqid, u->nids, idstack);
          }
 
          // Print last cluster seqIDs.
-         if (showids) print_ids(canonical, propt);
+         if (showids) {
+	    sort_and_print_ids(idstack);
+	    idstack_free(idstack);
+	 }
          fprintf(OUTPUTF1, "\n");
+	 
+
       }
 
    //
@@ -552,6 +543,9 @@ starcode
 
       // Default output.
       if (OUTPUTT == DEFAULT_OUTPUT) {
+	 // Sequence id stack.
+	 idstack_t  * idstack = NULL;
+	 if (showids) idstack = idstack_new(64);
          for (int i = 0 ; i < uSQ->nitems ; i++) {
             useq_t *u = (useq_t *) uSQ->items[i];
             if (u->canonical != u) break;
@@ -563,42 +557,29 @@ starcode
             else {
                fprintf(OUTPUTF1, "%d", u->sphere_c);
             }
-            if (showclusters && u->matches != NULL) {
+	    // Reset stack and add canonical ids.
+	    if (showids) {
+	       idstack->pos = 0;
+	       idstack_push(u->seqid, u->nids, idstack);
+	    }
+
+	    // Get sequences and ids from matches.
+            if ((showclusters || showids) && u->matches != NULL) {
                gstack_t *hits;
                for (int j = 0 ; (hits = u->matches[j]) != TOWER_TOP ; j++) {
                   for (int k = 0 ; k < hits->nitems ; k++) {
                      useq_t *match = (useq_t *) hits->items[k];
                      if (match->canonical != u) continue;
-                     fprintf(OUTPUTF1, ",%s", match->seq);
+                     if (showclusters) fprintf(OUTPUTF1, ",%s", match->seq);
+		     if (showids) idstack_push(match->seqid, match->nids, idstack);
                   }
                }
             }
             // Print cluster seqIDs.
-            if (showids) {
-	       // Transfer ids now.
-	       if (u->matches != NULL) {
-		  gstack_t *hits;
-		  for (int j = 0 ; (hits = u->matches[j]) != TOWER_TOP ; j++) {
-		     for (int k = 0 ; k < hits->nitems ; k++) {
-			useq_t *match = (useq_t *) hits->items[k];
-			if (match->canonical != u) continue;
-			transfer_useq_ids(u, match);
-		     }
-		  }
-	       }
-	       // Print ids.
-               if (u->nids > 1) {
-                  fprintf(OUTPUTF1, "\t%u", u->seqid[0]);
-               } else
-                  // Leaving the double cast (see comment above).
-                  fprintf(OUTPUTF1, "\t%u",
-                     (unsigned int)(unsigned long)u->seqid);
-               for (unsigned int k = 1; k < u->nids; k++) {
-                  fprintf(OUTPUTF1, ",%u", u->seqid[k]);
-               }
-            }
+            if (showids) sort_and_print_ids(idstack);
             fprintf(OUTPUTF1, "\n");
          }
+	 if (showids) idstack_free(idstack);
       }
 
    /*
@@ -615,20 +596,27 @@ starcode
 
       // Default output.
       if (OUTPUTT == DEFAULT_OUTPUT) {
+	 idstack_t  * idstack = NULL;
+	 if (showids) idstack = idstack_new(64);
          for (int i = 0; i < clusters->nitems; i++) {
             gstack_t * cluster = (gstack_t *) clusters->items[i];
             // Get canonical.
             useq_t * canonical = (useq_t *) cluster->items[0];
             // Print canonical and cluster count.
             fprintf(OUTPUTF1, "%s\t%d", canonical->seq, canonical->count);
-            if (showclusters) {
+            if (showclusters || showids) {
                fprintf (OUTPUTF1, "\t%s", canonical->seq);
+	       if (showids) idstack->pos = 0;
                for (int k = 1; k < cluster->nitems; k++) {
-                  fprintf (OUTPUTF1, ",%s", ((useq_t *)cluster->items[k])->seq);
+		  useq_t * u = (useq_t *) cluster->items[k];
+                  if (showclusters) fprintf (OUTPUTF1, ",%s", u->seq);
+		  if (showids) idstack_push(u->seqid, u->nids, idstack);
                }
+	       if (showids) sort_and_print_ids(idstack);
             }
             fprintf(OUTPUTF1, "\n");
          }
+	 if (showids) idstack_free(idstack);
       } else if (OUTPUTT == NRED_OUTPUT) {
          uSQ->nitems = 0;
          // Fill uSQ with cluster centroids.
@@ -1207,20 +1195,19 @@ sphere_clustering
 void
 message_passing_clustering
 (
- gstack_t *useqS,
- int transfer_ids
+ gstack_t *useqS
 )
 {
    // Transfer counts to parents recursively.
    for (int i = 0 ; i < useqS->nitems ; i++) {
       useq_t *u = (useq_t *) useqS->items[i];
-      transfer_counts_and_update_canonicals(u, transfer_ids);
+      transfer_counts_and_update_canonicals(u);
    }
 
    // Resolve ambiguous assignments.
    for (int i = 0 ; i < useqS->nitems ; i++) {
       useq_t *u = (useq_t *) useqS->items[i];
-      mp_resolve_ambiguous(u, transfer_ids);
+      mp_resolve_ambiguous(u);
    }
 
 
@@ -1446,8 +1433,17 @@ read_rawseq
          }
       }
       useq_t *new = new_useq(count, seq, NULL);
+      if (new == NULL) {
+	 alert();
+	 krash();
+      }
       new->nids = 1;
-      new->seqid = (void *)(unsigned long)uSQ->nitems+1;
+      new->seqid = malloc(sizeof(int));
+      if (new->seqid == NULL) {
+	 alert();
+	 krash();
+      }
+      new->seqid[0] = uSQ->nitems+1;
       push(new, &uSQ);
    }
 
@@ -1498,12 +1494,17 @@ read_fasta
             }
          }
          useq_t *new = new_useq(1, line, header);
-         new->nids = 1;
-         new->seqid = (void *)(unsigned long)uSQ->nitems+1;
-         if (new == NULL) {
+	 if (new == NULL) {
             alert();
             krash();
          }
+         new->nids = 1;
+	 new->seqid = malloc(sizeof(int));
+	 if (new->seqid == NULL) {
+	    alert();
+	    krash();
+	 }
+	 new->seqid[0] = uSQ->nitems+1;
          push(new, &uSQ);
       }
       else if (readh) {
@@ -1577,12 +1578,17 @@ read_fastq
             }
          }
          useq_t *new = new_useq(1, seq, info);
-         new->nids = 1;
-         new->seqid = (void *)(unsigned long)uSQ->nitems+1;
-         if (new == NULL) {
+	 if (new == NULL) {
             alert();
             krash();
          }
+         new->nids = 1;
+	 new->seqid = malloc(sizeof(int));
+	 if (new->seqid == NULL) {
+	    alert();
+	    krash();
+	 }
+	 new->seqid[0] = uSQ->nitems+1;
          push(new, &uSQ);
       }
    }
@@ -1705,12 +1711,17 @@ read_PE_fastq
             krash();
          }
          useq_t *new = new_useq(1, seq, info);
-         new->nids = 1;
-         new->seqid = (void *)(unsigned long)uSQ->nitems+1;
-         if (new == NULL) {
+	 if (new == NULL) {
             alert();
             krash();
          }
+         new->nids = 1;
+	 new->seqid = malloc(sizeof(int));
+	 if (new->seqid == NULL) {
+	    alert();
+	    krash();
+	 }
+	 new->seqid[0] = uSQ->nitems+1;
          push(new, &uSQ);
       }
    }
@@ -1866,25 +1877,44 @@ transfer_useq_ids
  useq_t * ud,
  useq_t * us
 )
-// Appends the sequence ID list from 'us' to 'ud'.
-// If 'ud' is only bearing one ID, the function
-// will allocate a buffer on 'ud->seqid'. Otherwise
-// the ID borne by 'us' will be appended to the
-// existing buffer.
-// The sequence ID list from ud is not modified.
+// Appends the sequence ID list from 'us' to 'ud',
+// the final list is unsorted.
 {
    if (us->nids < 1) return;
-   // Alloc buffer.
+   // Realloc destination buffer.
+   ud->seqid = realloc(ud->seqid, (ud->nids + us->nids) * sizeof(int));
+   if (ud->seqid == NULL) {
+      alert();
+      krash();
+   }
+   // Copy source list of ids to ud.
+   memcpy(ud->seqid + ud->nids, us->seqid, us->nids*sizeof(int));
+   // Update id counts in both sequences.
+   ud->nids += us->nids;
+   us->nids = 0;
+}
+
+
+
+void
+transfer_sorted_useq_ids
+(
+ useq_t * ud,
+ useq_t * us
+)
+// Appends the sequence ID list from 'us' to 'ud'
+// and sorts the final list.
+{
+   if (us->nids < 1) return;
+   // Alloc merge-sort buffer.
    int * buf = malloc((ud->nids + us->nids) * sizeof(int));
    if (buf == NULL) {
       alert();
       krash();
    }
    int * s, * d;
-   if (ud->nids > 1) d = ud->seqid;
-   else d = (int *)&(ud->seqid);
-   if (us->nids > 1) s = us->seqid;
-   else s = (int *)&(us->seqid);
+   d = ud->seqid;
+   s = us->seqid;
    // Merge algorithm (keeps them sorted and unique).
    uint32_t i = 0, j = 0, k = 0;
    while (i < ud->nids && j < us->nids) {
@@ -1901,17 +1931,17 @@ transfer_useq_ids
    for (; i < ud->nids; i++) buf[k++] = d[i];
    for (; j < us->nids; j++) buf[k++] = s[j];
    // Update ID count.
-   if (ud->nids > 1) free(ud->seqid);
+   free(ud->seqid);
    ud->seqid = buf;
    ud->nids = k;
+   us->nids = 0;
 }
 
 
 void
 transfer_counts_and_update_canonicals
 (
- useq_t *useq,
- int     transfer_ids
+ useq_t *useq
 )
 // TODO: Write the doc.
 // SYNOPSIS:
@@ -1933,8 +1963,6 @@ transfer_counts_and_update_canonicals
    // transfer counts and ids to the canonical and return.
    if (useq->canonical != NULL) {
       useq->canonical->count += useq->count;
-      if (transfer_ids)
-         transfer_useq_ids(useq->canonical, useq);
       // Counts transferred, remove from self.
       useq->count = 0;
       // Update canonical sphere size.
@@ -1955,7 +1983,7 @@ transfer_counts_and_update_canonicals
    // the canonicals of the whole ancestry.
    for (int i = 0 ; i < matches->nitems ; i++) {
       useq_t *match = (useq_t *) matches->items[i];
-      transfer_counts_and_update_canonicals(match, transfer_ids);
+      transfer_counts_and_update_canonicals(match);
    }
 
    // Self canonical is the canonical of the first parent...
@@ -1977,9 +2005,6 @@ transfer_counts_and_update_canonicals
       // Transfer counts and seq_ids to canonical.
       canonical->count += useq->count;
       useq->count = 0;
-      // transfer sequence IDs to canonical.
-      if (transfer_ids)
-	 transfer_useq_ids(canonical, useq);
       // Increase canonical sphere size.
       canonical->sphere_c += 1;
    }
@@ -1995,8 +2020,7 @@ transfer_counts_and_update_canonicals
 void
 mp_resolve_ambiguous
 (
- useq_t * useq,
- int      transfer_ids
+ useq_t * useq
 )
 {
    // Ambiguous sequences must have NULL canonicals.
@@ -2014,7 +2038,7 @@ mp_resolve_ambiguous
    for (int i = 0 ; i < matches->nitems ; i++) {
       useq_t *match = (useq_t *) matches->items[i];
       if (match->canonical == NULL)
-	 mp_resolve_ambiguous(match, transfer_ids);
+	 mp_resolve_ambiguous(match);
    }
 
    // Select canonical. Criteria:
@@ -2064,9 +2088,6 @@ mp_resolve_ambiguous
    // Transfer counts and seq_ids to canonical.
    canonical->count += useq->count;
    useq->count = 0;
-   // transfer sequence IDs to canonical.
-   if (transfer_ids)
-      transfer_useq_ids(canonical, useq);
    // Increase canonical sphere size.
    canonical->sphere_c += 1;
 }
@@ -2316,7 +2337,7 @@ destroy_useq
 {
    if (useq->matches != NULL) destroy_tower(useq->matches);
    if (useq->info != NULL) free(useq->info);
-   if (useq->nids > 1) free(useq->seqid);
+   free(useq->seqid);
    free(useq->seq);
    free(useq);
 }
@@ -2427,6 +2448,63 @@ int_ascending
 {
    if (*(int *)a < *(int *)b) return -1;
    else return 1;
+}
+
+idstack_t *
+idstack_new
+(
+ size_t n_elm
+)
+{
+   idstack_t * stack = malloc(sizeof(idstack_t));
+   if (stack == NULL) {
+      alert();
+      krash();
+   }
+   stack->elm = malloc(n_elm*sizeof(int));
+   if (stack->elm == NULL) {
+      alert();
+      krash();
+   }
+   stack->pos = 0;
+   stack->max = n_elm;
+
+   return stack;
+}
+
+void
+idstack_push
+(
+  int       * vals,
+  size_t      n_val,
+  idstack_t * stack
+)
+{
+   size_t newsize = stack->max;
+   // Realloc buffer.
+   while (stack->pos + n_val > newsize) newsize *= 2;
+   if (newsize > stack->max) {
+      stack->elm = realloc(stack->elm, newsize*sizeof(int));
+      if (stack->elm == NULL) {
+	 alert();
+	 krash();
+      }
+      stack->max = newsize;
+   }
+   // Copy values to stack.
+   memcpy(stack->elm + stack->pos, vals, n_val*sizeof(int));
+   // Update stack top position.
+   stack->pos += n_val;
+}
+
+void
+idstack_free
+(
+  idstack_t * stack
+)
+{
+   free(stack->elm);
+   free(stack);
 }
 
 

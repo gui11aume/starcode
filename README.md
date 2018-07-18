@@ -63,11 +63,11 @@ IV. Running starcode
 
 Starcode runs on Linux and Mac. It has not been tested on Windows.
 
-### List of arguments:
+### Usage:
 
   > starcode [options] {[-i] INPUT_FILE | -1 PAIRED_END_FILE1 -2 PAIRED_END_FILE2} [-o OUTPUT_FILE]
   
-#### Search options:
+### Search options:
   
   **-d or --distance** *distance*
 
@@ -75,52 +75,50 @@ Starcode runs on Linux and Mac. It has not been tested on Windows.
      When not set it is automatically computed as:
      min(8, 2 + [median seq length]/30)
 	 
-#### Clustering algorithm (default is Message Passing):
+### Clustering algorithm (default is Message Passing):
   
   **-r or --cluster-ratio** *ratio*
 
-     (Message passing only) Specifies the minimum sequence count ratio to 
-	 cluster two matching sequences, i.e. two matching sequences A and B will
-	 be clustered together only if count(A) > ratio * count(B).
-	 Sparse datasets may need to set -r to small values (minimum is 1.0) to
-	 trigger clustering.
+     (Message passing only) Specifies the minimum sequence count ratio to cluster two matching
+	 sequences, i.e. two matching sequences A and B will be clustered together only if
+	 count(A) > ratio * count(B).
+	 Sparse datasets may need to set -r to small values (minimum is 1.0) to trigger clustering.
      Default is 5.0.
 	 
   **-s or --spheres**
 
-     Use sphere clustering algorithm instead of message passing (MP). Spheres is
-	 more greedy than MP: sorted by size, centroids absorb all their matches.
+     Use sphere clustering algorithm instead of message passing (MP). Spheres is more greedy than MP:
+	 sorted by size, centroids absorb all their matches.
 	 
   **-c or --connected-comp**
 
      Clusters are defined by the connected components.
 
 
-#### Output format:
+### Output format:
 	 
   **--non-redundant**
   
-     Removes redundant sequences from the output. Only the canonical sequence
-     of each cluster is returned.
+     Removes redundant sequences from the output. Only the canonical sequence of each cluster is
+	 returned.
 
   **--print-clusters**
   
-     Adds a third column to the starcode output, containing the sequences
-     that compose each cluster. By default, the output contains only
-     the centroid and the counts.
+     Adds a third column to the starcode output, containing the sequences that compose each cluster.
+	 By default, the output contains only the centroid and the counts.
 
   **--seq-id**
      
      Shows the input sequence order (1-based) of the cluster components.
 	 
-#### Input files:
-Single-file mode:
+### Input files:
+- Single-file mode:
 
   **-i or --input** *file*
 
      Specifies input file.
 
-Paired-end fastq files:
+- Paired-end fastq files:
    
   **-1** *file1* **-2** *file2*
 
@@ -128,7 +126,7 @@ Paired-end fastq files:
 
 Standard input is used when neither **-i** nor **-1/-2** are set.
 
-#### Output files:
+### Output files:
 
   **-o or --output** *file*
 
@@ -136,15 +134,15 @@ Standard input is used when neither **-i** nor **-1/-2** are set.
 	 
   **--output1** *file1* **--output2** *file2*
   
-	  (Paired-end mode with --non-redundant option only). Specifies the output file
-	  names of the processed paired-end files.
+	 (Paired-end mode with --non-redundant option only). Specifies the output file names of the
+	  processed paired-end files.
 	  
 Standard output is used when **-o** is not set.
 
 When --output1/2 is not specified in paired-end --non-redundant mode, the output file
 names are the input file names with a "-starcode" suffix.
 	 
-#### Other options:
+### Other options:
 
   **-t or --threads** *threads*
 
@@ -175,11 +173,11 @@ of the read followed by some other (longer) sequence. Starcode-umi performs a do
 of clustering and merging to find the best possible clusters of UMI and sequence pairs.
 
 
-### List of arguments:
+### Usage:
 
   > starcode-umi [options] --umi-len *N* input_file1 [input_file2]
   
-#### Required arguments:
+### Required arguments:
 
   **--umi-len** *number*
 
@@ -190,7 +188,7 @@ of clustering and merging to find the best possible clusters of UMI and sequence
   
 	  Path to `starcode` binary file. Default is `./starcode`.
 	  
-#### Clustering options:
+### Clustering options:
 
   **--umi-d** *distance*
   
@@ -202,11 +200,13 @@ of clustering and merging to find the best possible clusters of UMI and sequence
 	 
   **--umi-cluster** *clustering algorithm*
   
-     Clustering algorithm to be used in the UMI region. ('mp' for message passing, 's' for spheres, 'cc' for connected components). Default is message passing.
+     Clustering algorithm to be used in the UMI region. ('mp' for message passing, 's' for spheres,
+	 'cc' for connected components). Default is message passing.
 
   **--seq-cluster** *clustering algorithm*
   
-     Clustering algorithm to be used in the seq region. ('mp' for message passing, 's' for spheres, 'cc' for connected components). Default is message passing.
+     Clustering algorithm to be used in the seq region. ('mp' for message passing, 's' for spheres,
+	 'cc' for connected components). Default is message passing.
 	 
   **--umi-cluster-ratio** *clustering algorithm*
   
@@ -219,16 +219,16 @@ of clustering and merging to find the best possible clusters of UMI and sequence
   **--seq-trim** *trim*
   
       Use only *trim* nucleotides of the sequence for clustering. Starcode becomes memory inefficient
-	   with very long sequences, this parameter defines the maximum length of the sequence that will
-	   be used for clustering. Set it to 0 to use the full sequence. Default is 50.
+	  with very long sequences, this parameter defines the maximum length of the sequence that will
+	  be used for clustering. Set it to 0 to use the full sequence. Default is 50.
 
-#### Output options:
+### Output options:
 
   **--seq-id**
      
      Shows the input sequence order (1-based) of the cluster components.
 
-#### Other options:
+### Other options:
 
   **--umi-threads** *threads*
 

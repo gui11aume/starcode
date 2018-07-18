@@ -6,59 +6,56 @@
     2. Source file list.
     3. Compilation and installation.
     4. Running starcode.
-    5. File formats.
-    6. License.
-    7. References.
+    5. Running starcode-umi.
+    6. File formats.
+    7. License.
+	8. Citation.
 
 ---
 ## I. What is starcode?   ##
 
 
-Starcode is a DNA sequence clustering software. Sequence clustering is
-performed by finding all pairs below a Levenshtein distance metric [1].
-Typically, a file containing a set of related DNA sequences is passed as
-input, jointly with a parameter specifying the desired cluster distance.
-Starcode aligns and computes the distance between all the sequence pairs
-[2] and prints a line for each cluster containing: canonical DNA sequence,
-sequence count and the list of sequences that belong to the cluster.
+Starcode is a DNA sequence clustering software. Starcode clustering is
+based on all pairs search within a specified Levenshtein distance,
+followed by a clustering algorithm: Message Passing, Spheres or Connected
+Components. Typically, a file containing a set of DNA sequences is passed
+as input, jointly with the desired clustering distance and algorihtm.
+Starcode returns the canonical sequence of the cluster, the cluster size,
+the set of different sequences that compose the cluster and the input line
+numbers of the cluster components.
 
 Starcode has many applications in the field of biology, such as DNA/RNA
-motif recovery, barcode clustering, sequencing error recovery, etc.
+motif recovery, barcode/UMI clustering, sequencing error recovery, etc.
 
 
 II. Source file list
 --------------------
 
+* **starcode-umi**           Starcode script to cluster UMI-tagged sequences.
 * **main-starcode.c**        Starcode main file (parameter parsing).
 * **starcode.c**             Main starcode algorithm.
-* **starcode.h**             Main starcode algorithm public header file.
-* **starcode-private.h**     Main starcode algorithm private header file.
 * **trie.c**                 Trie search and construction functions.
-* **trie.h**                 Trie public header file.
-* **trie-private.h**         Trie private header file.
+* **view.c**                 Graphical representation of starcode output.
 * **Makefile**               Make instruction file.
 
 
 III. Compilation and installation
 ---------------------------------
 
-To install starcode you first need to clone or manually download the 
-repository content from github:
+To install starcode, clone this git repository (or manually download the 
+latest release [starcode v1.3](https://github.com/gui11aume/starcode/releases/tag/1.3)):
 
- > git clone git://github.com/gui11aume/starcode.git
+ > git clone https://github.com/gui11aume/starcode
 
-the files should be downloaded in a folder named 'starcode'. To compile
-just change the directory to 'starcode' and run make (Mac users require
-'xcode', available at the Mac Appstore):
+the files should be downloaded in a folder named 'starcode'. Use make to
+compile (Mac users require 'xcode', available at the Mac Appstore):
 
- > cd starcode
-
- > make
+ > make -C starcode
 
 a binary file 'starcode' will be created. You can optionally make a
-symbolic link to execute starcode from any directory:
+symbolic link to run starcode from any directory:
 
- > sudo ln -s ./starcode /usr/bin/starcode
+ > sudo ln -s starcode/starcode /usr/bin/starcode
 
 
 IV. Running starcode
@@ -66,50 +63,41 @@ IV. Running starcode
 
 Starcode runs on Linux and Mac. It has not been tested on Windows.
 
-List of arguments:
+### List of arguments:
 
   > starcode [options] {[-i] INPUT_FILE | -1 PAIRED_END_FILE1 -2 PAIRED_END_FILE2} [-o OUTPUT_FILE]
+  
+#### Search options:
   
   **-d or --distance** *distance*
 
      Defines the maximum Levenshtein distance for clustering.
      When not set it is automatically computed as:
      min(8, 2 + [median seq length]/30)
-
-  **-t or --threads** *threads*
-
-     Defines the maximum number of parallel threads.
-     Default is 1.
-
-  **-s or --spheres**
-
-     When specified, sphere clustering algorithm is performed in the
-     clustering phase, instead of the default message passing algorithm.
-
+	 
+#### Clustering algorithm (default is Message Passing):
+  
   **-r or --cluster-ratio** *ratio*
 
-     Specifies the minimum sequence count ratio to cluster two matching
-     sequences, i.e. the matching sequences A and B will only be
-     clustered together if count(A) > ratio * count(B), assuming that
-     count(A) > count(B).
-     Note that this option only applies to message passing algorithm and
-     ratio must be set to 1 to cluster unique input sequences together.
-     Default is 5.
+     (Message passing only) Specifies the minimum sequence count ratio to 
+	 cluster two matching sequences, i.e. two matching sequences A and B will
+	 be clustered together only if count(A) > ratio * count(B).
+	 Sparse datasets may need to set -r to small values (minimum is 1.0) to
+	 trigger clustering.
+     Default is 5.0.
+	 
+  **-s or --spheres**
+
+     Use sphere clustering algorithm instead of message passing (MP). Spheres is
+	 more greedy than MP: sorted by size, centroids absorb all their matches.
+	 
+  **-c or --connected-comp**
+
+     Clusters are defined by the connected components.
 
 
-  **-q or --quiet**
-
-     Non verbose. By default, starcode prints verbose information to
-     the standard error channel.
-
-  **-h or --help**
-
-     Prints usage information.
-
-  **-o or --output** *file*
-
-     Specifies output file. When not set, standard output is used instead.
-
+#### Output format:
+	 
   **--non-redundant**
   
      Removes redundant sequences from the output. Only the canonical sequence
@@ -118,14 +106,14 @@ List of arguments:
   **--print-clusters**
   
      Adds a third column to the starcode output, containing the sequences
-     associated with each cluster. By default, the output contains only
+     that compose each cluster. By default, the output contains only
      the centroid and the counts.
 
   **--seq-id**
      
-     Shows the clustered sequence numbers (1-based) following the original
-     input order.
-
+     Shows the input sequence order (1-based) of the cluster components.
+	 
+#### Input files:
 Single-file mode:
 
   **-i or --input** *file*
@@ -140,12 +128,125 @@ Paired-end fastq files:
 
 Standard input is used when neither **-i** nor **-1/-2** are set.
 
-V. File formats
+#### Output files:
+
+  **-o or --output** *file*
+
+     Specifies output file. When not set, standard output is used instead.
+	 
+  **--output1** *file1* **--output2** *file2*
+  
+	  (Paired-end mode with --non-redundant option only). Specifies the output file
+	  names of the processed paired-end files.
+	  
+Standard output is used when **-o** is not set.
+
+When --output1/2 is not specified in paired-end --non-redundant mode, the output file
+names are the input file names with a "-starcode" suffix.
+	 
+#### Other options:
+
+  **-t or --threads** *threads*
+
+     Defines the maximum number of parallel threads.
+     Default is 1.
+
+
+  **-q or --quiet**
+
+     Non verbose. By default, starcode prints verbose information to
+     the standard error channel.
+	 
+  **-v or --version**
+
+     Prints version information.
+
+
+  **-h or --help**
+
+     Prints usage information.
+	 
+V. Running starcode-umi
+-----------------------
+
+Starcode-umi is a python script that uses `starcode` to cluster UMI-tagged sequences.
+UMI-tagged sequences are assumed to contain a unique molecular identifier at the beginning
+of the read followed by some other (longer) sequence. Starcode-umi performs a double round
+of clustering and merging to find the best possible clusters of UMI and sequence pairs.
+
+
+### List of arguments:
+
+  > starcode-umi [options] --umi-len *N* input_file1 [input_file2]
+  
+#### Required arguments:
+
+  **--umi-len** *number*
+
+     Defines the length of the UMI tags. Adding some extra nucleotides may improve the clustering
+	 performance.
+	 
+  **--starcode-path** *path*
+  
+	  Path to `starcode` binary file. Default is `./starcode`.
+	  
+#### Clustering options:
+
+  **--umi-d** *distance*
+  
+     Match distance (Levenshtein) for the UMI region.
+
+  **--seq-d** *distance*
+  
+     Match distance (Levenshtein) for the sequence region.
+	 
+  **--umi-cluster** *clustering algorithm*
+  
+     Clustering algorithm to be used in the UMI region. ('mp' for message passing, 's' for spheres, 'cc' for connected components). Default is message passing.
+
+  **--seq-cluster** *clustering algorithm*
+  
+     Clustering algorithm to be used in the seq region. ('mp' for message passing, 's' for spheres, 'cc' for connected components). Default is message passing.
+	 
+  **--umi-cluster-ratio** *clustering algorithm*
+  
+     (Only for message passing in UMI). Minimum clustering ratio (same as -r option in starcode).
+	 
+  **--seq-cluster-ratio** *clustering algorithm*
+  
+     (Only for message passing in seq). Minimum clustering ratio (same as -r option in starcode).
+	 
+  **--seq-trim** *trim*
+  
+      Use only *trim* nucleotides of the sequence for clustering. Starcode becomes memory inefficient
+	   with very long sequences, this parameter defines the maximum length of the sequence that will
+	   be used for clustering. Set it to 0 to use the full sequence. Default is 50.
+
+#### Output options:
+
+  **--seq-id**
+     
+     Shows the input sequence order (1-based) of the cluster components.
+
+#### Other options:
+
+  **--umi-threads** *threads*
+
+     Defines the maximum number of parallel threads to be used in the UMI process.
+     Default is 1.
+
+  **--seq-threads** *threads*
+
+     Defines the maximum number of parallel threads to be used in the sequence process.
+     Default is 1.
+
+
+VI. File formats
 ---------------
 
-### V.I. Supported input file formats: ###
+### VI.I. Supported input file formats: ###
 
-####  V.I.I. Plain text: ####
+####  VI.I.I. Plain text: ####
 
   Consists of a file containing one sequence per line. Only the standard
   DNA-base characters are supported ('A', 'C', 'G', 'T'). The sequences
@@ -163,7 +264,7 @@ V. File formats
     GCATCGACCGCTACTACGCATACTACGACATC
 
 
-####  V.I.II. Plain text with sequence count: ####
+####  VI.I.II. Plain text with sequence count: ####
 
   If the count of the sequences is known, it may be specified in the input
   file using the following format:
@@ -185,7 +286,7 @@ V. File formats
     TGACTCTATCAGCTAC                    39
 
 
-####  V.I.III. FASTA/FASTQ ####
+####  VI.I.III. FASTA/FASTQ ####
 
   Starcode supports FASTA and FASTQ files as well. Note, however, that
   starcode does not use the quality factors and the only relevant
@@ -216,9 +317,9 @@ V. File formats
     ,*#%+#&*$-#,''+*)'&.,).,
 
 
-### V.II. Output formats: ###
+### VI.II. Output formats: ###
 
-#### V.II.I Standard output format: ####
+#### VI.II.I Standard output format: ####
 
   Starcode prints a line for each detected cluster with the following
   format:
@@ -254,7 +355,7 @@ V. File formats
     TAAGCTAGGGGT    16        TAAGCTAGGGGT
     ACTTTAGCGGAA    1         ACTTTAGCGGAA
 
-#### V.II.II Non-redundant output format: ####
+#### VI.II.II Non-redundant output format: ####
 
   In non-redundant output mode, starcode only prints the canonical
   sequence of each cluster, one per line. Following the example from
@@ -271,7 +372,7 @@ V. File formats
       ACTTTAGCGGAA
 
 
-VI. License
+VII. License
 -----------
 
 Starcode is licensed under the GNU General Public License, version 3
@@ -279,16 +380,6 @@ Starcode is licensed under the GNU General Public License, version 3
 
   http://www.gnu.org/licenses/
 
-
-VII. References
----------------
-
-[1] Levenshtein, V. (1966), 'Binary Codes Capable of Correcting Deletions,
-    Insertions and Reversals', Soviet Physics Doklady 10, 707.
-
-[2] Needleman, S.B. and Wunsch, C.D. (1970), 'A general method applicable
-    to the search for similarities in the amino acid sequence of two
-    proteins' J. Mol. Biol., 48 (3), 443-53.
 
 VIII. Citation
 --------------

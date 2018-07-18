@@ -98,7 +98,7 @@ test_starcode_3
    test_assert(u2->count == 2);
 
    // This should not transfer counts but update canonical.
-   transfer_counts_and_update_canonicals(u2,0);
+   transfer_counts_and_update_canonicals(u2);
 
    test_assert(u1->count == 1);
    test_assert(u2->count == 2);
@@ -106,7 +106,7 @@ test_starcode_3
    test_assert(u2->canonical == u2);
 
    // This should transfer the counts from 'u1' to 'u2'.
-   transfer_counts_and_update_canonicals(u1,0);
+   transfer_counts_and_update_canonicals(u1);
 
    test_assert(u1->count == 0);
    test_assert(u2->count == 3);
@@ -134,7 +134,7 @@ test_starcode_3
    test_assert(u6->count == 3);
 
    // u7 points to u3, which is ambiguous.
-   transfer_counts_and_update_canonicals(u7,0);
+   transfer_counts_and_update_canonicals(u7);
 
 
    test_assert(u3->canonical == NULL);
@@ -158,12 +158,12 @@ test_starcode_3
    test_assert(u4->sphere_d == 0);
 
    // Resolve ambiguous canonicals.
-   mp_resolve_ambiguous(u5, 0);
+   mp_resolve_ambiguous(u5);
    test_assert(u3->canonical == NULL);
    test_assert(u5->canonical == u6);
 
    // u3 canonical must be u4, because is a true canonical.
-   mp_resolve_ambiguous(u7, 0);
+   mp_resolve_ambiguous(u7);
 
    test_assert(u3->canonical == u4);
    test_assert(u7->canonical == u4);
@@ -202,7 +202,7 @@ test_starcode_4
    // Add match to 'u1', and update canonicals.
    addmatch(u1, u2, 1, 1);
    test_assert_critical(u1->matches != NULL);
-   transfer_counts_and_update_canonicals(u1,0);
+   transfer_counts_and_update_canonicals(u1);
    test_assert(u1->count == 0);
    test_assert(u2->count == 3);
 
@@ -233,7 +233,7 @@ test_starcode_4
    // Add match to 'u3', and update canonicals.
    addmatch(u3, u4, 1, 1);
    test_assert_critical(u3->matches != NULL);
-   transfer_counts_and_update_canonicals(u3,0);
+   transfer_counts_and_update_canonicals(u3);
    test_assert(u3->count == 0);
    test_assert(u4->count == 3);
 
@@ -279,7 +279,7 @@ test_starcode_4
    // Add match to 'u5', and update canonicals.
    addmatch(u5, u6, 1, 1);
    test_assert_critical(u5->matches != NULL);
-   transfer_counts_and_update_canonicals(u5,0);
+   transfer_counts_and_update_canonicals(u5);
    test_assert(u5->count == 0);
    test_assert(u6->count == 4);
 

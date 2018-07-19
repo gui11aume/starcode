@@ -606,7 +606,10 @@ starcode
             fprintf(OUTPUTF1, "%s\t%d", canonical->seq, canonical->count);
             if (showclusters || showids) {
                fprintf (OUTPUTF1, "\t%s", canonical->seq);
-	       if (showids) idstack->pos = 0;
+	       if (showids) {
+		  idstack->pos = 0;
+		  idstack_push(canonical->seqid, canonical->nids, idstack);
+	       }
                for (int k = 1; k < cluster->nitems; k++) {
 		  useq_t * u = (useq_t *) cluster->items[k];
                   if (showclusters) fprintf (OUTPUTF1, ",%s", u->seq);

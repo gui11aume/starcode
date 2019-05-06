@@ -344,8 +344,9 @@ VI. File formats
 
   would produce the following output:
 
-    TAGCTAGACGTA    276       TAGCTAGACGTA,TAGCTAGCCGTA,TAAGCTAGGGGT
+    TAGCTAGACGTA    260       TAGCTAGACGTA,TAGCTAGCCGTA
     ACGCGAGCGGAA    156       ACGCGAGCGGAA,ACTTTAGCGGAA
+    TAAGCTAGGGGT    16        TAAGCTAGGGGT
 
   The same example executed with a more restrictive distance -d2 would
   produce the following output:

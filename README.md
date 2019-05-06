@@ -67,6 +67,20 @@ Starcode runs on Linux and Mac. It has not been tested on Windows.
 
   > starcode [options] {[-i] INPUT_FILE | -1 PAIRED_END_FILE1 -2 PAIRED_END_FILE2} [-o OUTPUT_FILE]
   
+### Starcode defaults (please read this):
+
+  By default, Starcode uses clustering parameters that are meaningful on many problems. Yet, the
+  output may not look exactly like you expect. This may be for the following reasons:
+    
+  1. The clustering method is Message Passing. This means that clusters are built bottom-up by merging
+  small clusters into bigger ones. The process is recursive, so **sequences in a cluster may not be
+  neighbors**, _i.e._, they may not be within the specified Levenshtein distance. If this must be the
+  case, use sphere clustering instead (see option **-s** or **--spheres** below).
+  
+  1. The clustering ratio is 5. This means that a cluster can absorb a smaller one only if it is at
+  least five times bigger. A practical implication is that **clusters of similar size are not merged**.
+  You can choose another threshold for merging clusters (see option **-r** or **--cluster-ratio** below).
+      
 ### Search options:
   
   **-d or --distance** *distance*
@@ -75,7 +89,7 @@ Starcode runs on Linux and Mac. It has not been tested on Windows.
      When not set it is automatically computed as:
      min(8, 2 + [median seq length]/30)
 	 
-### Clustering algorithm (default is Message Passing):
+### Clustering algorithm:
   
   **-r or --cluster-ratio** *ratio*
 
@@ -93,7 +107,6 @@ Starcode runs on Linux and Mac. It has not been tested on Windows.
   **-c or --connected-comp**
 
      Clusters are defined by the connected components.
-
 
 ### Output format:
 	 

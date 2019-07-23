@@ -16,7 +16,9 @@
 
 
 Starcode is a DNA sequence clustering software. Starcode clustering is
-based on all pairs search within a specified Levenshtein distance,
+based on all pairs search within a specified
+[Levenshtein distance](https://en.wikipedia.org/wiki/Levenshtein_distance)
+(allowing insertions and deletions),
 followed by a clustering algorithm: Message Passing, Spheres or Connected
 Components. Typically, a file containing a set of DNA sequences is passed
 as input, jointly with the desired clustering distance and algorihtm.

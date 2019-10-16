@@ -13,15 +13,15 @@ DEV_CFLAGS= -std=c99 -g -O0 -Wunused-parameter -Wredundant-decls \
 	-Wreturn-type -Wswitch-default -Wunused-value -Wimplicit \
 	-Wimplicit-function-declaration -Wimplicit-int -Wimport \
 	-Wunused  -Wunused-function -Wunused-label -Wbad-function-cast \
-	-Wno-int-to-pointer-cast -Wmissing-declarations -Wpointer-sign \
-	-Wmissing-prototypes -Wnested-externs -Wold-style-definition \
-	-Wstrict-prototypes  -Wextra -Wredundant-decls -Wunused \
-	-Wunused-function -Wunused-parameter -Wunused-value -Wformat \
-	-Wunused-variable -Wformat-nonliteral -Wparentheses -Wundef \
-	-Wsequence-point -Wuninitialized -Wbad-function-cast
+	-Wno-int-to-pointer-cast -Wpointer-sign -Wnested-externs \
+	-Wold-style-definition -Wstrict-prototypes -Wredundant-decls \
+	-Wunused -Wunused-function -Wunused-parameter -Wunused-value \
+	-Wformat -Wunused-variable -Wformat-nonliteral -Wparentheses \
+	-Wundef -Wsequence-point -Wuninitialized -Wbad-function-cast \
+	-Wall -Wextra
 
 # Release flags.
-REL_CFLAGS= -std=c99 -O3 -Wall
+REL_CFLAGS= -std=c99 -O3 -Wall -Wextra
 
 # Defaluts.
 CFLAGS= $(REL_CFLAGS)
@@ -32,6 +32,7 @@ CC= gcc
 all: starcode-release
 release: starcode-release
 dev: starcode-dev
+analyze: starcode-analyze
 gprof: starcode-profiling
 
 # Compilation environments.
@@ -40,6 +41,9 @@ starcode-release: starcode
 
 starcode-dev: CFLAGS= $(DEV_CFLAGS)
 starcode-dev: starcode
+
+starcode-analyze: CC= clang --analyze
+starcode-analyze: starcode
 
 starcode-profiling: CFLAGS= $(GPROF_CFLAGS)
 starcode-profiling: starcode

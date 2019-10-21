@@ -3,7 +3,8 @@
 import argparse
 import sys
 import subprocess
-from itertools import izip
+
+encoding = 'ascii'
 
 # Parse arguments
 parser = argparse.ArgumentParser(description='Use starcode to demultiplex reads containing UMI identifiers.')
@@ -90,13 +91,13 @@ if params.input_file_2 is None:
          sequence = line[umi_len:]
          # Send sequence to seq process.
          if seq_trim == 0:
-            seqproc.stdin.write(sequence+"\n")
+            seqproc.stdin.write(bytearray(sequence+"\n", encoding))
             data.append((0,""))
          else:
-            seqproc.stdin.write(sequence[:seq_trim]+"\n")
+            seqproc.stdin.write(bytearray(sequence[:seq_trim]+"\n", encoding))
             data.append((0,sequence[seq_trim:]))
          # Send barcode to umi process.
-         umiproc.stdin.write(barcode+"\n")
+         umiproc.stdin.write(bytearray(barcode+"\n", encoding))
       else:
          sys.stderr.write("Unrecognized input format. Compatible formats: FASTQ, FASTA or raw nucleotides (AaCcGgTtUuNn).\n")
          sys.exit(1)
@@ -111,13 +112,13 @@ if params.input_file_2 is None:
             sequence = line[umi_len:]
             # Send sequence to seq process.
             if seq_trim == 0:
-               seqproc.stdin.write(sequence+"\n")
+               seqproc.stdin.write(bytearray(sequence+"\n", encoding))
                data.append((0,""))
             else:
-               seqproc.stdin.write(sequence[:seq_trim]+"\n")
+               seqproc.stdin.write(bytearray(sequence[:seq_trim]+"\n", encoding))
                data.append((0,sequence[seq_trim:]))
             # Send barcode to umi process.
-            umiproc.stdin.write(barcode+"\n")
+            umiproc.stdin.write(bytearray(barcode+"\n", encoding))
          # Increase linenumber count
          lineno += 1
    
@@ -137,13 +138,13 @@ else:
          sequence = fline[umi_len:]+rline[umi_len:]
          # Send sequence to seq process.
          if seq_trim == 0:
-            seqproc.stdin.write(sequence+"\n")
+            seqproc.stdin.write(bytearray(sequence+"\n", encoding))
             data.append((len(fline)-umi_len,""))
          else:
-            seqproc.stdin.write(sequence[:seq_trim]+"\n")
+            seqproc.stdin.write(bytearray(sequence[:seq_trim]+"\n", encoding))
             data.append((len(fline)-umi_len,sequence[seq_trim:]))
          # Send barcode to umi process.
-         umiproc.stdin.write(barcode+"\n")
+         umiproc.stdin.write(bytearray(barcode+"\n", encoding))
       else:
          sys.stderr.write("Unrecognized input format. Compatible formats: FASTQ, FASTA or raw nucleotides (AaCcGgTtUuNn).\n")
          sys.exit(1)
@@ -152,7 +153,7 @@ else:
       
       lineno = 0
       # Read forward and reverse files simultaneously
-      for fline,rline in izip(f1,f2):
+      for fline,rline in zip(f1,f2):
          if lineno % form == 0:
             # Starcode sequenes seqs and store UMIs and the rest of the sequence.
             fline = fline.rstrip()
@@ -161,13 +162,13 @@ else:
             sequence = fline[umi_len:]+rline[umi_len:]
             # Send sequence to seq process.
             if seq_trim == 0:
-               seqproc.stdin.write(sequence+"\n")
+               seqproc.stdin.write(bytearray(sequence+"\n", encoding))
                data.append((len(fline)-umi_len,""))
             else:
-               seqproc.stdin.write(sequence[:seq_trim]+"\n")
+               seqproc.stdin.write(bytearray(sequence[:seq_trim]+"\n", encoding))
                data.append((len(fline)-umi_len,sequence[seq_trim:]))
             # Send barcode to UMI process.
-            umiproc.stdin.write(barcode+"\n")
+            umiproc.stdin.write(bytearray(barcode+"\n", encoding))
          # Increase linenumber count
          lineno += 1
    
@@ -184,7 +185,7 @@ for line in umiproc.stdout:
    clustno += 1
    sys.stderr.write("processing UMI (cluster {})...\r".format(clustno))
    # Parse starcode output.
-   mout = line.rstrip().split("\t")
+   mout = line.decode(encoding).rstrip().split("\t")
    umi_id = mout[2].split(",")
    # Store UMI cluster ID (same as seq_id of the canonicals).
    umi_canon = mout[0]
@@ -202,7 +203,7 @@ for line in seqproc.stdout:
    clustno += 1
    sys.stderr.write("processing sequences (cluster {})\r".format(clustno))
    # Parse starcode output.
-   mout = line.rstrip().split("\t")
+   mout = line.decode(encoding).rstrip().split("\t")
    seq_id = mout[2].split(",")
 
    # Aux vars to recover canonical end.
@@ -214,7 +215,7 @@ for line in seqproc.stdout:
    for id in seq_id:
       # Merge seq id and umi canonical to form final clusters.
       umi = data[int(id)][2]
-      if not clusters.has_key(umi):
+      if umi not in clusters:
          clusters[umi] = (id,)
       else:
          clusters[umi] += (id,)
@@ -222,7 +223,7 @@ for line in seqproc.stdout:
       # If we trimmed, we need to find the canonical for the rest of the sequence.      
       if seq_trim > 0:
          seq_end = data[int(id)][1]
-         if not seqbuf.has_key(seq_end):
+         if seq_end not in seqbuf:
             seqbuf[seq_end] = 1
          else:
             seqbuf[seq_end] += 1

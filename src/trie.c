@@ -29,8 +29,6 @@
 #define PAD 5              // Position of padding nodes.
 #define EOS -1             // End Of String, for 'dash()'.
 
-// Translation tables between letters and numbers.
-static const char untranslate[7] = "NACGT N";
 // Translation table to insert nodes in the trie.
 //          ' ': PAD (5)
 //     'a', 'A': 1

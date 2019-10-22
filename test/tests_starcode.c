@@ -1,3 +1,4 @@
+#include <math.h>
 #include "unittest.h"
 #include "starcode.c"
 
@@ -525,19 +526,31 @@ test_starcode_8
    test_assert(seq2id("GAAAA", 4) == 128);
    test_assert(seq2id("TAAAA", 4) == 192);
 
-   // Test 10,000 random cases (with no N).
+   // Test 10,000 random cases of size 16 (with no N).
+   for (int i = 0 ; i < 10000 ; i++) {
+      char seq[17] = {0};
+      int id = 0;
+      for (int j = 0 ; j < 16 ; j++) {
+         int r = floor(drand48() * 4.);
+         id += (r << 2*(15-j));
+         seq[j] = untranslate[r+1];
+      }
+      test_assert(seq2id(seq, 16) == id);
+   }
+
+   // Test 10,000 random cases of size 20 (with no N).
    for (int i = 0 ; i < 10000 ; i++) {
       char seq[21] = {0};
       int id = 0;
       for (int j = 0 ; j < 20 ; j++) {
-         int r = (int) drand48()*4;
-         id += (r << 2*(19-j));
+         int r = floor(drand48() * 4.);
+         if (j > 3) id += (r << 2*(19-j));
          seq[j] = untranslate[r+1];
       }
       test_assert(seq2id(seq, 20) == id);
    }
 
-   // Test failure.
+   // Test for failure.
    test_assert(seq2id("AAAAN", 4) == 0);
    test_assert(seq2id("NAAAA", 4) == -1);
 

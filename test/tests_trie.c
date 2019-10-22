@@ -1,6 +1,8 @@
 #include "unittest.h"
 #include "trie.c"
 
+static const char untranslate[7] = "NACGT N";
+
 // Globals //
 int LEAF_NODE;
 
@@ -168,7 +170,7 @@ test_base_2
    node_t *root = new_trienode();
    test_assert_critical(root != NULL);
 
-   for (int i = 0 ; i < 6 ; i++) {
+   for (unsigned int i = 0 ; i < 6 ; i++) {
       node_t *node = insert(root, i);
       test_assert_critical(node != NULL);
       for (int j = 0 ; j < 6 ; j++) {
@@ -203,7 +205,7 @@ test_base_3
       exit(EXIT_FAILURE);
    }
 
-   for (int i = 0 ; i < 6 ; i++) {
+   for (unsigned int i = 0 ; i < 6 ; i++) {
       node_t *node = insert_wo_malloc(root, i, nodes+i);
       test_assert_critical(node != NULL);
       test_assert(node == nodes+i);
@@ -350,9 +352,10 @@ test_base_6
    // Cache at initialization.
    const char cache[17] = {8,7,6,5,4,3,2,1,0,1,2,3,4,5,6,7,8};
    // Successive 'paths' members of a line of A in the trie.
-   const int paths[20] = {0,1,17,273,4369,69905,1118481,17895697,
-      286331153,286331153,286331153,286331153,286331153,286331153,
-      286331153,286331153,286331153,286331153,286331153,286331153};
+   const unsigned int paths[20] = { 0, 1, 17, 273, 4369, 69905, 1118481,
+      17895697, 286331153, 286331153, 286331153, 286331153, 286331153,
+      286331153, 286331153, 286331153, 286331153, 286331153, 286331153,
+      286331153 };
 
    // Check the integrity of the nodes.
    node_t *node = trie->root;

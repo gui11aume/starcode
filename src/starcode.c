@@ -318,8 +318,7 @@ sort_and_print_ids
 void
 print_nr_raw
 (
-   useq_t  * u,
-   propt_t   propt
+   useq_t  * u
 )
 {
    fprintf(OUTPUTF1, "%s\n", u->seq);
@@ -329,8 +328,7 @@ print_nr_raw
 void
 print_nr_fasta
 (
-   useq_t  * u,
-   propt_t   propt
+   useq_t  * u
 )
 {
    fprintf(OUTPUTF1, "%s\n%s\n", u->info, u->seq);
@@ -340,8 +338,7 @@ print_nr_fasta
 void
 print_nr_fastq
 (
-   useq_t  * u,
-   propt_t   propt
+   useq_t  * u
 )
 {
    char header[M] = {0};
@@ -355,8 +352,7 @@ print_nr_fastq
 void
 print_nr_pe_fastq
 (
-   useq_t  * u,
-   propt_t   propt
+   useq_t  * u
 )
 {
    char head1[M] = {0};
@@ -638,7 +634,7 @@ starcode
       // If print non redundant sequences, just print the
       // canonicals with their info.
 
-      void (* print_nr) (useq_t *, propt_t) = {0};
+      void (* print_nr) (useq_t *) = {0};
            if (FORMAT == RAW)      print_nr = print_nr_raw;
       else if (FORMAT == FASTA)    print_nr = print_nr_fasta;
       else if (FORMAT == FASTQ)    print_nr = print_nr_fastq;
@@ -648,7 +644,7 @@ starcode
          useq_t *u = (useq_t *) uSQ->items[i];
          if (u->canonical == NULL) break;
          if (u->canonical != u) continue;
-         print_nr(u, propt);
+         print_nr(u);
       }
 
    }
@@ -2276,7 +2272,9 @@ seq2id
 {
 
    int seqid = 0;
-   for (int i = 0; i < slen; i++) {
+   // Use the last 16 characters to construct the id.
+   int imin = slen > 16 ? slen-16 : 0;
+   for (int i = imin; i < slen; i++) {
       // Padding spaces are substituted by 'A'. It does not hurt
       // anyway to generate some false positives.
       if      (seq[i] == 'A' || seq[i] == 'a' || seq[i] == ' ') { }

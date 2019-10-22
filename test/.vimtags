@@ -1,0 +1,48 @@
+!_TAG_FILE_SORTED	2	/0=unsorted, 1=sorted, 2=foldcase/
+-leak-check	/home/gfilion/src/C/starcode/test/Makefile	/^	valgrind --leak-check=full .\/$(P)$/;"	m	language:Make
+CC	/home/gfilion/src/C/starcode/test/Makefile	/^CC= gcc$/;"	m	language:Make
+CFLAGS	/home/gfilion/src/C/starcode/test/Makefile	/^CFLAGS= -std=gnu99 -g -O0 $(WARNINGS) $(INCLUDES) $(COVERAGE)$/;"	m	language:Make
+COVERAGE	/home/gfilion/src/C/starcode/test/Makefile	/^COVERAGE= -fprofile-arcs -ftest-coverage$/;"	m	language:Make
+HEADERS	/home/gfilion/src/C/starcode/test/Makefile	/^HEADERS= starcode.h trie.h$/;"	m	language:Make
+INCLUDES	/home/gfilion/src/C/starcode/test/Makefile	/^INCLUDES= -I..\/src -Ilib$/;"	m	language:Make
+LDLIBS	/home/gfilion/src/C/starcode/test/Makefile	/^LDLIBS= -L`pwd` -Wl,-rpath=`pwd` -lunittest -lpthread -lm$/;"	m	language:Make
+LEAF_NODE	/home/gfilion/src/C/starcode/test/tests_trie.c	/^int LEAF_NODE;$/;"	v	language:C++
+OBJECTS	/home/gfilion/src/C/starcode/test/Makefile	/^OBJECTS= tests_trie.o tests_starcode.o libunittest.so$/;"	m	language:Make
+P	/home/gfilion/src/C/starcode/test/Makefile	/^P= runtests$/;"	m	language:Make
+render	/home/gfilion/src/C/starcode/test/tests_trie.c	/^render$/;"	f	language:C++
+reset_gstack	/home/gfilion/src/C/starcode/test/tests_trie.c	/^void reset_gstack(gstack_t **g) {$/;"	f	language:C++
+setup	/home/gfilion/src/C/starcode/test/tests_trie.c	/^setup$/;"	f	language:C++
+SOURCES	/home/gfilion/src/C/starcode/test/Makefile	/^SOURCES= starcode.c trie.c$/;"	m	language:Make
+teardown	/home/gfilion/src/C/starcode/test/tests_trie.c	/^teardown$/;"	f	language:C++
+test_base_1	/home/gfilion/src/C/starcode/test/tests_trie.c	/^test_base_1$/;"	f	language:C++
+test_base_2	/home/gfilion/src/C/starcode/test/tests_trie.c	/^test_base_2$/;"	f	language:C++
+test_base_3	/home/gfilion/src/C/starcode/test/tests_trie.c	/^test_base_3$/;"	f	language:C++
+test_base_4	/home/gfilion/src/C/starcode/test/tests_trie.c	/^test_base_4$/;"	f	language:C++
+test_base_5	/home/gfilion/src/C/starcode/test/tests_trie.c	/^test_base_5$/;"	f	language:C++
+test_base_6	/home/gfilion/src/C/starcode/test/tests_trie.c	/^test_base_6$/;"	f	language:C++
+test_base_7	/home/gfilion/src/C/starcode/test/tests_trie.c	/^test_base_7$/;"	f	language:C++
+test_base_8	/home/gfilion/src/C/starcode/test/tests_trie.c	/^test_base_8$/;"	f	language:C++
+test_cases_starcode	/home/gfilion/src/C/starcode/test/tests_starcode.c	/^const test_case_t test_cases_starcode[] = {$/;"	v	language:C++
+test_cases_trie	/home/gfilion/src/C/starcode/test/tests_trie.c	/^const test_case_t test_cases_trie[] = {$/;"	v	language:C++
+test_errmsg	/home/gfilion/src/C/starcode/test/tests_trie.c	/^test_errmsg$/;"	f	language:C++
+test_mem_1	/home/gfilion/src/C/starcode/test/tests_trie.c	/^test_mem_1$/;"	f	language:C++
+test_mem_2	/home/gfilion/src/C/starcode/test/tests_trie.c	/^test_mem_2$/;"	f	language:C++
+test_mem_3	/home/gfilion/src/C/starcode/test/tests_trie.c	/^test_mem_3$/;"	f	language:C++
+test_mem_4	/home/gfilion/src/C/starcode/test/tests_trie.c	/^test_mem_4$/;"	f	language:C++
+test_mem_5	/home/gfilion/src/C/starcode/test/tests_trie.c	/^test_mem_5$/;"	f	language:C++
+test_mem_6	/home/gfilion/src/C/starcode/test/tests_trie.c	/^test_mem_6$/;"	f	language:C++
+test_search	/home/gfilion/src/C/starcode/test/tests_trie.c	/^test_search$/;"	f	language:C++
+test_seqsort	/home/gfilion/src/C/starcode/test/tests_starcode.c	/^test_seqsort$/;"	f	language:C++
+test_starcode_1	/home/gfilion/src/C/starcode/test/tests_starcode.c	/^test_starcode_1$/;"	f	language:C++
+test_starcode_10	/home/gfilion/src/C/starcode/test/tests_starcode.c	/^test_starcode_10$/;"	f	language:C++
+test_starcode_2	/home/gfilion/src/C/starcode/test/tests_starcode.c	/^test_starcode_2$/;"	f	language:C++
+test_starcode_3	/home/gfilion/src/C/starcode/test/tests_starcode.c	/^test_starcode_3$/;"	f	language:C++
+test_starcode_4	/home/gfilion/src/C/starcode/test/tests_starcode.c	/^test_starcode_4$/;"	f	language:C++
+test_starcode_5	/home/gfilion/src/C/starcode/test/tests_starcode.c	/^test_starcode_5$/;"	f	language:C++
+test_starcode_6	/home/gfilion/src/C/starcode/test/tests_starcode.c	/^test_starcode_6$/;"	f	language:C++
+test_starcode_7	/home/gfilion/src/C/starcode/test/tests_starcode.c	/^test_starcode_7$/;"	f	language:C++
+test_starcode_8	/home/gfilion/src/C/starcode/test/tests_starcode.c	/^test_starcode_8$/;"	f	language:C++
+test_starcode_9	/home/gfilion/src/C/starcode/test/tests_starcode.c	/^test_starcode_9$/;"	f	language:C++
+untranslate	/home/gfilion/src/C/starcode/test/tests_starcode.c	/^static const char untranslate[7] = "NACGT N";$/;"	v	language:C++	file:
+untranslate	/home/gfilion/src/C/starcode/test/tests_trie.c	/^static const char untranslate[7] = "NACGT N";$/;"	v	language:C++	file:
+WARNINGS	/home/gfilion/src/C/starcode/test/Makefile	/^WARNINGS= -Waddress -Warray-bounds=1 -Wbool-compare -Wbool-operation         \\$/;"	m	language:Make

@@ -12,23 +12,8 @@ HEADERS= starcode.h trie.h
 CC= gcc
 INCLUDES= -I../src -Ilib
 COVERAGE= -fprofile-arcs -ftest-coverage
-WARNINGS= -Waddress -Warray-bounds=1 -Wbool-compare -Wbool-operation         \
-	-Wbad-function-cast -Wchar-subscripts -Wclobbered -Wcomment          \
-	-Wduplicate-decl-specifier -Wempty-body -Wenum-compare               \
-	-Wformat -Wignored-qualifiers -Wimplicit -Wimplicit-fallthrough=3    \
-	-Wint-in-bool-context -Wlogical-not-parentheses -Wmain               \
-	-Wmaybe-uninitialized -Wmemset-elt-size -Wmemset-transposed-args     \
-	-Wmisleading-indentation -Wmissing-braces                            \
-	-Wmissing-field-initializers -Wmissing-parameter-type -Wnonnull      \
-	-Wnonnull-compare -Wold-style-declaration -Wopenmp-simd              \
-	-Woverride-init -Wparentheses -Wpointer-sign -Wrestrict              \
-	-Wreturn-type -Wsequence-point -Wshift-negative-value -Wsign-compare \
-	-Wsizeof-pointer-memaccess -Wstrict-aliasing -Wstrict-overflow=4     \
-	-Wswitch -Wtautological-compare -Wtrigraphs -Wtype-limits            \
-	-Wuninitialized -Wuninitialized -Wunused-function -Wunused-label     \
-	-Wunused-value -Wunused-variable -Wvolatile-register-var -Werror
 
-CFLAGS= -std=gnu99 -g -O0 $(WARNINGS) $(INCLUDES) $(COVERAGE)
+CFLAGS= -std=gnu99 -g -Wall -Wextra -O0 $(INCLUDES) $(COVERAGE)
 LDLIBS= -L`pwd` -Wl,-rpath=`pwd` -lunittest -lpthread -lm
 
 $(P): $(OBJECTS) $(SOURCES) $(HEADERS) runtests.c

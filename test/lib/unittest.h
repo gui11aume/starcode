@@ -47,8 +47,6 @@ void   unredirect_stderr (void);
 int
 run_unittest
 (
-         int             argc,
-         char         ** argv,
    const test_case_t   * test_cases[]
 );
 

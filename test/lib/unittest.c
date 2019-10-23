@@ -45,7 +45,7 @@ terminate_thread
 )
 {
 
-   fprintf(stderr, "caught SIGTERM (interrupting)\n");
+   fprintf(stderr, "caught SIGTERM %d (interrupting)\n", sig);
 
    // Label the test case as failed. //
    TEST_CASE_FAILED = 1;
@@ -62,8 +62,6 @@ terminate_thread
 int
 run_unittest
 (
-         int            argc,
-         char        ** argv,
    const test_case_t  * test_case_list[]
 )
 {

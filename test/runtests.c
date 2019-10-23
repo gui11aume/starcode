@@ -1,10 +1,8 @@
 #include "unittest.h"
 
 int
-main(
-   int argc,
-   char **argv
-)
+main
+(void)
 {
 
    // Register the test cases from linked files. //
@@ -17,6 +15,6 @@ main(
       NULL, // Sentinel. //
    };
 
-   return run_unittest(argc, argv, list_of_test_cases);
+   return run_unittest(list_of_test_cases);
 
 }

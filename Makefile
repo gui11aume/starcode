@@ -24,9 +24,13 @@ DEV_CFLAGS= -std=c99 -g -O0 -Wunused-parameter -Wredundant-decls \
 REL_CFLAGS= -std=c99 -O3 -Wall -Wextra
 
 # Defaluts.
+ifdef TRAVIS_COMPILER
+CC= $(TRAVIS_COMPILER)
+else
+CC= gcc
+endif
 CFLAGS= $(REL_CFLAGS)
 LDLIBS= -lpthread -lm
-CC= gcc
 
 # General rules.
 all: starcode-release

@@ -447,18 +447,18 @@ main(
       }
    }
    else if (nr_flag && input1 != UNSET && input2 != UNSET) {
-      // Set default names as inputX-starcode.fastq
+      // Set default output file names as inputX-starcode.fastq
       if (output1 == UNSET) {
          output1 = outname(input1);
          outputf1 = fopen(output1, "w");
          free(output1);
+         output1 = NULL;
       } else {
          outputf1 = fopen(output1, "w");
       }
 
       if (outputf1 == NULL) {
-         fprintf(stderr,
-               "%s cannot write to file %s\n", ERRM, outname(input1));
+         fprintf(stderr, "%s cannot write to output file 1\n", ERRM);
          say_usage();
          return EXIT_FAILURE;
       }
@@ -467,13 +467,13 @@ main(
          output2 = outname(input2);
          outputf2 = fopen(output2, "w");
          free(output2);
+         output2 = NULL;
       } else {
          outputf2 = fopen(output2, "w");
       }
 
       if (outputf2 == NULL) {
-         fprintf(stderr,
-               "%s cannot write to file %s\n", ERRM, outname(input2));
+         fprintf(stderr, "%s cannot write to output file 2\n", ERRM);
          say_usage();
          return EXIT_FAILURE;
       }

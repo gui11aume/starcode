@@ -364,16 +364,17 @@ print_nr_pe_fastq
 
    // Split the sequences.
    char *c = strrchr(u->seq, '-');
-   strncpy(seq1, u->seq, c-u->seq - STARCODE_MAX_TAU);
-   strcpy(seq2, c+1);
+   if (c == NULL || c - u->seq > MAXBRCDLEN) return;
+   strncpy(seq1, u->seq, c - u->seq - STARCODE_MAX_TAU);
+   strncpy(seq2, c+1, MAXBRCDLEN);
 
    // Split the info field.
    {
       char *c = u->info;
-      strcpy(head1, strsep(&c, "\n"));
-      strcpy(qual1, strsep(&c, "\n"));
-      strcpy(head2, strsep(&c, "\n"));
-      strcpy(qual2, strsep(&c, "\n"));
+      strncpy(head1, strsep(&c, "\n"), MAXBRCDLEN);
+      strncpy(qual1, strsep(&c, "\n"), MAXBRCDLEN);
+      strncpy(head2, strsep(&c, "\n"), MAXBRCDLEN);
+      strncpy(qual2, strsep(&c, "\n"), MAXBRCDLEN);
    }
 
    // Print to separate files.
@@ -635,10 +636,10 @@ starcode
       // canonicals with their info.
 
       void (* print_nr) (useq_t *) = {0};
-           if (FORMAT == RAW)      print_nr = print_nr_raw;
-      else if (FORMAT == FASTA)    print_nr = print_nr_fasta;
+           if (FORMAT == FASTA)    print_nr = print_nr_fasta;
       else if (FORMAT == FASTQ)    print_nr = print_nr_fastq;
       else if (FORMAT == PE_FASTQ) print_nr = print_nr_pe_fastq;
+      else                         print_nr = print_nr_raw;
 
       for (int i = 0 ; i < uSQ->nitems ; i++) {
          useq_t *u = (useq_t *) uSQ->items[i];
@@ -925,6 +926,12 @@ plan_mt
 //   time (a query of block i in trie j is the same as a query of block j 
 //   in trie i).                                                          
 {
+
+   if (ntries < 1) {
+      alert();
+      krash();
+   }
+
    // Initialize plan.
    mtplan_t *mtplan = malloc(sizeof(mtplan_t));
    if (mtplan == NULL) {
@@ -933,7 +940,7 @@ plan_mt
    }
 
    // Initialize mutex.
-   pthread_mutex_t *mutex = malloc((ntries + 1) * sizeof(pthread_mutex_t));
+   pthread_mutex_t *mutex = calloc(ntries + 1, sizeof(pthread_mutex_t));
    pthread_cond_t *monitor = malloc(sizeof(pthread_cond_t));
    if (mutex == NULL || monitor == NULL) {
       alert();
@@ -943,7 +950,7 @@ plan_mt
    pthread_cond_init(monitor,NULL);
 
    // Initialize 'mttries'.
-   mttrie_t *mttries = malloc(ntries * sizeof(mttrie_t));
+   mttrie_t *mttries = calloc(ntries, sizeof(mttrie_t));
    if (mttries == NULL) {
       alert();
       krash();
@@ -952,12 +959,12 @@ plan_mt
    // Boundaries of the query blocks.
    int Q = useqS->nitems / ntries;
    int R = useqS->nitems % ntries;
-   int *bounds = malloc((ntries+1) * sizeof(int));
+   int *bounds = calloc(ntries+1, sizeof(int));
    for (int i = 0 ; i < ntries+1 ; i++) bounds[i] = Q*i + min(i, R);
 
    // Preallocated tries.
    // Count with maxlen-1
-   long *nnodes = malloc(ntries * sizeof(long));
+   long *nnodes = calloc(ntries, sizeof(long));
    for (int i = 0; i < ntries; i++) nnodes[i] =
       count_trie_nodes((useq_t **)useqS->items, bounds[i], bounds[i+1]);
 
@@ -966,8 +973,8 @@ plan_mt
       // Remember that 'ntries' is odd.
       int njobs = (ntries+1)/2;
       trie_t *local_trie  = new_trie(height);
-      node_t *local_nodes = (node_t *) malloc(nnodes[i] * sizeof(node_t));
-      mtjob_t *jobs = malloc(njobs * sizeof(mtjob_t));
+      node_t *local_nodes = (node_t *) calloc(nnodes[i], sizeof(node_t));
+      mtjob_t *jobs = calloc(njobs, sizeof(mtjob_t));
       if (local_trie == NULL || jobs == NULL) {
          alert();
          krash();
@@ -1242,7 +1249,7 @@ seqsort
 //   Pointers to repeated elements are set to NULL.
 {
    // Copy to buffer.
-   useq_t **buffer = malloc(numels * sizeof(useq_t *));
+   useq_t **buffer = calloc(numels, sizeof(useq_t *));
    memcpy(buffer, data, numels * sizeof(useq_t *));
 
    // Prepare args struct.
@@ -1397,7 +1404,7 @@ read_rawseq
    ssize_t nread;
    size_t nchar = M;
    char copy[MAXBRCDLEN];
-   char *line = malloc(M * sizeof(char));
+   char *line = malloc(M);
    if (line == NULL) {
       alert();
       krash();
@@ -1408,6 +1415,13 @@ read_rawseq
    int lineno = 0;
 
    while ((nread = getline(&line, &nchar, inputf)) != -1) {
+      if (nread > MAXBRCDLEN) {
+         // Could trigger an overflow in 'copy'.
+         fprintf(stderr, "max sequence length exceeded (%d)\n",
+               MAXBRCDLEN);
+         fprintf(stderr, "offending line:\n%s\n", line);
+         abort();
+      }
       lineno++;
       if (line[nread-1] == '\n') line[nread-1] = '\0';
       if (sscanf(line, "%s\t%d", copy, &count) != 2) {
@@ -1418,12 +1432,6 @@ read_rawseq
          seq = copy;
       }
       size_t seqlen = strlen(seq);
-      if (seqlen > MAXBRCDLEN) {
-         fprintf(stderr, "max sequence length exceeded (%d)\n",
-               MAXBRCDLEN);
-         fprintf(stderr, "offending sequence:\n%s\n", seq);
-         abort();
-      }
       for (size_t i = 0 ; i < seqlen ; i++) {
          if (!valid_DNA_char[(int)seq[i]]) {
             fprintf(stderr, "invalid input\n");
@@ -1433,14 +1441,14 @@ read_rawseq
       }
       useq_t *new = new_useq(count, seq, NULL);
       if (new == NULL) {
-	 alert();
-	 krash();
+         alert();
+         krash();
       }
       new->nids = 1;
       new->seqid = malloc(sizeof(int));
       if (new->seqid == NULL) {
-	 alert();
-	 krash();
+         alert();
+         krash();
       }
       new->seqid[0] = uSQ->nitems+1;
       push(new, &uSQ);
@@ -1462,7 +1470,7 @@ read_fasta
 
    ssize_t nread;
    size_t nchar = M;
-   char *line = malloc(M * sizeof(char));
+   char *line = malloc(M);
    if (line == NULL) {
       alert();
       krash();
@@ -1477,7 +1485,7 @@ read_fasta
       // Strip newline character.
       if (line[nread-1] == '\n') line[nread-1] = '\0';
 
-      if (lineno %2 == 0) {
+      if (lineno % 2 == 0) {
          size_t seqlen = strlen(line);
          if (seqlen > MAXBRCDLEN) {
             fprintf(stderr, "max sequence length exceeded (%d)\n",
@@ -1493,17 +1501,18 @@ read_fasta
             }
          }
          useq_t *new = new_useq(1, line, header);
-	 if (new == NULL) {
+         if (new == NULL) {
             alert();
             krash();
          }
+         header = NULL;
          new->nids = 1;
-	 new->seqid = malloc(sizeof(int));
-	 if (new->seqid == NULL) {
-	    alert();
-	    krash();
-	 }
-	 new->seqid[0] = uSQ->nitems+1;
+         new->seqid = malloc(sizeof(int));
+         if (new->seqid == NULL) {
+            alert();
+            krash();
+         }
+         new->seqid[0] = uSQ->nitems+1;
          push(new, &uSQ);
       }
       else if (readh) {
@@ -1515,6 +1524,8 @@ read_fasta
       }
    }
 
+   if (header != NULL)
+      free(header); // If number of lines is odd.
    free(line);
    return uSQ;
 
@@ -1531,7 +1542,7 @@ read_fastq
 
    ssize_t nread;
    size_t nchar = M;
-   char *line = malloc(M * sizeof(char));
+   char *line = malloc(M);
    if (line == NULL) {
       alert();
       krash();
@@ -1620,8 +1631,8 @@ read_PE_fastq
 
    ssize_t nread;
    size_t nchar = M;
-   char *line1 = malloc(M * sizeof(char));
-   char *line2 = malloc(M * sizeof(char));
+   char *line1 = malloc(M);
+   char *line2 = malloc(M);
    if (line1 == NULL && line2 == NULL) {
       alert();
       krash();
@@ -1802,8 +1813,8 @@ pad_useq
    }
 
    // Alloc median bins. (Initializes to 0)
-   int  * count = calloc((maxlen + 1), sizeof(int));
-   char * spaces = malloc((maxlen + 1) * sizeof(char));
+   int  * count = calloc(maxlen + 1, sizeof(int));
+   char * spaces = malloc(maxlen + 1);
    if (spaces == NULL || count == NULL) {
       alert();
       krash();
@@ -1818,7 +1829,7 @@ pad_useq
       count[len]++;
       if (len == maxlen) continue;
       // Create a new sequence with padding characters.
-      char *padded = malloc((maxlen + 1) * sizeof(char));
+      char *padded = malloc(maxlen + 1);
       if (padded == NULL) {
          alert();
          krash();
@@ -1858,7 +1869,7 @@ unpad_useq
       int pad = 0;
       while (u->seq[pad] == ' ') pad++;
       // Create a new sequence without paddings characters.
-      char *unpadded = malloc((len - pad + 1) * sizeof(char));
+      char *unpadded = calloc((len - pad + 1), sizeof(char));
       if (unpadded == NULL) {
          alert();
          krash();
@@ -1906,7 +1917,7 @@ transfer_sorted_useq_ids
 {
    if (us->nids < 1) return;
    // Alloc merge-sort buffer.
-   int * buf = malloc((ud->nids + us->nids) * sizeof(int));
+   int * buf = calloc(ud->nids + us->nids, sizeof(int));
    if (buf == NULL) {
       alert();
       krash();
@@ -2023,7 +2034,7 @@ mp_resolve_ambiguous
 )
 {
    // Ambiguous sequences must have NULL canonicals.
-   if (useq->canonical) {
+   if (useq->canonical != NULL) {
       return;
    }
 
@@ -2037,7 +2048,7 @@ mp_resolve_ambiguous
    for (int i = 0 ; i < matches->nitems ; i++) {
       useq_t *match = (useq_t *) matches->items[i];
       if (match->canonical == NULL)
-	 mp_resolve_ambiguous(match);
+         mp_resolve_ambiguous(match);
    }
 
    // Select canonical. Criteria:
@@ -2052,33 +2063,40 @@ mp_resolve_ambiguous
    for (int i = 0; i < matches->nitems ; i++) {
       useq_t *match = (useq_t *) matches->items[i];
       if (match->canonical == match) {
-	 if (match->count > cnt_max) {
-	    canonical = match;
-	    cnt_max = canonical->count;
-	    ssz_max = canonical->sphere_c;
-	 }
-	 // Same count, compare sphere size.
-	 else if (match->count == cnt_max && match != canonical) {
-	    if (match->sphere_c > ssz_max) {
-	       canonical = match;
-	       ssz_max = canonical->sphere_c;
-	    }
-	    else if (match->sphere_c == ssz_max)
-	       canonical = NULL;
-	 }
+         if (match->count > cnt_max) {
+            canonical = match;
+            cnt_max = canonical->count;
+            ssz_max = canonical->sphere_c;
+         }
+         // Same count, compare sphere size.
+         else if (match->count == cnt_max && match != canonical) {
+            if (match->sphere_c > ssz_max) {
+               canonical = match;
+               ssz_max = canonical->sphere_c;
+            }
+            else if (match->sphere_c == ssz_max)
+               canonical = NULL;
+         }
       }
    }
 
    // Criterion 3.
-   if (!canonical) {
+   if (canonical == NULL) {
       cnt_max = 0;
       for (int i = 0; i < matches->nitems ; i++) {
-	 useq_t *match_canon = ((useq_t *) matches->items[i])->canonical;
-	 if (match_canon->count > cnt_max) {
-	    cnt_max = match_canon->count;
-	    canonical = match_canon;
-	 }
+         useq_t *match_canon = ((useq_t *) matches->items[i])->canonical;
+         if (match_canon->count > cnt_max) {
+            cnt_max = match_canon->count;
+            canonical = match_canon;
+         }
       }
+   }
+
+   // This should not ever happen. It is only a security
+   // to avoid dereferencing a null pointer below.
+   if (canonical == NULL) {
+      alert();
+      krash();
    }
 
    // Transfer counts and seq ids to canonical.
@@ -2089,6 +2107,7 @@ mp_resolve_ambiguous
    useq->count = 0;
    // Increase canonical sphere size.
    canonical->sphere_c += 1;
+
 }
 
 
@@ -2150,7 +2169,7 @@ new_lookup
    // Set parameters.
    lut->slen  = maxlen;
    lut->kmers = tau + 1;
-   lut->klen  = malloc(lut->kmers * sizeof(int));
+   lut->klen  = calloc(lut->kmers, sizeof(int));
    
    // Compute k-mer lengths.
    if (k > MAX_K_FOR_LOOKUP)
@@ -2160,8 +2179,8 @@ new_lookup
 
    // Allocate lookup tables.
    for (int i = 0; i < tau + 1; i++) {
-      lut->lut[i] = calloc(1 << max(0,(2*lut->klen[i] - 3)),
-            sizeof(char));
+      size_t nmemb = 1 << max(0, (2*lut->klen[i] - 3));
+      lut->lut[i] = calloc(nmemb, sizeof(unsigned char));
       if (lut->lut[i] == NULL) {
          while (--i >= 0) {
             free(lut->lut[i]);
@@ -2462,7 +2481,7 @@ idstack_new
       alert();
       krash();
    }
-   stack->elm = malloc(n_elm*sizeof(int));
+   stack->elm = calloc(n_elm, sizeof(int));
    if (stack->elm == NULL) {
       alert();
       krash();

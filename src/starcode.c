@@ -109,15 +109,15 @@ typedef struct sortargs_t sortargs_t;
 // creates some confusion in the code at times.
 // See function 'transfer_useq_ids()'.
 struct useq_t {
-  int              count;       // Number of sequences
-  unsigned int     nids;        // Number of associated sequence IDs
-  int              sphere_c;    // Centroid: Size of the sphere.
-  int              sphere_d;    // Distance to current sphere centroid. / MP: Ambiguous flag.
-  char          *  seq;         // Sequence
-  char          *  info;        // Multi-function text field
-  gstack_t      ** matches;     // Matches stratified by distance
-  struct useq_t *  canonical;   // Pointer to canonical sequence
-  int           *  seqid;       // Unique ID / pointer (see above).
+   ssize_t          count;       // Number of sequences
+   unsigned int     nids;        // Number of associated sequence IDs
+   ssize_t          sphere_c;    // Centroid: Size of the sphere.
+   ssize_t          sphere_d;    // Distance to current sphere centroid. / MP: Ambiguous flag.
+   char          *  seq;         // Sequence
+   char          *  info;        // Multi-function text field
+   gstack_t      ** matches;     // Matches stratified by distance
+   struct useq_t *  canonical;   // Pointer to canonical sequence
+   int           *  seqid;       // Unique ID / pointer (see above).
 };
 
 struct lookup_t {
@@ -131,10 +131,10 @@ struct lookup_t {
 struct sortargs_t {
    useq_t ** buf0;
    useq_t ** buf1;
-   int     size;
-   int     b;
-   int     thread;
-   int     repeats;
+   ssize_t   size;
+   int64_t   b;
+   int       thread;
+   ssize_t   repeats;
 };
 
 struct mtplan_t {
@@ -250,7 +250,7 @@ head_default
    useq_t * cncal = u->canonical;
    char * seq = propt.pe_fastq ? cncal->info : cncal->seq;
 
-   fprintf(OUTPUTF1, "%s%s\t%d",
+   fprintf(OUTPUTF1, "%s%s\t%ld",
          propt.first, seq, cncal->count);
 
    if (propt.showclusters) {
@@ -549,10 +549,10 @@ starcode
 
             fprintf(OUTPUTF1, "%s\t", u->seq);
             if (showclusters) {
-               fprintf(OUTPUTF1, "%d\t%s", u->sphere_c, u->seq);
+               fprintf(OUTPUTF1, "%ld\t%s", u->sphere_c, u->seq);
             }
             else {
-               fprintf(OUTPUTF1, "%d", u->sphere_c);
+               fprintf(OUTPUTF1, "%ld", u->sphere_c);
             }
 	    // Reset stack and add canonical ids.
 	    if (showids) {
@@ -600,7 +600,7 @@ starcode
             // Get canonical.
             useq_t * canonical = (useq_t *) cluster->items[0];
             // Print canonical and cluster count.
-            fprintf(OUTPUTF1, "%s\t%d", canonical->seq, canonical->count);
+            fprintf(OUTPUTF1, "%s\t%ld", canonical->seq, canonical->count);
             if (showclusters || showids) {
                fprintf (OUTPUTF1, "\t%s", canonical->seq);
 	       if (showids) {
@@ -1337,11 +1337,11 @@ nukesort
    useq_t ** r = (sortargs->b ? arg2.buf0 : arg2.buf1);
    useq_t ** buf = (sortargs->b ? arg1.buf1 : arg1.buf0);
 
-   int i = 0;
-   int j = 0;
-   int idx = 0;
+   ssize_t i = 0;
+   ssize_t j = 0;
+   ssize_t idx = 0;
+   ssize_t repeats = 0;
    int cmp = 0;
-   int repeats = 0;
 
    // Merge sets
    while (i+j < sortargs->size) {
@@ -1361,8 +1361,8 @@ nukesort
       // Do the comparison.
       useq_t *ul = (useq_t *) l[i];
       useq_t *ur = (useq_t *) r[j];
-      int sl = strlen(ul->seq);
-      int sr = strlen(ur->seq);
+      ssize_t sl = strlen(ul->seq);
+      ssize_t sr = strlen(ur->seq);
       if (sl == sr) cmp = strcmp(ul->seq, ur->seq);
       else cmp = sl < sr ? -1 : 1;
 
@@ -1389,7 +1389,6 @@ nukesort
    memset(buf+offset, 0, sortargs->repeats*sizeof(useq_t *));
    
    return NULL;
-
 }
 
 

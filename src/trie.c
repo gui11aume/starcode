@@ -106,6 +106,7 @@ int      recursive_count_nodes (node_t * node, int, int);
 
 // Globals.
 int ERROR = 0;
+gstack_t * const TOWER_TOP;
 
 int get_height(trie_t *trie) { return trie->info->height; }
 

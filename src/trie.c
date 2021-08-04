@@ -865,7 +865,7 @@ push
       if (stack->nitems > stack->nslots) return 1;
 
       // The stack is not locked, allocate more memory.
-      int new_nslots = 2 * stack->nslots;
+      size_t new_nslots = 2 * stack->nslots;
       size_t base_size = sizeof(gstack_t);
       size_t extra_size = new_nslots * sizeof(void *);
       gstack_t *ptr = realloc(stack, base_size + extra_size);

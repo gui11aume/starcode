@@ -109,15 +109,15 @@ typedef struct sortargs_t sortargs_t;
 // creates some confusion in the code at times.
 // See function 'transfer_useq_ids()'.
 struct useq_t {
-  int              count;       // Number of sequences
-  unsigned int     nids;        // Number of associated sequence IDs
-  int              sphere_c;    // Centroid: Size of the sphere.
-  int              sphere_d;    // Distance to current sphere centroid. / MP: Ambiguous flag.
-  char          *  seq;         // Sequence
-  char          *  info;        // Multi-function text field
-  gstack_t      ** matches;     // Matches stratified by distance
-  struct useq_t *  canonical;   // Pointer to canonical sequence
-  int           *  seqid;       // Unique ID / pointer (see above).
+   ssize_t          count;       // Number of sequences
+   unsigned int     nids;        // Number of associated sequence IDs
+   ssize_t          sphere_c;    // Centroid: Size of the sphere.
+   ssize_t          sphere_d;    // Distance to current sphere centroid. / MP: Ambiguous flag.
+   char          *  seq;         // Sequence
+   char          *  info;        // Multi-function text field
+   gstack_t      ** matches;     // Matches stratified by distance
+   struct useq_t *  canonical;   // Pointer to canonical sequence
+   int           *  seqid;       // Unique ID / pointer (see above).
 };
 
 struct lookup_t {
@@ -131,10 +131,10 @@ struct lookup_t {
 struct sortargs_t {
    useq_t ** buf0;
    useq_t ** buf1;
-   int     size;
-   int     b;
-   int     thread;
-   int     repeats;
+   ssize_t   size;
+   int64_t   b;
+   int       thread;
+   ssize_t   repeats;
 };
 
 struct mtplan_t {
@@ -220,7 +220,7 @@ gstack_t * read_file (FILE *, FILE *, int);
 gstack_t * read_PE_fastq (FILE *, FILE *, gstack_t *);
 int        seq2id (char *, int);
 gstack_t * seq2useq (gstack_t*, int);
-int        seqsort (useq_t **, int, int);
+size_t     seqsort (useq_t **, size_t, int);
 void       sphere_clustering (gstack_t *);
 void       transfer_counts_and_update_canonicals (useq_t*);
 void       transfer_sorted_useq_ids (useq_t *, useq_t *);
@@ -250,7 +250,7 @@ head_default
    useq_t * cncal = u->canonical;
    char * seq = propt.pe_fastq ? cncal->info : cncal->seq;
 
-   fprintf(OUTPUTF1, "%s%s\t%d",
+   fprintf(OUTPUTF1, "%s%s\t%ld",
          propt.first, seq, cncal->count);
 
    if (propt.showclusters) {
@@ -288,7 +288,7 @@ members_sc_default
 
    gstack_t *hits;
    for (int j = 0 ; (hits = u->matches[j]) != TOWER_TOP ; j++) {
-      for (int k = 0 ; k < hits->nitems ; k++) {
+      for (size_t k = 0 ; k < hits->nitems ; k++) {
          useq_t *match = (useq_t *) hits->items[k];
          if (match->canonical != u) continue;
          char *seq = propt.pe_fastq ? match->seq : u->seq;
@@ -410,7 +410,7 @@ starcode
    CLUSTER_RATIO = parent_to_child;
 
    if (verbose) {
-      fprintf(stderr, "running starcode with %d thread%s\n",
+      fprintf(stderr, "running starcode (dev/ssize64) with %d thread%s\n",
            thrmax, thrmax > 1 ? "s" : "");
       fprintf(stderr, "reading input files\n");
    }
@@ -425,7 +425,7 @@ starcode
    uSQ->nitems = seqsort((useq_t **) uSQ->items, uSQ->nitems, thrmax);
 
    // Get number of tries.
-   int ntries = 3 * thrmax + (thrmax % 2 == 0);
+   size_t ntries = 3 * thrmax + (thrmax % 2 == 0);
    if (uSQ->nitems < ntries) {
       ntries = 1;
       thrmax = 1;
@@ -492,7 +492,7 @@ starcode
 	 }
 
          // Run through the clustered items.
-         for (int i = 1 ; i < uSQ->nitems ; i++) {
+         for (size_t i = 1 ; i < uSQ->nitems ; i++) {
             useq_t *u = (useq_t *) uSQ->items[i];
             if (u->canonical == NULL) {
                break;
@@ -543,16 +543,16 @@ starcode
 	 // Sequence id stack.
 	 idstack_t  * idstack = NULL;
 	 if (showids) idstack = idstack_new(64);
-         for (int i = 0 ; i < uSQ->nitems ; i++) {
+         for (size_t i = 0 ; i < uSQ->nitems ; i++) {
             useq_t *u = (useq_t *) uSQ->items[i];
             if (u->canonical != u) break;
 
             fprintf(OUTPUTF1, "%s\t", u->seq);
             if (showclusters) {
-               fprintf(OUTPUTF1, "%d\t%s", u->sphere_c, u->seq);
+               fprintf(OUTPUTF1, "%ld\t%s", u->sphere_c, u->seq);
             }
             else {
-               fprintf(OUTPUTF1, "%d", u->sphere_c);
+               fprintf(OUTPUTF1, "%ld", u->sphere_c);
             }
 	    // Reset stack and add canonical ids.
 	    if (showids) {
@@ -564,7 +564,7 @@ starcode
             if ((showclusters || showids) && u->matches != NULL) {
                gstack_t *hits;
                for (int j = 0 ; (hits = u->matches[j]) != TOWER_TOP ; j++) {
-                  for (int k = 0 ; k < hits->nitems ; k++) {
+                  for (size_t k = 0 ; k < hits->nitems ; k++) {
                      useq_t *match = (useq_t *) hits->items[k];
                      if (match->canonical != u) continue;
                      if (showclusters) fprintf(OUTPUTF1, ",%s", match->seq);
@@ -595,19 +595,19 @@ starcode
       if (OUTPUTT == DEFAULT_OUTPUT) {
 	 idstack_t  * idstack = NULL;
 	 if (showids) idstack = idstack_new(64);
-         for (int i = 0; i < clusters->nitems; i++) {
+         for (size_t i = 0; i < clusters->nitems; i++) {
             gstack_t * cluster = (gstack_t *) clusters->items[i];
             // Get canonical.
             useq_t * canonical = (useq_t *) cluster->items[0];
             // Print canonical and cluster count.
-            fprintf(OUTPUTF1, "%s\t%d", canonical->seq, canonical->count);
+            fprintf(OUTPUTF1, "%s\t%ld", canonical->seq, canonical->count);
             if (showclusters || showids) {
                fprintf (OUTPUTF1, "\t%s", canonical->seq);
 	       if (showids) {
 		  idstack->pos = 0;
 		  idstack_push(canonical->seqid, canonical->nids, idstack);
 	       }
-               for (int k = 1; k < cluster->nitems; k++) {
+               for (size_t k = 1; k < cluster->nitems; k++) {
 		  useq_t * u = (useq_t *) cluster->items[k];
                   if (showclusters) fprintf (OUTPUTF1, ",%s", u->seq);
 		  if (showids) idstack_push(u->seqid, u->nids, idstack);
@@ -620,7 +620,7 @@ starcode
       } else if (OUTPUTT == NRED_OUTPUT) {
          uSQ->nitems = 0;
          // Fill uSQ with cluster centroids.
-         for (int i = 0 ; i < clusters->nitems ; i++)
+         for (size_t i = 0 ; i < clusters->nitems ; i++)
             push(((gstack_t *)clusters->items[i])->items[0], &uSQ);
       }
    }
@@ -641,7 +641,7 @@ starcode
       else if (FORMAT == PE_FASTQ) print_nr = print_nr_pe_fastq;
       else                         print_nr = print_nr_raw;
 
-      for (int i = 0 ; i < uSQ->nitems ; i++) {
+      for (size_t i = 0 ; i < uSQ->nitems ; i++) {
          useq_t *u = (useq_t *) uSQ->items[i];
          if (u->canonical == NULL) break;
          if (u->canonical != u) continue;
@@ -808,7 +808,7 @@ do_query
          // Link matching pairs for clustering.
          // Skip dist = 0, as this would be self.
          for (int dist = 1 ; dist < tau+1 ; dist++) {
-         for (int j = 0 ; j < hits[dist]->nitems ; j++) {
+         for (size_t j = 0 ; j < hits[dist]->nitems ; j++) {
 
             useq_t *match = (useq_t *) hits[dist]->items[j];
             if (bidir_match) {
@@ -1068,7 +1068,7 @@ connected_components
    if (useq->matches == NULL) return;
    gstack_t * matches;
    for (int j = 0;  (matches = useq->matches[j]) != TOWER_TOP; j++) {
-      for (int k = 0; k < matches->nitems; k++) {
+      for (size_t k = 0; k < matches->nitems; k++) {
          useq_t * match = (useq_t *) matches->items[k];
          if (match->canonical != NULL) continue;
          connected_components(match, cluster);
@@ -1083,7 +1083,7 @@ compute_clusters
 )
 {
    gstack_t * clusters = new_gstack();
-   for (int i = 0; i < uSQ->nitems; i++) {
+   for (size_t i = 0; i < uSQ->nitems; i++) {
       useq_t * useq = (useq_t *) uSQ->items[i];
 
       // Check sequence flag.
@@ -1106,7 +1106,7 @@ compute_clusters
 
       // Find centroid among cluster seqs.
       size_t cluster_count = useq->count;
-      for (int k = 1; k < cluster->nitems; k++) {
+      for (size_t k = 1; k < cluster->nitems; k++) {
          useq_t * s = (useq_t *) cluster->items[k];
          cluster_count += s->count;
          // Select centroid by count.
@@ -1161,7 +1161,7 @@ sphere_clustering
    // Sort in count order.
    qsort(useqS->items, useqS->nitems, sizeof(useq_t *), count_order_spheres);
 
-   for (int i = 0 ; i < useqS->nitems ; i++) {
+   for (size_t i = 0 ; i < useqS->nitems ; i++) {
       useq_t *useq = (useq_t *) useqS->items[i];
       if (useq->canonical != NULL) continue;
       useq->canonical = useq;
@@ -1172,7 +1172,7 @@ sphere_clustering
       // Directly proceed to claim neighbor counts.
       gstack_t *matches;
       for (int j = 0 ; (matches = useq->matches[j]) != TOWER_TOP ; j++) {
-         for (int k = 0 ; k < matches->nitems ; k++) {
+         for (size_t k = 0 ; k < matches->nitems ; k++) {
             useq_t *match = (useq_t *) matches->items[k];
             // If a sequence has been already claimed, remove it from list.
             if (match->canonical != NULL) {
@@ -1205,13 +1205,13 @@ message_passing_clustering
 )
 {
    // Transfer counts to parents recursively.
-   for (int i = 0 ; i < useqS->nitems ; i++) {
+   for (size_t i = 0 ; i < useqS->nitems ; i++) {
       useq_t *u = (useq_t *) useqS->items[i];
       transfer_counts_and_update_canonicals(u);
    }
 
    // Resolve ambiguous assignments.
-   for (int i = 0 ; i < useqS->nitems ; i++) {
+   for (size_t i = 0 ; i < useqS->nitems ; i++) {
       useq_t *u = (useq_t *) useqS->items[i];
       mp_resolve_ambiguous(u);
    }
@@ -1222,11 +1222,11 @@ message_passing_clustering
 }
 
 
-int
+size_t
 seqsort
 (
  useq_t ** data,
- int       numels,
+ size_t    numels,
  int       thrmax
 )
 // SYNOPSIS:                                                              
@@ -1337,11 +1337,11 @@ nukesort
    useq_t ** r = (sortargs->b ? arg2.buf0 : arg2.buf1);
    useq_t ** buf = (sortargs->b ? arg1.buf1 : arg1.buf0);
 
-   int i = 0;
-   int j = 0;
-   int idx = 0;
+   ssize_t i = 0;
+   ssize_t j = 0;
+   ssize_t idx = 0;
+   ssize_t repeats = 0;
    int cmp = 0;
-   int repeats = 0;
 
    // Merge sets
    while (i+j < sortargs->size) {
@@ -1361,8 +1361,8 @@ nukesort
       // Do the comparison.
       useq_t *ul = (useq_t *) l[i];
       useq_t *ur = (useq_t *) r[j];
-      int sl = strlen(ul->seq);
-      int sr = strlen(ur->seq);
+      ssize_t sl = strlen(ul->seq);
+      ssize_t sr = strlen(ur->seq);
       if (sl == sr) cmp = strcmp(ul->seq, ur->seq);
       else cmp = sl < sr ? -1 : 1;
 
@@ -1385,11 +1385,10 @@ nukesort
    sortargs->repeats = repeats + arg1.repeats + arg2.repeats;
 
    // Pad with NULLS.
-   int offset = sortargs->size - sortargs->repeats;
+   ssize_t offset = sortargs->size - sortargs->repeats;
    memset(buf+offset, 0, sortargs->repeats*sizeof(useq_t *));
    
    return NULL;
-
 }
 
 
@@ -1551,7 +1550,7 @@ read_fastq
    char seq[M+1] = {0};
    char header[M+1] = {0};
    char info[2*M+2] = {0};
-   int lineno = 0;
+   size_t lineno = 0;
 
    int const readh = OUTPUTT == NRED_OUTPUT;
    while ((nread = getline(&line, &nchar, inputf)) != -1) {
@@ -1806,14 +1805,14 @@ pad_useq
 
    // Compute maximum length.
    int maxlen = 0;
-   for (int i = 0 ; i < useqS->nitems ; i++) {
+   for (size_t i = 0 ; i < useqS->nitems ; i++) {
       useq_t *u = useqS->items[i];
       int len = strlen(u->seq);
       if (len > maxlen) maxlen = len;
    }
 
    // Alloc median bins. (Initializes to 0)
-   int  * count = calloc(maxlen + 1, sizeof(int));
+   size_t  * count = calloc(maxlen + 1, sizeof(size_t));
    char * spaces = malloc(maxlen + 1);
    if (spaces == NULL || count == NULL) {
       alert();
@@ -1823,7 +1822,7 @@ pad_useq
    spaces[maxlen] = '\0';
 
    // Pad all sequences with spaces.
-   for (int i = 0 ; i < useqS->nitems ; i++) {
+   for (size_t i = 0 ; i < useqS->nitems ; i++) {
       useq_t *u = useqS->items[i];
       int len = strlen(u->seq);
       count[len]++;
@@ -1842,7 +1841,7 @@ pad_useq
 
    // Compute median.
    *median = 0;
-   int ccount = 0;
+   size_t ccount = 0;
    do {
       ccount += count[++(*median)];
    } while (ccount < useqS->nitems / 2);
@@ -1864,7 +1863,7 @@ unpad_useq
    // Take the length of the first sequence (assume all
    // sequences have the same length).
    int len = strlen(((useq_t *) useqS->items[0])->seq);
-   for (int i = 0 ; i < useqS->nitems ; i++) {
+   for (size_t i = 0 ; i < useqS->nitems ; i++) {
       useq_t *u = (useq_t *) useqS->items[i];
       int pad = 0;
       while (u->seq[pad] == ' ') pad++;
@@ -1991,7 +1990,7 @@ transfer_counts_and_update_canonicals
 
    // Continue propagation to direct parents. This will update
    // the canonicals of the whole ancestry.
-   for (int i = 0 ; i < matches->nitems ; i++) {
+   for (size_t i = 0 ; i < matches->nitems ; i++) {
       useq_t *match = (useq_t *) matches->items[i];
       transfer_counts_and_update_canonicals(match);
    }
@@ -2000,7 +1999,7 @@ transfer_counts_and_update_canonicals
    useq_t *canonical = ((useq_t *) matches->items[0])->canonical;
    // ... but if parents have different canonicals then
    // self canonical is set to 'NULL'. (ambiguous)
-   for (int i = 1 ; i < matches->nitems ; i++) {
+   for (size_t i = 1 ; i < matches->nitems ; i++) {
       useq_t *match = (useq_t *) matches->items[i];
       if (match->canonical == NULL || match->canonical != canonical) {
          canonical = NULL;
@@ -2045,7 +2044,7 @@ mp_resolve_ambiguous
    }
 
    // Propagate if this is descendant of ambiguous.
-   for (int i = 0 ; i < matches->nitems ; i++) {
+   for (size_t i = 0 ; i < matches->nitems ; i++) {
       useq_t *match = (useq_t *) matches->items[i];
       if (match->canonical == NULL)
          mp_resolve_ambiguous(match);
@@ -2060,7 +2059,7 @@ mp_resolve_ambiguous
    useq_t * canonical = NULL;
    int      cnt_max = 0;
    int      ssz_max = 0;
-   for (int i = 0; i < matches->nitems ; i++) {
+   for (size_t i = 0; i < matches->nitems ; i++) {
       useq_t *match = (useq_t *) matches->items[i];
       if (match->canonical == match) {
          if (match->count > cnt_max) {
@@ -2083,7 +2082,7 @@ mp_resolve_ambiguous
    // Criterion 3.
    if (canonical == NULL) {
       cnt_max = 0;
-      for (int i = 0; i < matches->nitems ; i++) {
+      for (size_t i = 0; i < matches->nitems ; i++) {
          useq_t *match_canon = ((useq_t *) matches->items[i])->canonical;
          if (match_canon->count > cnt_max) {
             cnt_max = match_canon->count;
@@ -2432,11 +2431,11 @@ count_order_spheres
       long cnt1 = 0, cnt2 = 0;
       gstack_t *matches;
       for (int j = 0 ; (matches = u1->matches[j]) != TOWER_TOP ; j++)
-         for (int k = 0; k < matches->nitems; k++)
+         for (size_t k = 0; k < matches->nitems; k++)
             cnt1 += ((useq_t *)matches->items[k])->count;
 
       for (int j = 0 ; (matches = u2->matches[j]) != TOWER_TOP ; j++)
-         for (int k = 0; k < matches->nitems; k++)
+         for (size_t k = 0; k < matches->nitems; k++)
             cnt2 += ((useq_t *)matches->items[k])->count;
 
       return cnt1 < cnt2 ? 1 : -1;

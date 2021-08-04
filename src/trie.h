@@ -84,8 +84,8 @@ struct node_t
 
 struct gstack_t
 {
-   int       nslots;                // Stack size.
-   int       nitems;                // Number of items.
+   size_t    nslots;                // Stack size.
+   size_t    nitems;                // Number of items.
    void    * items[];               // Items as 'void' pointers.
 };
 

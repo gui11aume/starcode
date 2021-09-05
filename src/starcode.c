@@ -314,6 +314,21 @@ sort_and_print_ids
    }
 }
 
+void
+sort_and_print_ids_perread
+(
+   idstack_t  * stack, useq_t * canonical, int showids
+)
+{
+   // Sort sequence of integers.
+   qsort(stack->elm, stack->pos, sizeof(int), int_ascending);
+   for (unsigned int k = 0; k < stack->pos; k++) {
+      fprintf(OUTPUTF1, "%s", canonical->seq);
+      if (showids) fprintf(OUTPUTF1, "\t%u", stack->elm[k]);
+      fprintf(OUTPUTF1, "\n");
+   }
+}
+
 
 void
 print_nr_raw
@@ -525,6 +540,45 @@ starcode
 	 
 
       }
+
+
+
+      if (OUTPUTT == PERR_OUTPUT) {
+         useq_t *first = (useq_t *) uSQ->items[0];
+         useq_t *canonical = first->canonical;
+         // If the first canonical is NULL, then they all are.
+         if (first->canonical == NULL) return 0;
+    	 // Store sequence ids for the current cluster in a stack.
+    	 idstack_t * idstack = NULL;
+    	 idstack = idstack_new(64);
+    	 idstack_push(first->seqid, first->nids, idstack);
+         // Run through the clustered items.
+         for (size_t i = 1 ; i < uSQ->nitems ; i++) {
+            useq_t *u = (useq_t *) uSQ->items[i];
+            if (u->canonical == NULL) {
+               break;
+            }
+            if (u->canonical != canonical) {
+               // This means we've changed to a different cluster, so print
+               //   out all the reads that clustered with that
+               sort_and_print_ids_perread(idstack, canonical, showids);
+               // Update the canonical to keep track of where we are
+               canonical = u->canonical;
+    	       // Reset seq_id stack since switched canonicals
+    	       idstack->pos = 0;
+            }
+	        // Update seqid list.
+	        idstack_push(u->seqid, u->nids, idstack);
+         }
+         // Print last cluster of canonicals and ids if requested
+         sort_and_print_ids_perread(idstack, canonical, showids);
+	     idstack_free(idstack);
+      }
+
+
+
+
+
 
    //
    //  SPHERES ALGORITHM

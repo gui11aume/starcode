@@ -394,11 +394,10 @@ main(
       say_usage();
       return EXIT_FAILURE;
    }
-   if ( pr_flag && (id_flag || nr_flag || cl_flag)) {
+   if ( pr_flag && (nr_flag || cl_flag)) {
       fprintf(stderr,
-            "%s --per-read flag is not compatible (so far) with other "
-            "options --seq-id, --print-clusters, and --non-redundant\n",
-            ERRM);
+            "%s --per-read flag is not compatible with options "
+            "--print-clusters and --non-redundant\n", ERRM);
       say_usage();
       return EXIT_FAILURE;
    }

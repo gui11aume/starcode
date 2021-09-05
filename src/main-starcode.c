@@ -70,7 +70,8 @@ char *USAGE =
 "       --non-redundant: remove redundant sequences from input file(s)\n"
 "       --print-clusters: outputs cluster compositions\n"
 "       --seq-id: print sequence id numbers (1-based)\n"
-"       --per-read: print centroid sequence per each input line\n";
+"       --per-read: print centroid sequence per each input line, "
+"           and the sequence id\n";
 
 
 void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
@@ -400,6 +401,14 @@ main(
             "--print-clusters and --non-redundant\n", ERRM);
       say_usage();
       return EXIT_FAILURE;
+   }
+
+   if ( pr_flag && !id_flag) {
+      id_flag = 1;
+      fprintf(stderr,
+            "Forced --seq-id flag because output requested is --per-read, "
+            "which is meaningless without the sequence id\n"
+        );
    }
 
    // Set output type. //

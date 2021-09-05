@@ -633,6 +633,35 @@ starcode
 	 if (showids) idstack_free(idstack);
       }
 
+   if (OUTPUTT == PERR_OUTPUT) {
+	 // Sequence id stack.
+	 idstack_t  * idstack = NULL;
+	 idstack = idstack_new(64);
+     for (size_t i = 0 ; i < uSQ->nitems ; i++) {
+        useq_t *u = (useq_t *) uSQ->items[i];
+        if (u->canonical != u) break;
+	    // Reset stack and add canonical ids.
+	    idstack->pos = 0;
+	    idstack_push(u->seqid, u->nids, idstack);
+	    // Get sequences and ids from matches.
+        if (u->matches != NULL) {
+           gstack_t *hits;
+           for (int j = 0 ; (hits = u->matches[j]) != TOWER_TOP ; j++) {
+              for (size_t k = 0 ; k < hits->nitems ; k++) {
+                 useq_t *match = (useq_t *) hits->items[k];
+                 if (match->canonical != u) continue;
+		             idstack_push(match->seqid, match->nids, idstack);
+		             idstack_push(match->seqid, match->nids, idstack);
+              }
+           }
+        }
+        // Print out the canonical sequence and seqid for each member of 
+        //   the cluster
+        sort_and_print_ids_perread(idstack, u, showids);
+     }
+	 idstack_free(idstack);
+   }
+
    /*
     *  CONNECTED COMPONENTS ALGORITHM
     */

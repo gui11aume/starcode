@@ -650,8 +650,7 @@ starcode
               for (size_t k = 0 ; k < hits->nitems ; k++) {
                  useq_t *match = (useq_t *) hits->items[k];
                  if (match->canonical != u) continue;
-		             idstack_push(match->seqid, match->nids, idstack);
-		             idstack_push(match->seqid, match->nids, idstack);
+		         idstack_push(match->seqid, match->nids, idstack);
               }
            }
         }

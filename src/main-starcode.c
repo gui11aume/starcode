@@ -69,7 +69,9 @@ char *USAGE =
 "  output format options\n"
 "       --non-redundant: remove redundant sequences from input file(s)\n"
 "       --print-clusters: outputs cluster compositions\n"
-"       --seq-id: print sequence id numbers (1-based)\n";
+"       --seq-id: print sequence id numbers (1-based)\n"
+"       --per-read: print centroid sequence per each input line, "
+"           and the sequence id\n";
 
 
 void say_usage(void) { fprintf(stderr, "%s\n", USAGE); }
@@ -130,6 +132,7 @@ main(
 
    // Set flags to defaults.
    static int nr_flag = 0;
+   static int pr_flag = 0;
    static int sp_flag = 0;
    static int vb_flag = 1;
    static int cl_flag = 0;
@@ -163,6 +166,7 @@ main(
          {"print-clusters",    no_argument,       &cl_flag,  1 },
          {"seq-id",            no_argument,       &id_flag,  1 },
          {"non-redundant",     no_argument,       &nr_flag,  1 },
+         {"per-read",          no_argument,       &pr_flag,  1 },
          {"quiet",             no_argument,       &vb_flag,  0 },
          {"sphere",            no_argument,       &sp_flag, 's'},
          {"connected-comp",    no_argument,       &cp_flag, 'c'},
@@ -391,10 +395,26 @@ main(
       say_usage();
       return EXIT_FAILURE;
    }
+   if ( pr_flag && (nr_flag || cl_flag)) {
+      fprintf(stderr,
+            "%s --per-read flag is not compatible with options "
+            "--print-clusters and --non-redundant\n", ERRM);
+      say_usage();
+      return EXIT_FAILURE;
+   }
+
+   if ( pr_flag && !id_flag) {
+      id_flag = 1;
+      fprintf(stderr,
+            "Forced --seq-id flag because output requested is --per-read, "
+            "which is meaningless without the sequence id\n"
+        );
+   }
 
    // Set output type. //
    int output_type;
    if      (nr_flag) output_type = NRED_OUTPUT;
+   else if (pr_flag) output_type = PERR_OUTPUT;
    else              output_type = DEFAULT_OUTPUT;
 
    int cluster_alg;

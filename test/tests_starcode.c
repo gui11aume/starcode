@@ -758,14 +758,14 @@ test_starcode_10
    FILE *f = fopen("test_file.txt", "r");
    gstack_t *useqS = read_file(f, NULL, 0);
    test_assert(useqS->nitems == 35);
-   for (int i = 0 ; i < useqS->nitems ; i++) {
+   for (unsigned int i = 0 ; i < useqS->nitems ; i++) {
       useq_t * u = (useq_t *) useqS->items[i];
       test_assert(u->count == 1);
       test_assert(strcmp(u->seq, expected[i]) == 0);
    }
 
    // Clean.
-   for (int i = 0 ; i < useqS->nitems ; i++) {
+   for (unsigned int i = 0 ; i < useqS->nitems ; i++) {
       destroy_useq(useqS->items[i]);
    }
    free(useqS);
@@ -775,14 +775,14 @@ test_starcode_10
    f = fopen("test_file.fasta", "r");
    useqS = read_file(f, NULL, 0);
    test_assert(useqS->nitems == 5);
-   for (int i = 0 ; i < useqS->nitems ; i++) {
+   for (unsigned int i = 0 ; i < useqS->nitems ; i++) {
       useq_t * u = (useq_t *) useqS->items[i];
       test_assert(u->count == 1);
       test_assert(strcmp(u->seq, expected[i]) == 0);
    }
 
    // Clean.
-   for (int i = 0 ; i < useqS->nitems ; i++) {
+   for (unsigned int i = 0 ; i < useqS->nitems ; i++) {
       destroy_useq(useqS->items[i]);
    }
    free(useqS);
@@ -792,14 +792,14 @@ test_starcode_10
    f = fopen("test_file1.fastq", "r");
    useqS = read_file(f, NULL, 0);
    test_assert(useqS->nitems == 5);
-   for (int i = 0 ; i < useqS->nitems ; i++) {
+   for (unsigned int i = 0 ; i < useqS->nitems ; i++) {
       useq_t * u = (useq_t *) useqS->items[i];
       test_assert(u->count == 1);
       test_assert(strcmp(u->seq, expected[i]) == 0);
    }
 
    // Clean.
-   for (int i = 0 ; i < useqS->nitems ; i++) {
+   for (unsigned int i = 0 ; i < useqS->nitems ; i++) {
       destroy_useq(useqS->items[i]);
    }
    free(useqS);
@@ -826,7 +826,7 @@ test_starcode_10
    FILE *f2 = fopen("test_file2.fastq", "r");
    useqS = read_file(f1, f2, 0);
    test_assert(useqS->nitems == 5);
-   for (int i = 0 ; i < useqS->nitems ; i++) {
+   for (unsigned int i = 0 ; i < useqS->nitems ; i++) {
       useq_t * u = (useq_t *) useqS->items[i];
       test_assert(u->count == 1);
       test_assert(strcmp(u->seq, PE_expected[i]) == 0);
@@ -834,7 +834,7 @@ test_starcode_10
    }
 
    // Clean.
-   for (int i = 0 ; i < useqS->nitems ; i++) {
+   for (unsigned int i = 0 ; i < useqS->nitems ; i++) {
       destroy_useq(useqS->items[i]);
    }
    free(useqS);

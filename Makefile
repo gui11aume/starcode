@@ -47,6 +47,7 @@ starcode-dev: CFLAGS= $(DEV_CFLAGS)
 starcode-dev: starcode
 
 starcode-analyze: CC= clang --analyze
+starcode-analyze: CFLAGS += -DDEBUG -g -O0
 starcode-analyze: starcode
 
 starcode-profiling: CFLAGS= $(GPROF_CFLAGS)
@@ -58,6 +59,9 @@ starcode: $(OBJECTS) $(SOURCES)
 
 $(SRC_DIR)/%.o: $(SRC_DIR)/%.c $(SRC_DIR)/%.h
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+tidy:
+	clang-tidy src/starcode.c --
 
 clean:
 	rm -f $(OBJECTS) starcode

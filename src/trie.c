@@ -191,7 +191,7 @@ search
 
    // Run recursive search from cached nodes.
    gstack_t *pebbles = info->pebbles[start_depth];
-   for (int i = 0 ; i < pebbles->nitems ; i++) {
+   for (unsigned int i = 0 ; i < pebbles->nitems ; i++) {
       node_t *start_node = (node_t *) pebbles->items[i];
       poucet(start_node, start_depth + 1, arg);
    }

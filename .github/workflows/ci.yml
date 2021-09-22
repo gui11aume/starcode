@@ -1,0 +1,16 @@
+name: starcode-CI
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  starcode-tests:
+    name: starcode 
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v2
+      - name: Run unit tests
+        run: |
+          make && cd test && make test

@@ -34,7 +34,7 @@ typedef enum {
    DEFAULT_OUTPUT,
    CLUSTER_OUTPUT,
    NRED_OUTPUT,
-   PERR_OUTPUT
+   TIDY_OUTPUT
 } output_t;
 
 typedef enum {

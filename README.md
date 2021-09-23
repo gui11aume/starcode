@@ -1,5 +1,5 @@
 ## Starcode: Sequence clustering based on all-pairs search ##
-[![Build Status](https://travis-ci.org/gui11aume/starcode.svg?branch=master)](https://travis-ci.org/gui11aume/starcode) [![Coverage Status](https://coveralls.io/repos/gui11aume/starcode/badge.svg?branch=master&service=github)](https://coveralls.io/github/gui11aume/starcode?branch=master)
+[![Build Status](https://github.com/gui11aume/starcode/workflows/starcode-CI/badge.svg?branch=master)](https://github.com/gui11aume/starcode/actions)
 ---
 ## Contents: ##
     1. What is starcode?

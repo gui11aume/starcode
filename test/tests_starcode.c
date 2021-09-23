@@ -1056,18 +1056,158 @@ test_seqsort
 
 }
 
+
+void
+test_tidy_output
+(void)
+{
+
+   char STDOUT_BUFFER[4096]; 
+
+   // Redirect stdout to 'STDOUT_BUFFER'.
+   fflush(stdout);
+   setbuffer(stdout, STDOUT_BUFFER, 4096);
+   bzero(STDOUT_BUFFER, 4096);
+
+   int devnull = open("/dev/null", O_WRONLY);
+   if(devnull == -1){
+      fprintf(stderr, "test error (test_tidy_output)\n");
+      exit(EXIT_FAILURE);
+   }
+   int ORIG_STDOUT_FILENO = STDOUT_FILENO;
+   if (dup2(devnull, STDOUT_FILENO) == -1) {
+      fprintf(stderr, "test error (test_tidy_output)\n");
+      exit(EXIT_FAILURE);
+   }
+
+   // Call starcode on text file with default options and tidy output.
+   FILE* text_test_file = fopen("test_file.txt", "r");
+   starcode(text_test_file, NULL, NULL, NULL, 2, 0, 1,
+       MP_CLUSTER, 5, 0, 0, TIDY_OUTPUT);
+   fclose(text_test_file);
+
+   char EXPECTED_OUTPUT_TXT[] =
+      "AGGGCTTACAAGTATAGGCC\tAGGGCTTACAAGTATAGGCC\n"
+      "TGCGCCAAGTACGATTTCCG\tTGCGCCAAGTACGATTTCCG\n"
+      "CCTCATTATTTGTCGCAATG\tCCTCATTATTTGTCGCAATG\n"
+      "AGGGCTTACAAGTATAGGCC\tAGGGCTTACAAGTATAGGCC\n"
+      "AGGGCTTACAAGTATAGGCC\tAGGGCTTACAAGTATAGGCC\n"
+      "GGGAGCCCACAGTAAGCGAA\tGGGAGCCCACAGTAAGCGAA\n"
+      "GGGAGCCCACAGTAAGCGAA\tGGGAGCCCACAGTAAGCGAA\n"
+      "TAGCCTGGTGCGACTGTCAT\tTAGCCTGGTGCGACTGTCAT\n"
+      "TAGCCTGGTGCGACTGTCAT\tTAGCCTGGTGCGACTGTCAT\n"
+      "GGAAGCCCACAGCAAGCGAA\tGGGAGCCCACAGTAAGCGAA\n"
+      "TGCGCCAAGTACGATTTCCG\tTGCGCCAAGTACGATTTCCG\n"
+      "GGGAGCCCACAGTAAGCGAA\tGGGAGCCCACAGTAAGCGAA\n"
+      "AGGGGTTACAAGTCTAGGCC\tAGGGCTTACAAGTATAGGCC\n"
+      "CCTCATTATTTGTCGCAATG\tCCTCATTATTTGTCGCAATG\n"
+      "GGGAGCCCACAGTAAGCGAA\tGGGAGCCCACAGTAAGCGAA\n"
+      "TAGCCTGGTGCGACTGTCAT\tTAGCCTGGTGCGACTGTCAT\n"
+      "AGGGCTTACAAGTATAGGCC\tAGGGCTTACAAGTATAGGCC\n"
+      "TGCGCCAAGTACGATTTCCG\tTGCGCCAAGTACGATTTCCG\n"
+      "CCTCATTATTTGTCGCAATG\tCCTCATTATTTGTCGCAATG\n"
+      "AGGGCTTACAAGTATAGGCC\tAGGGCTTACAAGTATAGGCC\n"
+      "TAGCCTGGTGCGACTGTCAT\tTAGCCTGGTGCGACTGTCAT\n"
+      "AGGGCTTACAAGTATAGGCC\tAGGGCTTACAAGTATAGGCC\n"
+      "TGCGCCAAGTAAGAATTCCG\tTGCGCCAAGTACGATTTCCG\n"
+      "GGGAGCCCACAGTAAGCGAA\tGGGAGCCCACAGTAAGCGAA\n"
+      "GGGAGCCCACAGTAAGCGAA\tGGGAGCCCACAGTAAGCGAA\n"
+      "TGCGCCAAGTACGATTTCCG\tTGCGCCAAGTACGATTTCCG\n"
+      "CCTCATTATTTGTCGCAATG\tCCTCATTATTTGTCGCAATG\n"
+      "TAGCCTGGTGCGACTGTCAT\tTAGCCTGGTGCGACTGTCAT\n"
+      "TGCGCCAAGTACGATTTCCG\tTGCGCCAAGTACGATTTCCG\n"
+      "CCTCATTATTTGTCGCAATG\tCCTCATTATTTGTCGCAATG\n"
+      "CCTCATTATTTGTCGCAATG\tCCTCATTATTTGTCGCAATG\n"
+      "CCTCATTATTTACCGCAATG\tCCTCATTATTTGTCGCAATG\n"
+      "TAGCCTGGTGCGACTGTCAT\tTAGCCTGGTGCGACTGTCAT\n"
+      "TGCGCCAAGTACGATTTCCG\tTGCGCCAAGTACGATTTCCG\n"
+      "TAACCTGGTGCGACTGTTAT\tTAGCCTGGTGCGACTGTCAT\n";
+
+   test_assert(strncmp(STDOUT_BUFFER, EXPECTED_OUTPUT_TXT, 4096) == 0);
+
+   // Reset 'STDOUT_BUFFER'.
+   fflush(stdout);
+   bzero(STDOUT_BUFFER, 4096);
+
+   // Call starcode on fasta file with default options and tidy output.
+   FILE* fasta_test_file = fopen("test_file.fasta", "r");
+   starcode(fasta_test_file, NULL, NULL, NULL, 2, 0, 1,
+       MP_CLUSTER, 5, 0, 0, TIDY_OUTPUT);
+   fclose(fasta_test_file);
+
+   char EXPECTED_OUTPUT_FASTX[] =
+      "AGGGCTTACAAGTATAGGCC\tAGGGCTTACAAGTATAGGCC\n"
+      "TGCGCCAAGTACGATTTCCG\tTGCGCCAAGTACGATTTCCG\n"
+      "CCTCATTATTTGTCGCAATG\tCCTCATTATTTGTCGCAATG\n"
+      "AGGGCTTACAAGTATAGGCC\tAGGGCTTACAAGTATAGGCC\n"
+      "AGGGCTTACAAGTATAGGCC\tAGGGCTTACAAGTATAGGCC\n";
+
+   test_assert(strncmp(STDOUT_BUFFER, EXPECTED_OUTPUT_FASTX, 4096) == 0);
+
+   // Reset 'STDOUT_BUFFER'.
+   fflush(stdout);
+   bzero(STDOUT_BUFFER, 4096);
+
+   // Call starcode on fastq file with default options and tidy output.
+   FILE* fastq_test_file = fopen("test_file1.fastq", "r");
+   starcode(fastq_test_file, NULL, NULL, NULL, 2, 0, 1,
+       MP_CLUSTER, 5, 0, 0, TIDY_OUTPUT);
+   fclose(fastq_test_file);
+
+   test_assert(strncmp(STDOUT_BUFFER, EXPECTED_OUTPUT_FASTX, 4096) == 0);
+
+   // Reset 'STDOUT_BUFFER'.
+   fflush(stdout);
+   bzero(STDOUT_BUFFER, 4096);
+
+   // Call starcode on fastq file with default options and tidy output.
+   FILE* fastq_test_file1 = fopen("test_file1.fastq", "r");
+   FILE* fastq_test_file2 = fopen("test_file2.fastq", "r");
+   starcode(fastq_test_file1, fastq_test_file2, NULL, NULL, 2, 0, 1,
+       MP_CLUSTER, 5, 0, 0, TIDY_OUTPUT);
+   fclose(fastq_test_file1);
+   fclose(fastq_test_file2);
+
+   char EXPECTED_OUTPUT_PE[] =
+      "AGGGCTTACAAGTATAGGCC/AAGGGCTTACAAGTATAGGC\t"
+          "AGGGCTTACAAGTATAGGCC/AAGGGCTTACAAGTATAGGC\n"
+      "TGCGCCAAGTACGATTTCCG/ATGCGCCAAGTACGATTTCC\t"
+          "TGCGCCAAGTACGATTTCCG/ATGCGCCAAGTACGATTTCC\n"
+      "CCTCATTATTTGTCGCAATG/ACCTCATTATTTGTCGCAAT\t"
+          "CCTCATTATTTGTCGCAATG/ACCTCATTATTTGTCGCAAT\n"
+      "AGGGCTTACAAGTATAGGCC/AAGGGCTTACAAGTATAGGC\t"
+          "AGGGCTTACAAGTATAGGCC/AAGGGCTTACAAGTATAGGC\n"
+      "AGGGCTTACAAGTATAGGCC/AAGGGCTTACAAGTATAGGC\t"
+          "AGGGCTTACAAGTATAGGCC/AAGGGCTTACAAGTATAGGC\n";
+
+   test_assert(strncmp(STDOUT_BUFFER, EXPECTED_OUTPUT_PE, 4096) == 0);
+
+   fflush(stdout);
+   if (close(devnull) == -1) {
+      fprintf(stderr, "test error (test_tidy_output)\n");
+      exit(EXIT_FAILURE);
+   }
+   if (dup2(ORIG_STDOUT_FILENO, STDOUT_FILENO) == -1) {
+      fprintf(stderr, "test error (test_tidy_output)\n");
+      exit(EXIT_FAILURE);
+   }
+
+}
+
+
 // Test cases for export.
 const test_case_t test_cases_starcode[] = {
-   {"starcode/base/1",  test_starcode_1},
-   {"starcode/base/2",  test_starcode_2},
-   {"starcode/base/3",  test_starcode_3},
-   {"starcode/base/4",  test_starcode_4},
-   {"starcode/base/5",  test_starcode_5},
-   {"starcode/base/6",  test_starcode_6},
-   {"starcode/base/7",  test_starcode_7},
-   {"starcode/base/8",  test_starcode_8},
-   {"starcode/base/9",  test_starcode_9},
-   {"starcode/base/10", test_starcode_10},
-   {"starcode/seqsort", test_seqsort},
+   {"starcode/base/1",     test_starcode_1},
+   {"starcode/base/2",     test_starcode_2},
+   {"starcode/base/3",     test_starcode_3},
+   {"starcode/base/4",     test_starcode_4},
+   {"starcode/base/5",     test_starcode_5},
+   {"starcode/base/6",     test_starcode_6},
+   {"starcode/base/7",     test_starcode_7},
+   {"starcode/base/8",     test_starcode_8},
+   {"starcode/base/9",     test_starcode_9},
+   {"starcode/base/10",    test_starcode_10},
+   {"starcode/seqsort",    test_seqsort},
+   {"starcode/tidy_ouput", test_tidy_output},
    {NULL, NULL}
 };

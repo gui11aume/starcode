@@ -202,7 +202,7 @@ lookup_t* new_lookup(int, int, int);
 useq_t* new_useq(int, char*, char*);
 int pad_useq(gstack_t*, int*);
 mtplan_t* plan_mt(int, int, int, int, gstack_t*);
-void print_tidy(const long int, const gstack_t*);
+void print_tidy(long int, const gstack_t*, int);
 void sort_and_print_ids(idstack_t*);
 void run_plan(mtplan_t*, int, int);
 gstack_t* read_rawseq(FILE*, gstack_t*);
@@ -344,8 +344,18 @@ print_nr_pe_fastq(useq_t* u) {
 }
 
 void
-print_tidy(const long int nseq, const gstack_t* uSQ) {
-  useq_t** outputseq = malloc(nseq * sizeof(useq_t*));
+print_tidy( // Private
+    const long int nseq, // Total number of sequences
+    const gstack_t* uSQ,  // Stack of useq after clustering
+    const int is_pe_fastq // Whether output is PE FASTQ
+)
+// SYNOPSIS:
+//   Print each sequence in initial order next to its
+//   centroid (tab-separated). For paired-end FASTQ file,
+//   print slash-separated pairs next to their slash-
+//   separated pair of centroids.
+{
+  useq_t** outputseq = calloc(sizeof(useq_t*), nseq);
   if (outputseq == NULL) {
     alert();
     krash();
@@ -357,9 +367,38 @@ print_tidy(const long int nseq, const gstack_t* uSQ) {
       outputseq[u->seqid[j] - 1] = u;
     }
   }
+
+  // For paired-end FASTQ files, search the separator
+  // in the sequence of the pair.
+  char sep[STARCODE_MAX_TAU + 2] = {0};
+  memset(sep, '-', STARCODE_MAX_TAU + 1);
+
   for (long int i = 0; i < nseq; i++) {
     useq_t* u = outputseq[i];
-    fprintf(stdout, "%s\t%s\n", u->seq, u->canonical->seq);
+    if (u == NULL) {
+      alert();
+      krash();
+    }
+    if (is_pe_fastq) {
+      char * seq2 = strstr(u->seq, sep);
+      char * can2 = strstr(u->canonical->seq, sep);
+      if (seq2 == NULL || can2 == NULL) {
+        fprintf(stderr, "%s\n", u->seq);
+        fprintf(stderr, "%s\n", u->canonical->seq);
+        alert();
+        krash();
+      }
+      // Insert null byte to terminate first read.
+      seq2[0] = can2[0] = '\0';
+      fprintf(stdout, "%s/%s\t%s/%s\n", u->seq, seq2 + STARCODE_MAX_TAU + 1,
+          u->canonical->seq, can2 + STARCODE_MAX_TAU + 1);
+      // Put it back as it was because the sequence may
+      // be present multiple times.
+      seq2[0] = can2[0] = '-';
+    }
+    else {
+      fprintf(stdout, "%s\t%s\n", u->seq, u->canonical->seq);
+    }
   }
   free(outputseq);
 }
@@ -431,6 +470,18 @@ starcode(                    // Public
   run_plan(mtplan, verbose, thrmax);
   if (verbose)
     fprintf(stderr, "progress: 100.00%%\n");
+
+  // Free mtplan.
+  free(mtplan->mutex);
+  free(mtplan->monitor);
+  for (int i = 0 ; i < mtplan->ntries ; i++) {
+    free(mtplan->tries[i].jobs->node_pos);
+    free(mtplan->tries[i].jobs->lut);
+    free(mtplan->tries[i].jobs->trie);
+    free(mtplan->tries[i].jobs);
+  }
+  free(mtplan->tries);
+  free(mtplan);
 
   // Remove padding characters.
   unpad_useq(uSQ);
@@ -507,8 +558,8 @@ starcode(                    // Public
       fprintf(OUTPUTF1, "\n");
     }
 
-    if (OUTPUTT == PERR_OUTPUT) {
-      print_tidy(nseq, uSQ);
+    if (OUTPUTT == TIDY_OUTPUT) {
+      print_tidy(nseq, uSQ, FORMAT == PE_FASTQ);
     }
 
     //
@@ -570,8 +621,8 @@ starcode(                    // Public
         idstack_free(idstack);
     }
 
-    if (OUTPUTT == PERR_OUTPUT) {
-      print_tidy(nseq, uSQ);
+    if (OUTPUTT == TIDY_OUTPUT) {
+      print_tidy(nseq, uSQ, FORMAT == PE_FASTQ);
     }
 
     //
@@ -657,10 +708,13 @@ starcode(                    // Public
     }
   }
 
-  // Do not free anything.
+  free(uSQ);
+
   OUTPUTF1 = NULL;
   OUTPUTF2 = NULL;
+
   return 0;
+
 }
 
 void
@@ -966,8 +1020,8 @@ plan_mt(int tau, int height, int medianlen, int ntries, gstack_t* useqS)
     }
 
     // Allocate lookup struct.
-    // TODO: Try only one lut as well. (It will always return 1
-    // in the query step though). #
+    // TODO: Try only one lut as well (it will always return 1
+    // in the query step though).
     lookup_t* local_lut = new_lookup(medianlen, height, tau);
     if (local_lut == NULL) {
       alert();
@@ -1444,7 +1498,10 @@ read_fasta(FILE* inputf, gstack_t* uSQ) {
         alert();
         krash();
       }
-      header = NULL;
+      if (header != NULL) {
+        free(header);
+        header = NULL;
+      }
       new->nids = 1;
       new->seqid = malloc(sizeof(int));
       if (new->seqid == NULL) {

@@ -196,12 +196,14 @@ int int_ascending(const void*, const void*);
 void krash(void) __attribute__((__noreturn__));
 int lut_insert(lookup_t*, useq_t*);
 int lut_search(lookup_t*, useq_t*);
+void memory_error(void) __attribute__((__noreturn__));
 void message_passing_clustering(gstack_t*);
 void mp_resolve_ambiguous(useq_t*);
 lookup_t* new_lookup(int, int, int);
 useq_t* new_useq(int, char*, char*);
 int pad_useq(gstack_t*, int*);
 mtplan_t* plan_mt(int, int, int, int, gstack_t*);
+void probable_memory_error(void) __attribute__((__noreturn__));
 void print_tidy(long int, const gstack_t*, int);
 void sort_and_print_ids(idstack_t*);
 void run_plan(mtplan_t*, int, int);
@@ -358,7 +360,7 @@ print_tidy( // Private
   useq_t** outputseq = calloc(sizeof(useq_t*), nseq);
   if (outputseq == NULL) {
     alert();
-    krash();
+    memory_error();
   }
   for (size_t i = 0; i < uSQ->nitems; i++) {
     useq_t* u = (useq_t*)uSQ->items[i];
@@ -784,7 +786,7 @@ do_query(void* args) {
   gstack_t** hits = new_tower(tau + 1);
   if (hits == NULL) {
     alert();
-    krash();
+    probable_memory_error();
   }
 
   // Define a constant to help the compiler recognize
@@ -972,7 +974,7 @@ plan_mt(int tau, int height, int medianlen, int ntries, gstack_t* useqS)
   mtplan_t* mtplan = malloc(sizeof(mtplan_t));
   if (mtplan == NULL) {
     alert();
-    krash();
+    memory_error();
   }
 
   // Initialize mutex.
@@ -980,7 +982,7 @@ plan_mt(int tau, int height, int medianlen, int ntries, gstack_t* useqS)
   pthread_cond_t* monitor = malloc(sizeof(pthread_cond_t));
   if (mutex == NULL || monitor == NULL) {
     alert();
-    krash();
+    memory_error();
   }
   for (int i = 0; i < ntries + 1; i++)
     pthread_mutex_init(mutex + i, NULL);
@@ -990,19 +992,27 @@ plan_mt(int tau, int height, int medianlen, int ntries, gstack_t* useqS)
   mttrie_t* mttries = calloc(ntries, sizeof(mttrie_t));
   if (mttries == NULL) {
     alert();
-    krash();
+    memory_error();
   }
 
   // Boundaries of the query blocks.
   int Q = useqS->nitems / ntries;
   int R = useqS->nitems % ntries;
   int* bounds = calloc(ntries + 1, sizeof(int));
+  if (bounds == NULL) {
+    alert();
+    memory_error();
+  }
   for (int i = 0; i < ntries + 1; i++)
     bounds[i] = Q * i + min(i, R);
 
   // Preallocated tries.
   // Count with maxlen-1
   long* nnodes = calloc(ntries, sizeof(long));
+  if (nnodes == NULL) {
+    alert();
+    memory_error();
+  }
   for (int i = 0; i < ntries; i++)
     nnodes[i] =
         count_trie_nodes((useq_t**)useqS->items, bounds[i], bounds[i + 1]);
@@ -1016,7 +1026,7 @@ plan_mt(int tau, int height, int medianlen, int ntries, gstack_t* useqS)
     mtjob_t* jobs = calloc(njobs, sizeof(mtjob_t));
     if (local_trie == NULL || jobs == NULL) {
       alert();
-      krash();
+      memory_error();
     }
 
     // Allocate lookup struct.
@@ -1025,7 +1035,7 @@ plan_mt(int tau, int height, int medianlen, int ntries, gstack_t* useqS)
     lookup_t* local_lut = new_lookup(medianlen, height, tau);
     if (local_lut == NULL) {
       alert();
-      krash();
+      probable_memory_error();
     }
 
     mttries[i].flag = TRIE_FREE;
@@ -1261,6 +1271,10 @@ seqsort(useq_t** data, size_t numels, int thrmax)
 {
   // Copy to buffer.
   useq_t** buffer = calloc(numels, sizeof(useq_t*));
+  if (buffer == NULL) {
+    alert();
+    memory_error();
+  }
   memcpy(buffer, data, numels * sizeof(useq_t*));
 
   // Prepare args struct.
@@ -1409,7 +1423,7 @@ read_rawseq(FILE* inputf, gstack_t* uSQ) {
   char* line = malloc(M);
   if (line == NULL) {
     alert();
-    krash();
+    memory_error();
   }
 
   char* seq = NULL;
@@ -1443,13 +1457,13 @@ read_rawseq(FILE* inputf, gstack_t* uSQ) {
     useq_t* new = new_useq(count, seq, NULL);
     if (new == NULL) {
       alert();
-      krash();
+      probable_memory_error();
     }
     new->nids = 1;
     new->seqid = malloc(sizeof(int));
     if (new->seqid == NULL) {
       alert();
-      krash();
+      memory_error();
     }
     new->seqid[0] = uSQ->nitems + 1;
     push(new, &uSQ);
@@ -1466,7 +1480,7 @@ read_fasta(FILE* inputf, gstack_t* uSQ) {
   char* line = malloc(M);
   if (line == NULL) {
     alert();
-    krash();
+    memory_error();
   }
 
   char* header = NULL;
@@ -1496,7 +1510,7 @@ read_fasta(FILE* inputf, gstack_t* uSQ) {
       useq_t* new = new_useq(1, line, header);
       if (new == NULL) {
         alert();
-        krash();
+        probable_memory_error();
       }
       if (header != NULL) {
         free(header);
@@ -1506,7 +1520,7 @@ read_fasta(FILE* inputf, gstack_t* uSQ) {
       new->seqid = malloc(sizeof(int));
       if (new->seqid == NULL) {
         alert();
-        krash();
+        memory_error();
       }
       new->seqid[0] = uSQ->nitems + 1;
       push(new, &uSQ);
@@ -1514,7 +1528,7 @@ read_fasta(FILE* inputf, gstack_t* uSQ) {
       header = strdup(line);
       if (header == NULL) {
         alert();
-        krash();
+        memory_error();
       }
     }
   }
@@ -1532,7 +1546,7 @@ read_fastq(FILE* inputf, gstack_t* uSQ) {
   char* line = malloc(M);
   if (line == NULL) {
     alert();
-    krash();
+    memory_error();
   }
 
   char seq[M + 1] = {0};
@@ -1575,13 +1589,13 @@ read_fastq(FILE* inputf, gstack_t* uSQ) {
       useq_t* new = new_useq(1, seq, info);
       if (new == NULL) {
         alert();
-        krash();
+        probable_memory_error();
       }
       new->nids = 1;
       new->seqid = malloc(sizeof(int));
       if (new->seqid == NULL) {
         alert();
-        krash();
+        memory_error();
       }
       new->seqid[0] = uSQ->nitems + 1;
       push(new, &uSQ);
@@ -1611,7 +1625,7 @@ read_PE_fastq(FILE* inputf1, FILE* inputf2, gstack_t* uSQ) {
   char* line2 = malloc(M);
   if (line1 == NULL && line2 == NULL) {
     alert();
-    krash();
+    memory_error();
   }
 
   char seq1[M] = {0};
@@ -1696,13 +1710,13 @@ read_PE_fastq(FILE* inputf1, FILE* inputf2, gstack_t* uSQ) {
       useq_t* new = new_useq(1, seq, info);
       if (new == NULL) {
         alert();
-        krash();
+        probable_memory_error();
       }
       new->nids = 1;
       new->seqid = malloc(sizeof(int));
       if (new->seqid == NULL) {
         alert();
-        krash();
+        memory_error();
       }
       new->seqid[0] = uSQ->nitems + 1;
       push(new, &uSQ);
@@ -1751,7 +1765,7 @@ read_file(FILE* inputf1, FILE* inputf2, const int verbose) {
   gstack_t* uSQ = new_gstack();
   if (uSQ == NULL) {
     alert();
-    krash();
+    probable_memory_error();
   }
 
   if (FORMAT == RAW)
@@ -1782,7 +1796,7 @@ pad_useq(gstack_t* useqS, int* median) {
   char* spaces = malloc(maxlen + 1);
   if (spaces == NULL || count == NULL) {
     alert();
-    krash();
+    memory_error();
   }
   for (int i = 0; i < maxlen; i++)
     spaces[i] = ' ';
@@ -1799,7 +1813,7 @@ pad_useq(gstack_t* useqS, int* median) {
     char* padded = malloc(maxlen + 1);
     if (padded == NULL) {
       alert();
-      krash();
+      memory_error();
     }
     memcpy(padded, spaces, maxlen + 1);
     memcpy(padded + maxlen - len, u->seq, len);
@@ -1834,7 +1848,7 @@ unpad_useq(gstack_t* useqS) {
     char* unpadded = calloc((len - pad + 1), sizeof(char));
     if (unpadded == NULL) {
       alert();
-      krash();
+      memory_error();
     }
     memcpy(unpadded, u->seq + pad, len - pad + 1);
     free(u->seq);
@@ -1854,7 +1868,7 @@ transfer_useq_ids(useq_t* ud, useq_t* us)
   ud->seqid = realloc(ud->seqid, (ud->nids + us->nids) * sizeof(int));
   if (ud->seqid == NULL) {
     alert();
-    krash();
+    memory_error();
   }
   // Copy source list of ids to ud.
   memcpy(ud->seqid + ud->nids, us->seqid, us->nids * sizeof(int));
@@ -1874,7 +1888,7 @@ transfer_sorted_useq_ids(useq_t* ud, useq_t* us)
   int* buf = calloc(ud->nids + us->nids, sizeof(int));
   if (buf == NULL) {
     alert();
-    krash();
+    memory_error();
   }
   int *s, *d;
   d = ud->seqid;
@@ -2092,7 +2106,7 @@ new_lookup(int slen, int maxlen, int tau) {
       2 * sizeof(int) + sizeof(int*) + (tau + 1) * sizeof(char*));
   if (lut == NULL) {
     alert();
-    return NULL;
+    memory_error();
   }
 
   // Target size.
@@ -2103,6 +2117,10 @@ new_lookup(int slen, int maxlen, int tau) {
   lut->slen = maxlen;
   lut->kmers = tau + 1;
   lut->klen = calloc(lut->kmers, sizeof(int));
+  if (lut->klen == NULL) {
+    alert();
+    memory_error();
+  }
 
   // Compute k-mer lengths.
   if (k > MAX_K_FOR_LOOKUP)
@@ -2117,12 +2135,8 @@ new_lookup(int slen, int maxlen, int tau) {
     size_t nmemb = 1 << max(0, (2 * lut->klen[i] - 3));
     lut->lut[i] = calloc(nmemb, sizeof(unsigned char));
     if (lut->lut[i] == NULL) {
-      while (--i >= 0) {
-        free(lut->lut[i]);
-      }
-      free(lut);
       alert();
-      return NULL;
+      memory_error();
     }
   }
 
@@ -2236,10 +2250,14 @@ new_useq(int count, char* seq, char* info) {
   useq_t* new = calloc(1, sizeof(useq_t));
   if (new == NULL) {
     alert();
-    krash();
+    memory_error();
   }
   size_t slen = strlen(seq);
   new->seq = malloc(slen + 1);
+  if (new->seq == NULL) {
+    alert();
+    memory_error();
+  }
   for (size_t i = 0; i < slen; i++)
     new->seq[i] = capitalize[(uint8_t)seq[i]];
   new->seq[slen] = 0;
@@ -2252,7 +2270,7 @@ new_useq(int count, char* seq, char* info) {
     new->info = strdup(info);
     if (new->info == NULL) {
       alert();
-      krash();
+      memory_error();
     }
   }
 
@@ -2359,12 +2377,12 @@ idstack_new(size_t n_elm) {
   idstack_t* stack = malloc(sizeof(idstack_t));
   if (stack == NULL) {
     alert();
-    krash();
+    memory_error();
   }
   stack->elm = calloc(n_elm, sizeof(int));
   if (stack->elm == NULL) {
     alert();
-    krash();
+    memory_error();
   }
   stack->pos = 0;
   stack->max = n_elm;
@@ -2382,7 +2400,7 @@ idstack_push(int* vals, size_t n_val, idstack_t* stack) {
     stack->elm = realloc(stack->elm, newsize * sizeof(int));
     if (stack->elm == NULL) {
       alert();
-      krash();
+      memory_error();
     }
     stack->max = newsize;
   }
@@ -2404,4 +2422,19 @@ krash(void) {
       "starcode has crashed, please contact guillaume.filion@gmail.com "
       "for support with this issue.\n");
   abort();
+}
+
+void
+memory_error(void) {
+  fprintf(stderr, "starcode: memory error (exiting now).\n");
+  exit(EXIT_FAILURE);
+}
+
+void
+probable_memory_error(void) {
+  fprintf(stderr,
+      "starcode encountered an unexpected error (exiting now).\n"
+      "If you think that this is not an out-of-memory error,\n"
+      "please contact guillaume.filion@gmail.com for support.\n");
+  exit(EXIT_FAILURE);
 }

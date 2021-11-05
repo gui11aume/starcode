@@ -98,6 +98,10 @@ outname
 {
 
    char * name = calloc(320,1);
+   if (name == NULL) {
+     fprintf(stderr, "starcode: memory error (exiting now).\n");
+     exit(EXIT_FAILURE);
+   }
    if (strlen(path) > 310) {
       fprintf(stderr, "input file name too long (%s)\n", path);
       abort();

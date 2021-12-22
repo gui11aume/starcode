@@ -428,8 +428,8 @@ starcode(                    // Public
   CLUSTER_RATIO = parent_to_child;
 
   if (verbose) {
-    fprintf(stderr, "running starcode (dev/ssize64) with %d thread%s\n",
-        thrmax, thrmax > 1 ? "s" : "");
+    fprintf(stderr, "running %s (last revised %s) with %d thread%s\n",
+        VERSION, DATE, thrmax, thrmax > 1 ? "s" : "");
     fprintf(stderr, "reading input files\n");
   }
   gstack_t* uSQ = read_file(inputf1, inputf2, verbose);

@@ -27,7 +27,8 @@
 #define _GNU_SOURCE
 #include <stdio.h>
 
-#define VERSION          "starcode-v1.4 2021-09-22"
+#define VERSION "starcode-v1.4"
+#define DATE "2021-09-22"
 #define STARCODE_MAX_TAU 8
 
 typedef enum {

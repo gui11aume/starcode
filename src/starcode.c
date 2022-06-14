@@ -1190,11 +1190,11 @@ sphere_clustering(gstack_t* useqS) {
     useq->canonical = useq;
     useq->sphere_c = useq->count;
     useq->sphere_d = 0;
-    if (useq->matches == NULL)
+    if (useq->matches == NULL || (* useq->matches)->nitems < 1)
       continue;
     // Bidirectional edge references simplifie the algorithm.
     // Directly proceed to claim neighbor counts.
-    gstack_t* matches;
+    gstack_t* matches = NULL;
     for (int j = 0; (matches = useq->matches[j]) != TOWER_TOP; j++) {
       for (size_t k = 0; k < matches->nitems; k++) {
         useq_t* match = (useq_t*)matches->items[k];

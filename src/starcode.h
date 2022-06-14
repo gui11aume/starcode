@@ -28,7 +28,7 @@
 #include <stdio.h>
 
 #define VERSION "starcode-v1.4"
-#define DATE "2022-06-14"
+#define DATE "2021-09-22"
 #define STARCODE_MAX_TAU 8
 
 typedef enum {
